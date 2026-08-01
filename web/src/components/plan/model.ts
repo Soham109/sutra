@@ -124,6 +124,8 @@ export interface RankedOptions {
     count: number
   }[]
   options: { option: PlanOption; score: OptionScore }[]
+  /** Last Overpass/catalog search note, when present */
+  note?: string | null
 }
 
 export const FACTOR_LABEL: Record<ScoreFactor['key'], string> = {

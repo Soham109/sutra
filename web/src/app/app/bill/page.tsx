@@ -363,7 +363,7 @@ export default function BillPage() {
                   disabled={busy || named.length === 0}
                   onClick={() => void create()}
                 >
-                  Send everyone their share
+                  Send friends their shares
                 </button>
 
                 {bill.integrity?.suspect && (

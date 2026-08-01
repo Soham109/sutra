@@ -75,14 +75,20 @@ export async function main(): Promise<void> {
   // below would treat the entire internet as one caller.
   const app = Fastify({ logger: { level: 'warn' }, trustProxy: true })
 
-  const apiToken = process.env.ENGINE_API_TOKEN ?? 'dev-token'
+  const apiToken = process.env.ENGINE_API_TOKEN
+  if (!apiToken) {
+    if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
+      throw new Error('ENGINE_API_TOKEN must be set in production')
+    }
+  }
+  const resolvedToken = apiToken ?? 'dev-token'
   await registerRateLimiting(app)
 
   installSocialSchema(db)
   const social = new Social(db)
 
   registerRoutes(app, service, poller, {
-    apiToken,
+    apiToken: resolvedToken,
     appBaseUrl: APP_BASE_URL,
     social: {
       userFor: (req) => currentUserFrom(social, req),
@@ -143,7 +149,7 @@ export async function main(): Promise<void> {
     places,
     social,
     currentUser: (req) => currentUserFrom(social, req),
-    apiToken,
+    apiToken: resolvedToken,
     notifier,
   })
 
@@ -167,7 +173,7 @@ export async function main(): Promise<void> {
     delegateStore,
     social,
     currentUser: (req) => currentUserFrom(social, req),
-    apiToken,
+    apiToken: resolvedToken,
   })
 
   // Liveness for the platform, and a fast way for a human to tell which build

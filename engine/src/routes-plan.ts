@@ -98,6 +98,11 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
   app.post('/v1/plans', async (req, reply) => {
     const me = d.currentUser(req)
     const input = CreatePlanSchema.parse(req.body)
+    const seatingAccounts =
+      !!input.circle_id || (input.participants ?? []).some((p) => p.user_id)
+    if (seatingAccounts && !me) {
+      throw new UserError('sign in to invite people with accounts', 401)
+    }
     const { plan } = d.plans.createPlan(input, me?.id)
     // Options are best-effort at creation: a plan with nobody's location yet
     // has nowhere to search, and that is a normal state, not an error.
@@ -209,10 +214,12 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     const { id } = req.params as { id: string }
     const plan = d.plans.mustPlan(id)
     const r = redactRanked(d.plans.ranked(id), viewerFor(d, req, plan))
+    const note = lastOptionsNote(d, id)
     return {
       plan_id: id,
       best_windows: r.best_windows,
       options: r.options,
+      note,
     }
   })
 
@@ -230,7 +237,7 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     await d.plans.generateOptions(id)
     const plan = d.plans.mustPlan(id)
     const r = redactRanked(d.plans.ranked(id), viewerFor(d, req, plan))
-    return { plan_id: id, best_windows: r.best_windows, options: r.options }
+    return { plan_id: id, best_windows: r.best_windows, options: r.options, note: lastOptionsNote(d, id) }
   })
 
   app.post('/v1/plans/:id/choose', async (req) => {
@@ -412,6 +419,9 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     if (body.dry_run) return preview
 
     const named = body.participants ?? read.people.map((name) => ({ name }))
+    if (!me && (named.some((p) => 'user_id' in p && p.user_id) || body.circle_id)) {
+      throw new UserError('sign in to invite people with accounts', 401)
+    }
     const { plan } = d.plans.createPlan(
       {
         title: read.title,
@@ -566,4 +576,20 @@ function redactRanked(r: ReturnType<PlanService['ranked']>, viewer: Viewer) {
       },
     })),
   }
+}
+
+/** Last search note from options.generated / options.refresh_empty events. */
+function lastOptionsNote(d: PlanRoutesDeps, planId: string): string | null {
+  const events = d.store.eventsAfter(planId, 0)
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i]!
+    if (e.type !== 'options.generated' && e.type !== 'options.refresh_empty') continue
+    try {
+      const payload = JSON.parse(e.payload_json) as { note?: string }
+      if (payload.note) return payload.note
+    } catch {
+      /* ignore */
+    }
+  }
+  return null
 }

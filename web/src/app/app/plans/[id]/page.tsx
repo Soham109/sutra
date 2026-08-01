@@ -203,9 +203,11 @@ export default function PlanPage({ params }: { params: Promise<{ id: string }> }
             <div className="empty">
               <h3>Nothing on the board yet</h3>
               <p>
-                {plan.slots?.where?.label
-                  ? `No places came back near ${plan.slots.where.label} yet — OpenStreetMap can time out under load. Try searching again, or widen the area.`
-                  : 'Options appear once somebody shares a location — there is nowhere to search around until then.'}
+                {ranked?.note
+                  ? ranked.note
+                  : plan.slots?.where?.label
+                    ? `No places came back near ${plan.slots.where.label} yet — OpenStreetMap can time out under load. Try searching again, or widen the area.`
+                    : 'Options appear once somebody shares a location — there is nowhere to search around until then.'}
               </p>
               {plan.slots?.where?.label ? (
                 <button className="btn btn-secondary" onClick={() => void refresh()} disabled={busy}>

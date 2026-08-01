@@ -41,7 +41,16 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   // devices apart. Without these this proxy is EVERY caller's address as far
   // as the engine can see — Vercel's own egress IP, no browser UA — which
   // would collapse every visitor of the deployed app into one bucket.
-  for (const name of ['content-type', 'accept', 'cookie', 'last-event-id', 'x-forwarded-for', 'user-agent']) {
+  // Rate-limit keys on IP. Prefer the platform's view of the client, never the
+  // browser-supplied XFF (easy to rotate and bypass buckets).
+  const realIp =
+    request.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    request.headers.get('cf-connecting-ip')
+  if (realIp) headers.set('x-forwarded-for', realIp)
+  const ua = request.headers.get('user-agent')
+  if (ua) headers.set('user-agent', ua)
+  for (const name of ['content-type', 'accept', 'cookie', 'last-event-id']) {
     const value = request.headers.get(name)
     if (value) headers.set(name, value)
   }

@@ -208,7 +208,7 @@ export default function SettingsPage() {
           </Section>
 
           {/* --- notifications ---------------------------------------------- */}
-          <Section title="Notifications" hint="when someone accepts, declines, or a group commits">
+          <Section title="Notifications" hint="friend requests, invites, and when a group locks in">
             <div className="card card-pad col" style={{ gap: 14 }}>
               {(() => {
                 const support = pushSupported()

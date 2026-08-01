@@ -163,4 +163,29 @@ describe('at_venue settlement', () => {
     expect(result.ok).toBe(false)
     expect(result.errors.some((e) => /at_venue receipt reports a charged amount/i.test(e))).toBe(true)
   })
+
+  it('rejects a receipt signed with a different key when pinned', () => {
+    const signer = new ReceiptSigner('11'.repeat(32))
+    const other = new ReceiptSigner('22'.repeat(32))
+    const forged = other.sign({
+      gmp_version: 'GMP/1',
+      group_id: 'grp_test',
+      title: 'Test',
+      merchant: { id: 'm', name: 'Test', url: 'https://example-merchant.test', country_code_iso2: 'IN' },
+      currency: 'INR',
+      cart_hash: 'abc',
+      policy: { type: 'all_of' },
+      decision_narrative: 'test',
+      status: 'committed',
+      rail: 'at_venue',
+      settlement_disclosure: 'owed at venue',
+      totals: { quoted: 0, charged: 0, owed: 0 },
+      entries: [],
+      chain_head: 'GENESIS',
+      issued_at: new Date().toISOString(),
+    })
+    const result = verifyReceipt(forged, { expectedPublicKey: signer.publicKeyHex })
+    expect(result.ok).toBe(false)
+    expect(result.errors.some((e) => /does not match the known engine/i.test(e))).toBe(true)
+  })
 })

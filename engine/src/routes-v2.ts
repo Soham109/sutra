@@ -204,7 +204,7 @@ export function registerProductRoutes(
   })
 
   /** Ask to be someone's friend. They have to say yes. */
-  app.post('/v1/people/:id/friend', async (req) => {
+  app.post('/v1/people/:id/friend', spendLimit(20), async (req) => {
     const me = requireUser(req)
     const { id } = req.params as { id: string }
     if (!social.byId(id)) throw new UserError('no such person', 404)
@@ -239,7 +239,7 @@ export function registerProductRoutes(
     }
   })
 
-  app.post('/v1/people/:id/accept', async (req) => {
+  app.post('/v1/people/:id/accept', spendLimit(20), async (req) => {
     const me = requireUser(req)
     const { id } = req.params as { id: string }
     if (!social.acceptFriend(me.id, id)) throw new UserError('no pending request from that person', 404)
@@ -255,14 +255,14 @@ export function registerProductRoutes(
     }
   })
 
-  app.post('/v1/people/:id/decline', async (req) => {
+  app.post('/v1/people/:id/decline', spendLimit(20), async (req) => {
     const me = requireUser(req)
     const { id } = req.params as { id: string }
     social.declineFriend(me.id, id)
     return { incoming: social.incomingRequests(me.id).map(publicUser) }
   })
 
-  app.post('/v1/people/:id/unfriend', async (req) => {
+  app.post('/v1/people/:id/unfriend', spendLimit(20), async (req) => {
     const me = requireUser(req)
     const { id } = req.params as { id: string }
     social.removeFriend(me.id, id)

@@ -27,14 +27,22 @@ async function main(): Promise<void> {
 
 // ---------------------------------------------------------------------------
 
-function verify(path: string | undefined): void {
+async function verify(path: string | undefined): Promise<void> {
   if (!path) throw new Error('gmp verify <receipt.json>')
   const receipt = JSON.parse(readFileSync(path, 'utf8')) as Receipt
-  const { ok, errors } = verifyReceipt(receipt)
+  let expectedPublicKey: string | undefined
+  try {
+    const health = await api<{ receipt_public_key?: string }>('/health')
+    expectedPublicKey = health.receipt_public_key
+  } catch {
+    /* offline verify still checks chain + signature against the embedded key */
+  }
+  const { ok, errors } = verifyReceipt(receipt, expectedPublicKey ? { expectedPublicKey } : undefined)
   console.log(`\nGMP/1 receipt · ${receipt.group_id} · ${receipt.status.toUpperCase()}`)
   console.log(`  entries: ${receipt.entries.length}   charged total: ${(receipt.totals.charged / 100).toFixed(2)} ${receipt.currency}`)
   console.log(`  chain head: ${receipt.chain_head.slice(0, 32)}…`)
   console.log(`  public key: ${receipt.public_key.slice(0, 32)}…`)
+  if (expectedPublicKey) console.log(`  pinned to engine /health key`)
   if (ok) {
     console.log('\n  ✓ hash chain intact')
     console.log('  ✓ totals consistent')

@@ -561,7 +561,9 @@ export class PlanService {
         // brand — using it as the merchant *name* made Koramangala dinners
         // show up as "Mahayogi Vemana Road" on the group page and receipt.
         name: option.title,
-        url: merchantUrl || 'https://venue.local.test',
+        // Never invent a fake venue host that looks real. example-merchant.test
+        // is filtered out of the group header link; OSM/website URLs are preferred.
+        url: merchantUrl || 'https://example-merchant.test',
         country_code_iso2: place?.country_code?.slice(0, 2).toUpperCase() || 'IN',
       },
       cart,
@@ -677,5 +679,5 @@ function titleFrom(intent: string): string {
 /** createGroup requires a URL; a placeholder keeps at_venue off the card rail. */
 function safeUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) return url
-  return 'https://venue.local.test'
+  return 'https://example-merchant.test'
 }

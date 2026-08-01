@@ -26,7 +26,7 @@ const COPY_CARD: Record<string, { cls: string; title: string; line: string }> = 
   expired: {
     cls: 'banner banner-bad',
     title: 'Expired — nothing charged',
-    line: 'The deadline passed before the policy resolved. Every mandate lapsed on its own.',
+    line: 'The deadline passed before the policy resolved. Every unused mandate lapsed on its own.',
   },
 }
 

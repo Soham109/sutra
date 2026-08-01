@@ -99,7 +99,10 @@ export class ReceiptSigner {
 }
 
 /** Standalone verification — mirrored by `gmp verify` in the CLI. */
-export function verifyReceipt(receipt: Receipt): { ok: boolean; errors: string[] } {
+export function verifyReceipt(
+  receipt: Receipt,
+  opts?: { expectedPublicKey?: string },
+): { ok: boolean; errors: string[] } {
   const errors: string[] = []
 
   let prev = 'GENESIS'
@@ -122,6 +125,12 @@ export function verifyReceipt(receipt: Receipt): { ok: boolean; errors: string[]
   // money moved is exactly the forgery this chain exists to make detectable.
   if (receipt.rail === 'at_venue' && charged !== 0) {
     errors.push('at_venue receipt reports a charged amount — no card is charged on this rail')
+  }
+
+  // Pinning the key matters: without it, an attacker signs with their own
+  // keypair, embeds that public_key, and verify("ok") against the file alone.
+  if (opts?.expectedPublicKey && receipt.public_key !== opts.expectedPublicKey) {
+    errors.push('public_key does not match the known engine signing key')
   }
 
   const { signature, ...unsigned } = receipt

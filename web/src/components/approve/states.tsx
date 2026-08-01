@@ -74,6 +74,7 @@ export function RequoteNote({
 }
 
 export function ApprovedCard({ v, held }: { v: MemberView; held: boolean }) {
+  const atVenue = v.rail === 'at_venue' || !v.rail_capability.charges
   return (
     <section className={held ? 'banner ap-flip' : 'banner banner-brand ap-flip'} style={{ textAlign: 'center' }}>
       <div style={{ fontSize: 30, lineHeight: 1 }} aria-hidden>
@@ -84,9 +85,23 @@ export function ApprovedCard({ v, held }: { v: MemberView; held: boolean }) {
       </div>
       <p className="small muted" style={{ marginTop: 6 }}>
         {held ? (
+          atVenue ? (
+            <>
+              Your agreement is paused. While it is paused you count as <b>not approved</b>, so the group cannot
+              finish. Nothing is owed through sutra.
+            </>
+          ) : (
+            <>
+              Your mandate is paused. While it is paused you count as <b>not approved</b>, so the group cannot
+              commit on your share. Nothing is charged, and nothing expires early.
+            </>
+          )
+        ) : atVenue ? (
           <>
-            Your mandate is paused. While it is paused you count as <b>not approved</b>, so the group cannot
-            commit on your share. Nothing is charged, and nothing expires early.
+            You&apos;ve agreed to{' '}
+            <span className="amount">{money(v.cap_amount, v.group.currency)}</span> at the venue. Nothing moves
+            through sutra — settle with the merchant once everyone is in. Policy:{' '}
+            <b>{v.group.policy_text}</b>.
           </>
         ) : (
           <>
@@ -97,7 +112,9 @@ export function ApprovedCard({ v, held }: { v: MemberView; held: boolean }) {
         )}
       </p>
       <div className="row" style={{ justifyContent: 'center', gap: 10, marginTop: 10 }}>
-        <Badge tone={held ? 'warn' : 'brand'}>{held ? 'paused' : 'mandate active'}</Badge>
+        <Badge tone={held ? 'warn' : 'brand'}>
+          {held ? 'paused' : atVenue ? 'agreed' : 'mandate active'}
+        </Badge>
         <Countdown to={v.group.deadline_at} />
       </div>
     </section>
