@@ -205,6 +205,8 @@ export default function GroupWarRoom() {
             members={view.members}
             currency={currency}
             groupId={group.group_id}
+            charges={group.rail_capability?.charges ?? group.rail !== 'at_venue'}
+            merchant={group.merchant.name}
           />
         )}
 
