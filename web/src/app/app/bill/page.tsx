@@ -148,7 +148,7 @@ export default function BillPage() {
 
   return (
     <Shell crumbs={<span className="here">Split a bill</span>}>
-      <div className="page bill-page">
+      <div className={`page bill-page${bill ? "" : " is-fresh"}`}>
         <header className="page-head">
           <span className="eyebrow">Split a bill</span>
           <h1>
@@ -165,7 +165,12 @@ export default function BillPage() {
 
         {error && <ErrorNote>{error}</ErrorNote>}
 
-        <div className="bill-grid">
+        {/* One column until there is actually a bill to sit beside.
+            Before that, the right-hand column holds an empty state, and a
+            narrow input column stranded against 1300px of canvas reads as a
+            page that forgot to centre itself — which is exactly how it was
+            described. One thing to do at a time, in the middle. */}
+        <div className={`bill-grid${bill ? '' : ' is-empty'}`}>
           <section className="bill-input">
             <BillCapture
               busy={busy}
