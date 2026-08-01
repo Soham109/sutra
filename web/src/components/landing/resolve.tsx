@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { money } from '@/lib/format'
+import { inr } from './demo-cart'
 
 const EXAMPLE = 'https://sablewood.co/products/two-day-pass'
 
@@ -45,7 +45,7 @@ export function ResolveDemo() {
           <div className="l-resolved-main">
             <div style={{ fontWeight: 600, letterSpacing: '-0.012em' }}>Sablewood Fest — 2-Day Pass</div>
             <div className="small muted">
-              sablewood.co · <span className="amount">{money(6700)}</span> USD · in stock
+              sablewood.co · <span className="amount">{inr(5400)}</span> · in stock
             </div>
           </div>
           <span className="chip chip-brand">schema.org/Product</span>

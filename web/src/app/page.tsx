@@ -3,6 +3,7 @@ import { Mark } from '@/components/shell'
 import { ConsentThreadDemo } from '@/components/landing/consent-thread'
 import { FrontingFlows } from '@/components/landing/flow'
 import { ResolveDemo } from '@/components/landing/resolve'
+import { CART, CAST, inr } from '@/components/landing/demo-cart'
 import './landing.css'
 
 const REPO = 'https://github.com/Soham109/sutra'
@@ -19,9 +20,9 @@ const USE_CASES = [
 
 const GUARANTEES = [
   ['No fronting', 'Every person pays the merchant from their own card. Nobody becomes the group bank.'],
-  ['No pooled money', 'Sutra coordinates mandates. It never stores a balance, holds funds, or touches card numbers.'],
+  ['No pooled money', 'Sutra only coordinates the approvals. It never stores a balance, holds your money, or touches card numbers.'],
   ['No surprise total', 'Every approval is merchant-locked, single-use, and capped at that person’s exact exposure.'],
-  ['No awkward failure', 'If the chosen rule cannot pass, all mandates are cancelled and nobody is charged.'],
+  ['No awkward failure', 'If the rule the group agreed cannot be met, every hold is released and nobody is charged.'],
 ]
 
 export default function Landing() {
@@ -64,19 +65,18 @@ export default function Landing() {
           </div>
           <div className="l-hero-orbit" aria-hidden>
             <div className="l-orbit-card l-orbit-main">
-              <div className="l-orbit-top"><span>Friday at 8:40</span><b>₹3,240</b></div>
-              <strong>Dune: Messiah</strong>
-              <span>4 seats · IMAX · PVR Phoenix</span>
+              <div className="l-orbit-top"><span>{CART.when}</span><b>{inr(CART.total)}</b></div>
+              <strong>{CART.title}</strong>
+              <span>{CART.detail}</span>
               <div className="l-mini-people">
-                <i style={{ '--c': '#ff6b4a' } as React.CSSProperties}>S</i>
-                <i style={{ '--c': '#3228d8' } as React.CSSProperties}>A</i>
-                <i style={{ '--c': '#0d8271' } as React.CSSProperties}>M</i>
-                <i style={{ '--c': '#a06b16' } as React.CSSProperties}>R</i>
+                {CAST.map((m) => (
+                  <i key={m.first} style={{ '--c': m.color } as React.CSSProperties}>{m.first[0]}</i>
+                ))}
               </div>
               <div className="l-orbit-progress"><span /></div>
               <small>3 of 4 ready</small>
             </div>
-            <div className="l-orbit-card l-orbit-float l-orbit-a"><b>₹810</b><span>Your share</span></div>
+            <div className="l-orbit-card l-orbit-float l-orbit-a"><b>{inr(CART.share)}</b><span>Your share</span></div>
             <div className="l-orbit-card l-orbit-float l-orbit-b"><span className="l-live-dot" /> <b>Live</b><span>12:48 left</span></div>
             <div className="l-orbit-path" />
           </div>
@@ -86,7 +86,10 @@ export default function Landing() {
           <div className="l-section-intro l-section-intro-wide">
             <p className="l-index">01 / THE MOMENT THAT MATTERS</p>
             <h2 className="l-h2">Four people can say yes.<br />Nobody has to say “pay me back.”</h2>
-            <p className="l-lede">Watch the same cart commit with a backstop, then switch the rule and watch it abort cleanly.</p>
+            <p className="l-lede">
+              One booking, played out twice. First somebody drops out and the night still happens — then the same
+              evening is called off, and nobody pays a rupee.
+            </p>
           </div>
           <ConsentThreadDemo />
         </section>
@@ -98,7 +101,7 @@ export default function Landing() {
                 <p className="l-index">02 / SPLIT THE REAL WORLD</p>
                 <h2 className="l-h2">If it has a price,<br />it can have a group.</h2>
               </div>
-              <p className="l-lede">The model is not “divide by four.” It understands who claimed what, shared fees, sponsors, backstops, deadlines and the rule for when a purchase is allowed to happen.</p>
+              <p className="l-lede">It is not “divide by four.” Sutra knows who claimed what, how the shared costs get spread, who is covering for whom, when the deadline is, and what the group agreed should happen if somebody drops.</p>
             </div>
             <div className="l-use-grid">
               {USE_CASES.map((item, index) => (
