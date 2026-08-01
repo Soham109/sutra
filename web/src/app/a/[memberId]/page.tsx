@@ -113,7 +113,13 @@ export default function ApprovalPage() {
 
         {phase === 'charging' && <ChargingCard v={v} />}
         {phase === 'charged' && <Ticket v={v} />}
-        {phase === 'out' && <OutCard status={v.status} noBlame={v.group.no_blame} />}
+        {phase === 'out' && (
+          <OutCard
+            status={v.status}
+            noBlame={v.group.no_blame}
+            mandates={v.rail_capability?.mandates ?? v.rail === 'prava_mandates'}
+          />
+        )}
         {phase === 'left-behind' && <LeftBehindCard v={v} />}
         {phase === 'aborted' && <AbortedCard v={v} note={live.group?.decision_note ?? null} />}
         {phase === 'observer' && <ObserverCard v={v} />}

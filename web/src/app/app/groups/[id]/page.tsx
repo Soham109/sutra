@@ -166,9 +166,14 @@ export default function GroupWarRoom() {
               </div>
               <h1 style={{ overflowWrap: 'anywhere' }}>{group.title}</h1>
               <p className="small muted" style={{ marginTop: 4 }}>
-                <a href={group.merchant.url} target="_blank" rel="noreferrer" style={{ color: 'var(--brand)' }}>
-                  {group.merchant.name} ↗
-                </a>
+                {/^https?:\/\//i.test(group.merchant.url) &&
+                !/\.(local\.)?test(\/|$)/i.test(group.merchant.url) ? (
+                  <a href={group.merchant.url} target="_blank" rel="noreferrer" style={{ color: 'var(--brand)' }}>
+                    {group.merchant.name} ↗
+                  </a>
+                ) : (
+                  <span>{group.merchant.name}</span>
+                )}
                 <span className="faint"> · {group.merchant.country_code_iso2}</span>
                 {/* The cart hash used to sit here, in the second line of the
                     page, reading "cart 4453d67b…5792". It is what makes the

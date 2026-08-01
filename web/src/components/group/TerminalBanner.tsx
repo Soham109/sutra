@@ -7,7 +7,7 @@ import { money } from '@/lib/format'
 // The end of the story, said plainly. "Nothing was charged" is the single most
 // reassuring sentence this product can print, so it gets the loudest treatment.
 
-const COPY: Record<string, { cls: string; title: string; line: string }> = {
+const COPY_CARD: Record<string, { cls: string; title: string; line: string }> = {
   committed: {
     cls: 'banner banner-ok',
     title: 'Committed',
@@ -27,6 +27,29 @@ const COPY: Record<string, { cls: string; title: string; line: string }> = {
     cls: 'banner banner-bad',
     title: 'Expired — nothing charged',
     line: 'The deadline passed before the policy resolved. Every mandate lapsed on its own.',
+  },
+}
+
+const COPY_VENUE: Record<string, { cls: string; title: string; line: string }> = {
+  committed: {
+    cls: 'banner banner-ok',
+    title: 'Agreed',
+    line: 'Everyone confirmed their share. No card was charged through sutra — settle at the table with the amounts below.',
+  },
+  partial: {
+    cls: 'banner',
+    title: 'Partially agreed',
+    line: 'Some people confirmed and some did not. Only the confirmed amounts are on the record — nobody was charged through sutra.',
+  },
+  aborted: {
+    cls: 'banner banner-bad',
+    title: 'Called off — nothing owed through sutra',
+    line: 'The group did not finish agreeing. There is no charge and no receipt to settle against.',
+  },
+  expired: {
+    cls: 'banner banner-bad',
+    title: 'Expired — nothing owed through sutra',
+    line: 'The deadline passed before everyone agreed. No card was touched.',
   },
 }
 
@@ -102,12 +125,17 @@ export function TerminalBanner({
   charges: boolean
   merchant: string
 }) {
-  const copy = COPY[status]
+  const copy = (charges ? COPY_CARD : COPY_VENUE)[status]
   if (!copy) return null
 
   const charged = members.reduce((s, m) => s + m.charged_amount + m.backstop_absorbed, 0)
-  const paid = members.filter((m) => m.status === 'charged').length
+  const paid = members.filter((m) =>
+    charges ? m.status === 'charged' : m.status === 'settled' || m.status === 'charged',
+  ).length
   const reason = decisionNote ?? narrative
+  const amountLabel = charges
+    ? `charged across ${paid} ${paid === 1 ? 'card' : 'cards'}`
+    : `agreed · ${paid} ${paid === 1 ? 'person' : 'people'}`
 
   return (
     <div className={copy.cls} role="status">
@@ -126,10 +154,8 @@ export function TerminalBanner({
           )}
         </div>
         <div className="col" style={{ alignItems: 'flex-end', gap: 2 }}>
-          <span className="amount amount-lg">{money(charged, currency)}</span>
-          <span className="tiny faint mono">
-            charged across {paid} {paid === 1 ? 'card' : 'cards'}
-          </span>
+          <span className="amount amount-lg">{money(charged || members.reduce((s, m) => s + m.share_amount, 0), currency)}</span>
+          <span className="tiny faint mono">{amountLabel}</span>
         </div>
       </div>
 

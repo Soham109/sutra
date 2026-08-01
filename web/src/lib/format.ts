@@ -122,6 +122,8 @@ export function policySentence(p: Policy): string {
 
 export function progressOf(members: GroupMember[]): { done: number; total: number } {
   const payers = members.filter((m) => m.role !== 'observer')
-  const done = payers.filter((m) => ['approved', 'charging', 'charged'].includes(m.status)).length
+  const done = payers.filter((m) =>
+    ['approved', 'charging', 'charged', 'settled'].includes(m.status),
+  ).length
   return { done, total: payers.length }
 }

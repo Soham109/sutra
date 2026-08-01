@@ -118,12 +118,12 @@ export async function main(): Promise<void> {
   const planStore = new PlanStore(db)
   const places = new Places()
 
-  registerProductRoutes(app, service, social, catalog, planStore)
-
   // Notifications: the inbox always works; push only once VAPID keys exist.
   // Delivery is fire-and-forget by construction — nothing here can fail a
-  // protocol path.
+  // protocol path. Built before product routes so friend requests can notify.
   const notifier = new Notifier(db)
+
+  registerProductRoutes(app, service, social, catalog, planStore, notifier)
   registerNotifyRoutes(app, notifier, social)
 
   // ---- agent discovery ---------------------------------------------------

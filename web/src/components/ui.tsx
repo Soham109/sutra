@@ -66,7 +66,9 @@ export function ConsentThread({
   const payers = members.filter((m) => m.role !== 'observer')
   if (payers.length === 0) return null
 
-  const settled = payers.filter((m) => ['approved', 'charging', 'charged'].includes(m.status)).length
+  const settled = payers.filter((m) =>
+    ['approved', 'charging', 'charged', 'settled'].includes(m.status),
+  ).length
   // Fill reaches the centre of the last settled node.
   const step = payers.length > 1 ? 100 / (payers.length - 1) : 100
   const pct = settled === 0 ? 0 : Math.min(100, (settled - 1) * step + (settled === payers.length ? 0 : 0))

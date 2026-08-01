@@ -49,6 +49,7 @@ export function registerProductRoutes(
   social: Social,
   catalog: Catalog,
   planStore: PlanStore,
+  notifier?: { notify: (userId: string, input: { kind: string; title: string; body?: string; url?: string }) => unknown },
 ): void {
   // ---- identity ----------------------------------------------------------
   // Deliberately lightweight: a handle picks who you are, stored in a cookie.
@@ -207,6 +208,21 @@ export function registerProductRoutes(
     const { id } = req.params as { id: string }
     if (!social.byId(id)) throw new UserError('no such person', 404)
     const state = social.requestFriend(me.id, id)
+    if (state === 'requested') {
+      notifier?.notify(id, {
+        kind: 'friend.requested',
+        title: `${me.name} wants to be friends`,
+        body: 'Accept on People so they can put you on a split.',
+        url: '/app/people',
+      })
+    } else if (state === 'friends') {
+      notifier?.notify(id, {
+        kind: 'friend.accepted',
+        title: `You and ${me.name} are friends`,
+        body: 'You can sit together on the next split.',
+        url: '/app/people',
+      })
+    }
     return {
       state,
       friends: social.friendsOf(me.id).map(publicUser),
@@ -226,6 +242,12 @@ export function registerProductRoutes(
     const me = requireUser(req)
     const { id } = req.params as { id: string }
     if (!social.acceptFriend(me.id, id)) throw new UserError('no pending request from that person', 404)
+    notifier?.notify(id, {
+      kind: 'friend.accepted',
+      title: `${me.name} accepted your friend request`,
+      body: 'You can sit together on the next split.',
+      url: '/app/people',
+    })
     return {
       friends: social.friendsOf(me.id).map(publicUser),
       incoming: social.incomingRequests(me.id).map(publicUser),

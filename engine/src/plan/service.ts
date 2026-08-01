@@ -529,7 +529,14 @@ export class PlanService {
     // cannot happen. A storefront product we resolved from a real merchant
     // page is a different matter, and keeps the card rail.
     const rail: Rail = option.source === 'overpass' ? 'at_venue' : 'prava_mandates'
-    const merchantUrl = rail === 'prava_mandates' ? (option.url ?? '') : ''
+    // Card rail needs a chargeable merchant URL. Venue rail uses the OSM page
+    // (or the restaurant site) so the group header never links to venue.local.test.
+    const merchantUrl =
+      rail === 'prava_mandates'
+        ? safeUrl(option.url ?? '')
+        : option.url && /^https?:\/\//i.test(option.url)
+          ? option.url
+          : ''
     const cart: Cart = {
       items: [
         {
@@ -554,8 +561,8 @@ export class PlanService {
         // brand — using it as the merchant *name* made Koramangala dinners
         // show up as "Mahayogi Vemana Road" on the group page and receipt.
         name: option.title,
-        url: safeUrl(merchantUrl),
-        country_code_iso2: place?.country_code?.slice(0, 2).toUpperCase() || 'US',
+        url: merchantUrl || 'https://venue.local.test',
+        country_code_iso2: place?.country_code?.slice(0, 2).toUpperCase() || 'IN',
       },
       cart,
       members: going.map((p) => ({

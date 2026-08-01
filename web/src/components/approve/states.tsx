@@ -208,7 +208,15 @@ export function Ticket({ v }: { v: MemberView }) {
 }
 
 /** Declined, dropped, timed out or failed — while the group is still running. */
-export function OutCard({ status, noBlame }: { status: MemberStatus; noBlame: boolean }) {
+export function OutCard({
+  status,
+  noBlame,
+  mandates = true,
+}: {
+  status: MemberStatus
+  noBlame: boolean
+  mandates?: boolean
+}) {
   const line: Record<string, string> = {
     declined: 'You declined this share.',
     dropped: 'You were dropped from this purchase.',
@@ -217,10 +225,13 @@ export function OutCard({ status, noBlame }: { status: MemberStatus; noBlame: bo
   }
   return (
     <section className="banner banner-bad ap-flip">
-      <div className="banner-title">You were not charged</div>
+      <div className="banner-title">{mandates ? 'You were not charged' : 'You are out of this split'}</div>
       <p className="small muted" style={{ marginTop: 6 }}>
-        {line[status] ?? 'You are out of this purchase.'} Your mandate has been cancelled, so no money can move
-        on it — now or later. The rest of the group decides without you
+        {line[status] ?? 'You are out of this purchase.'}{' '}
+        {mandates
+          ? 'Your mandate has been cancelled, so no money can move on it — now or later.'
+          : 'Nothing was charged through sutra for your share.'}{' '}
+        The rest of the group decides without you
         {noBlame ? ', and they are not told who stepped back.' : '.'}
       </p>
     </section>
@@ -230,37 +241,49 @@ export function OutCard({ status, noBlame }: { status: MemberStatus; noBlame: bo
 /** The group finished; this member was not part of the charge. */
 export function LeftBehindCard({ v }: { v: MemberView }) {
   const failed = v.status === 'failed'
+  const mandates = v.rail_capability?.mandates ?? v.rail === 'prava_mandates'
   return (
     <section className="banner banner-bad ap-flip">
-      <div className="banner-title">You were not charged</div>
+      <div className="banner-title">{mandates ? 'You were not charged' : 'You are out of this split'}</div>
       <p className="small muted" style={{ marginTop: 6 }}>
         {failed
           ? 'Your card declined the charge, so your share was not collected.'
           : 'The group completed without your share.'}{' '}
-        Your mandate was cancelled and nothing can be drawn on it. {v.group.merchant.name} was paid only by the
-        members who approved.
+        {mandates
+          ? `Your mandate was cancelled and nothing can be drawn on it. ${v.group.merchant.name} was paid only by the members who approved.`
+          : `Nothing was charged through sutra for your share. The people who agreed settle with ${v.group.merchant.name} at the table.`}
       </p>
-      <PortalNote />
+      {mandates && <PortalNote />}
     </section>
   )
 }
 
 /** The state that has to land on every phone at once. */
 export function AbortedCard({ v, note }: { v: MemberView; note?: string | null }) {
+  const mandates = v.rail_capability?.mandates ?? v.rail === 'prava_mandates'
   return (
     <section className="banner banner-bad ap-abort ap-flip">
       <div className="ap-shout" style={{ color: 'var(--bad)' }}>
-        NOTHING CHARGED
+        {mandates ? 'NOTHING CHARGED' : 'NOTHING OWED'}
       </div>
       <p className="small" style={{ marginTop: 10, color: 'var(--ink-2)' }}>
         {v.group.status === 'expired'
           ? `Nobody reached the deadline together, so “${v.group.title}” was called off.`
           : `“${v.group.title}” was called off before anything was collected.`}{' '}
-        <b>Every mandate created for this group was cancelled</b> — yours and everyone else&apos;s. There is no
-        pending authorization, no hold on your card, and no partial charge to chase.
+        {mandates ? (
+          <>
+            <b>Every mandate created for this group was cancelled</b> — yours and everyone else&apos;s. There is no
+            pending authorization, no hold on your card, and no partial charge to chase.
+          </>
+        ) : (
+          <>
+            <b>Nobody owes anything through sutra</b> — the agreement was never sealed, so there is nothing to settle at
+            the table from this record.
+          </>
+        )}
       </p>
       {note && <p className="tiny faint" style={{ marginTop: 8 }}>{note}</p>}
-      <PortalNote />
+      {mandates && <PortalNote />}
     </section>
   )
 }

@@ -172,7 +172,7 @@ export function ApproveSkeleton() {
       </div>
       <Skeleton h={64} />
       <p className="tiny faint" style={{ textAlign: 'center' }}>
-        Opening your share and preparing your mandate…
+        Opening your share…
       </p>
     </div>
   )
