@@ -227,6 +227,8 @@ export function registerRoutes(
       deadline_at: view.deadline_at,
       policy_text: view.policy_text,
       terminal: view.terminal,
+      rail: view.rail,
+      rail_capability: view.rail_capability,
       members: view.members.map((m) => ({
         member_id: m.member_id,
         name: m.name,

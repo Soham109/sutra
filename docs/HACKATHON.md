@@ -106,10 +106,11 @@ post-capture, rather than pretending a settled card charge can be rolled back. W
 plugin installed, **one agent cannot pay another agent** — that is a deliberate structural
 property, not a missing feature.
 
-The evidence pack is [`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md). **Its section 5 is titled
-"Registry submission — NOT SUBMITTED, and why" and is now out of date** — the SkillMD
-submission has since happened. Do not quote that section to a judge without correcting it.
-Current registry status is in [`../HANDOFF.md`](../HANDOFF.md) section 3.3.
+The evidence pack is [`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md). Section 5 is
+**SUBMITTED** (SkillMD entry `47063b5f-…`, discovery chain green at
+`sutra-gmp.vercel.app`). The demo a judge should watch is
+`python scripts/town_scene.py` inside [`../nanda-town-prava/`](../nanda-town-prava/).
+Current registry status is also in [`../HANDOFF.md`](../HANDOFF.md) section 3.3.
 
 ### 3.2 Judges
 

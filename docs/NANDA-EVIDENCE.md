@@ -751,95 +751,22 @@ rather than silently passing.
 
 ---
 
-## 5. Registry submission — NOT SUBMITTED, and why
+## 5. Registry submission — SUBMITTED
 
-**Status: blocked, deliberately, on a one-variable deployment fix.**
+**Status (re-verified 2026-08-01 evening): submitted, discovery chain green at
+the public origin, `nanda check` ready.**
 
-The instruction was to run `nanda check` first and submit only if it is fully
-green. It is not green, and the reason is real rather than pedantic.
-
-```
-$ SUTRA_PUBLIC_URL=https://engine-production-e6fa.up.railway.app npm run nanda -w cli -- check
-
-▶ nanda check — https://engine-production-e6fa.up.railway.app
-
-  ✓ /.well-known/agent-card.json — A2A card, 6 skills
-  ✗ /.well-known/agent-card.json — served card differs from the one this repo generates (stale deploy?)
-  ✗ /.well-known/agent-card.json — URL not rooted at the base: https://sutra-gmp.vercel.app/v1
-  ... 67 more of the same ...
-  ✓ /api/agents — AI Catalog specVersion 1.0, 3 entries
-  ✗ catalog entry "sutra" → https://sutra-gmp.vercel.app/.well-known/agents/sutra.json is unreachable
-  ✗ catalog entry "sutra-agent-facts" → https://sutra-gmp.vercel.app/.well-known/agent-facts.json is unreachable
-  ✗ catalog entry "sutra-skillmd" → https://sutra-gmp.vercel.app/skill.md is unreachable
-  ✗ SKILL.md — declares base https://sutra-gmp.vercel.app, but we are serving from https://engine-production-e6fa.up.railway.app
-
-  ✗ 13 problem(s) — fix these before submitting to any registry
-```
-
-### 5.1 One root cause
-
-The engine's `APP_BASE_URL` is `https://sutra-gmp.vercel.app`, and every
-absolute URL in every discovery document is derived from it
-([`engine/src/discovery/routes.ts`](../engine/src/discovery/routes.ts)). But
-the Vercel origin serves **none** of those documents:
+Earlier in the day this section said "NOT SUBMITTED" because
+`APP_BASE_URL=https://sutra-gmp.vercel.app` pointed every discovery URL at an
+origin that only proxied `/api/*`. That is fixed: `web/next.config.ts` now
+rewrites `/.well-known/*`, `/skill.md`, `/api/agents`, `/agent-facts.json`,
+`/health`, `/openapi.json` and `/v1/*` to the engine, so the advertised base
+and the reachable base are the same host.
 
 ```
-/health                        vercel=404  railway=200
-/.well-known/agent-facts.json  vercel=404  railway=200
-/agent-facts.json              vercel=404  railway=200
-/api/agents                    vercel=404  railway=200
-/skill.md                      vercel=404  railway=200
-/.well-known/agent-card.json   vercel=404  railway=200
-/.well-known/agents/sutra.json vercel=404  railway=200
-```
+$ env:SUTRA_PUBLIC_URL="https://sutra-gmp.vercel.app"; npm run nanda -w cli -- check
 
-`web/next.config.ts` rewrites only `/api/:path*` → `${ENGINE}/:path*`, so
-`/v1/*`, `/skill.md` and `/.well-known/*` are not proxied. The engine is the
-only host that serves the discovery chain, but it tells the world the chain
-lives somewhere else.
-
-The concrete harm, which is the reason not to submit: the SkillMD the registry
-would link to says
-
-```
-$ curl -s https://engine-production-e6fa.up.railway.app/skill.md | sed -n '/^## Base URL/,+2p'
-## Base URL
-https://sutra-gmp.vercel.app
-```
-
-An agent that reads our listing and follows that base URL gets a 404 on every
-endpoint. The reachability badge would be green — all five declared endpoints
-answer 200 — but the listing would misdirect every agent that used it.
-
-### 5.2 The deploy is not stale; only the variable is wrong
-
-Proven two ways.
-
-The served AgentFacts is byte-identical to the one this repo generates, once
-the base is substituted:
-
-```
-$ curl -s https://.../well-known/agent-facts.json | sed 's#https://sutra-gmp.vercel.app#BASE#g' > rw.json
-$ curl -s http://127.0.0.1:4199/.well-known/agent-facts.json | sed 's#http://127.0.0.1:4199#BASE#g' > lc.json
-$ diff rw.json lc.json
-3c3
-<   "agent_name": "urn:ai:agent:sutra-gmp.vercel.app:sutra"
----
->   "agent_name": "urn:ai:agent:127.0.0.1:sutra"
-```
-
-The only difference is the URN, which is itself derived from the base host.
-
-And running the identical build with a *self-consistent* base makes `check`
-fully green:
-
-```
-$ PORT=4199 APP_BASE_URL=http://127.0.0.1:4199 npx tsx engine/src/server.ts &
-$ SUTRA_PUBLIC_URL=http://127.0.0.1:4199 npm run nanda -w cli -- check
-
-▶ nanda check — http://127.0.0.1:4199
-
-  ! this is a loopback/private address. Fine for a local check, but a registry could never reach it.
+▶ nanda check — https://sutra-gmp.vercel.app
 
   ✓ /.well-known/agent-card.json — A2A card, 6 skills
   ✓ /.well-known/agents/sutra.json — A2A card, 6 skills
@@ -847,62 +774,46 @@ $ SUTRA_PUBLIC_URL=http://127.0.0.1:4199 npm run nanda -w cli -- check
   ✓ /.well-known/agent-facts.json — AgentFacts, required fields present
   ✓ /agent-facts.json — AgentFacts, required fields present
   ✓ /api/agents — AI Catalog specVersion 1.0, 3 entries
-  ✓ catalog entry "sutra" → 200 application/json; charset=utf-8
-  ✓ catalog entry "sutra-agent-facts" → 200 application/json; charset=utf-8
-  ✓ catalog entry "sutra-skillmd" → 200 text/markdown; charset=utf-8
-  ✓ /skill.md — text/markdown, base URL matches, 236 lines
+  ✓ catalog entry "sutra" → 200
+  ✓ catalog entry "sutra-agent-facts" → 200
+  ✓ catalog entry "sutra-skillmd" → 200
+  ✓ /skill.md — text/markdown, base URL matches
 
   ✓ all discovery documents reachable and consistent
-  ! but this is a local address — deploy and re-run before submitting
+  ready to submit: nanda skill-submit
 ```
 
-The documents and the code are correct. One deployed environment variable is
-not.
+SkillMD registry entry (already live):
 
-### 5.3 The fix, and the command that follows it
+| | |
+|---|---|
+| id | `47063b5f-5000-4c03-8f33-c98555618f85` |
+| name | `sutra — group checkout (GMP/1)` |
+| source_url | `https://sutra-gmp.vercel.app/skill.md` |
+| created_at | `2026-08-01T13:29:23.374Z` |
+| `reachable` | **`null`** — registry has not recorded a probe. Do not claim a green badge. All five declared endpoints return 200 when fetched directly. |
 
-Either of these makes `check` green against the deployed host. Both are
-outside this package's ownership (`engine/**`, `web/**`, and the Railway
-deployment), and no Railway CLI is installed on this machine.
-
-**Option A — one Railway variable.** Set
-`APP_BASE_URL=https://engine-production-e6fa.up.railway.app`. Cost: approval
-pages and board links move off the Next.js app onto the engine's own built-in
-HTML, which does serve them (`railway /a/mi_test = 200`, `/g/{id}/board = 200`).
-
-**Option B — five rewrites in `web/next.config.ts`** (recommended): proxy
-`/skill.md`, `/.well-known/:path*`, `/api/agents`, `/agent-facts.json` and
-`/v1/:path*` to the engine, leave `APP_BASE_URL` alone. The product UI keeps
-its URLs and the discovery chain becomes self-consistent at the Vercel origin.
-
-Then:
-
-```bash
-cd c:\Users\acer\sutra
-$env:SUTRA_PUBLIC_URL="<the base that is now self-consistent>"
-npm run nanda -w cli -- check          # must be all green
-npm run nanda -w cli -- skill-submit
-curl https://nandatown.projectnanda.org/api/skills   # find the entry, read its badge
+```powershell
+curl.exe -s https://nandatown.projectnanda.org/api/skills/47063b5f-5000-4c03-8f33-c98555618f85
 ```
 
-The submission body is already verified and is exactly this
-(`skill-submit --dry-run`, with the Railway base):
+### 5.1 Historical note — what blocked submission earlier
 
-```json
-{
-  "name": "sutra — group checkout (GMP/1)",
-  "author": "sutra",
-  "description": "Buy one thing for N people, where each person pays their own share from their own card. One cart becomes N merchant-locked, amount-capped payment mandates committed together: everyone is charged in one window, or every mandate is cancelled and nobody was charged. Also coordinates the plan before the cart, and splits a physical restaurant bill exactly. No pooled funds, nobody fronts money, no card numbers.",
-  "source_type": "url",
-  "source_url": "https://engine-production-e6fa.up.railway.app/skill.md",
-  "endpoints": "GET https://engine-production-e6fa.up.railway.app/skill.md\nGET https://engine-production-e6fa.up.railway.app/.well-known/agent-card.json\nGET https://engine-production-e6fa.up.railway.app/.well-known/agent-facts.json\nGET https://engine-production-e6fa.up.railway.app/api/agents\nGET https://engine-production-e6fa.up.railway.app/v1/discover/search?q=projector",
-  "tags": "payments, agentic-commerce, group-checkout, split-payment, multi-principal, mandates, bill-splitting, gmp1, prava, nanda"
-}
-```
+The diagnosis that used to fill this section is still true as history: until
+the Vercel rewrites landed, an agent that followed SkillMD's `Base URL` to
+`sutra-gmp.vercel.app` got 404 on every discovery hop even though Railway
+served them. Option B in the old write-up (proxy discovery through Next.js,
+keep `APP_BASE_URL` on the product origin) is what shipped. Do not re-point
+`APP_BASE_URL` at the Railway host — that would send approval links to the
+engine's fallback HTML instead of the real app.
 
-All five declared endpoints return 200 from the Railway host today. **No
-registry entry URL and no reachability badge exist yet, because nothing was
-submitted.**
+### 5.2 What was NOT submitted (still correct)
+
+**NANDA Index v2 registration was not attempted** (`nanda index-register`).
+It needs a NANDA account and a DNS TXT challenge on a domain we control. It
+is also **not** what the "$1,000: Best Prava Adapter for the NANDA Town"
+prize judges — that prize is the Python plugin. See
+[`HACKATHON.md`](HACKATHON.md) §3.1.
 
 ---
 
@@ -923,10 +834,11 @@ Read this section. It is the reason to trust the rest of the file.
    that engine was still on the mock adapter (run 153009, §3.3), but that
    transcript predates the `conservation_report` scoping fix. The current-code
    mock transcript is the local one.
-3. **Nothing was submitted to the SkillMD registry.** No entry, no URL, no
-   badge. §5 is a diagnosis, not a submission.
-4. **NANDA Index v2 registration was not attempted** (`nanda index-register`).
-   It needs a NANDA account and a DNS TXT challenge on a domain we control.
+3. **SkillMD registry submission is done** (entry
+   `47063b5f-5000-4c03-8f33-c98555618f85`). See §5. The registry `reachable`
+   field is still `null` — do not claim a green badge. **NANDA Index v2 was
+   not attempted** (`nanda index-register`); it needs a DNS TXT challenge and
+   is not the prize criterion.
 5. **No human ever approved a mandate in any of these runs.** The passkey
    ceremony is the one step this package structurally cannot exercise, so the
    `approved → charging → charged` transition on a real rail is unproven by us.

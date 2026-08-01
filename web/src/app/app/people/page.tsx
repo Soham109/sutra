@@ -137,7 +137,7 @@ export default function PeoplePage() {
             </div>
           )}
 
-          {people !== null && people.length === 0 && (
+          {people !== null && people.length === 0 && !error && (
             <div className="card">
               {q ? (
                 <Empty

@@ -123,6 +123,10 @@ export function registerProductRoutes(
       reliability: social.reliability(user.id),
       friends: social.friendsOf(user.id).map(publicUser),
       circles: social.circlesFor(user.id),
+      // Real evidence, not a guess: friend ids in the order you most recently
+      // shared a group with them, so a picker can put them first instead of
+      // making everyone hunt A→Z for whoever they split with last night.
+      recent_with: social.recentCollaborators(user.id),
     }
   })
 

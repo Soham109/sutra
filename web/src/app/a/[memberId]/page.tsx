@@ -150,7 +150,7 @@ export default function ApprovalPage() {
         {phase === 'charged' && members.length > 0 && (
           <>
             <Presence members={members} meId={memberId} currency={cur} anonymise={v.group.no_blame} />
-            <PortalNote />
+            {v.rail === 'prava_mandates' && <PortalNote />}
           </>
         )}
 

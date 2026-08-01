@@ -180,7 +180,7 @@ describe('buildQuery', () => {
         { key: 'amenity', value: 'pub' },
       ],
     })
-    expect(q.startsWith('[out:json][timeout:20];')).toBe(true)
+    expect(q.startsWith('[out:json][timeout:15];')).toBe(true)
     expect(q).toContain('nwr(around:8000,12.9352000,77.6245000)["amenity"="bar"];')
     expect(q).toContain('nwr(around:8000,12.9352000,77.6245000)["amenity"="pub"];')
     expect(q.trimEnd().endsWith('out tags center 30;')).toBe(true)

@@ -24,7 +24,7 @@ const NAV = [
 ]
 
 export function Shell({ children, crumbs }: { children: React.ReactNode; crumbs?: React.ReactNode }) {
-  const { user, loading } = useSession()
+  const { user, loading, bootError, refresh } = useSession()
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   useEffect(() => {
@@ -37,6 +37,31 @@ export function Shell({ children, crumbs }: { children: React.ReactNode; crumbs?
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  if (!loading && !user && bootError) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 20 }}>
+        <div className="card card-pad" style={{ width: 'min(420px, 100%)' }}>
+          <h2 style={{ marginBottom: 8 }}>Couldn’t reach sutra</h2>
+          <p className="small muted" style={{ marginBottom: 14 }}>
+            This is not a sign-out — the engine (or the proxy in front of it) did not answer. Your
+            session is still there; try again in a moment.
+          </p>
+          <p className="small" style={{ color: 'var(--bad)', marginBottom: 16 }}>
+            {bootError}
+          </p>
+          <button
+            className="btn btn-primary btn-block btn-lg"
+            onClick={() => {
+              void refresh()
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (!loading && !user) return <SignIn />
 

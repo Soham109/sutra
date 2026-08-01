@@ -106,11 +106,11 @@ export function ChatThread({ scope, id }: { scope: 'plan' | 'group'; id: string 
             <Skeleton h={38} />
             <Skeleton h={38} w="78%" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && !error ? (
           <div className="chat-empty">
             No messages yet. Say hello, or tag <b className="mono">@sutra</b> — ask {HINT[scope]}.
           </div>
-        ) : (
+        ) : messages.length === 0 ? null : (
           messages.map((m) => <ChatRow key={m.message_id} m={m} mine={!!user && m.author_user_id === user.id} />)
         )}
       </div>

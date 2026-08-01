@@ -72,6 +72,17 @@ function viewerFor(d: PlanRoutesDeps, req: { headers: Record<string, unknown> },
   return { full: holdsToken || isOrganiser, selfParticipantId }
 }
 
+/** Mutations that change what the group is buying need an organiser (or operator). */
+function requirePlanOrganiser(
+  d: PlanRoutesDeps,
+  req: { headers: Record<string, unknown> },
+  plan: PlanRow,
+): void {
+  if (!viewerFor(d, req, plan).full) {
+    throw new UserError('only the person who started this plan can do that', 403)
+  }
+}
+
 export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): void {
   const requireUser = (req: { headers: Record<string, unknown> }): User => {
     const u = d.currentUser(req)
@@ -106,6 +117,8 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
 
   app.post('/v1/plans/:id/participants', async (req) => {
     const { id } = req.params as { id: string }
+    const plan0 = d.plans.mustPlan(id)
+    requirePlanOrganiser(d, req, plan0)
     const body = z
       .object({
         name: z.string().min(1).max(60),
@@ -113,7 +126,6 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
         contact: z.string().max(200).optional(),
       })
       .parse(req.body)
-    d.plans.mustPlan(id)
     d.plans.addParticipant(id, body)
     const plan = d.plans.mustPlan(id)
     return planView(d, plan, viewerFor(d, req, plan))
@@ -121,6 +133,8 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
 
   app.post('/v1/plans/:id/cancel', async (req) => {
     const { id } = req.params as { id: string }
+    const plan0 = d.plans.mustPlan(id)
+    requirePlanOrganiser(d, req, plan0)
     d.plans.cancelPlan(id)
     const plan = d.plans.mustPlan(id)
     return planView(d, plan, viewerFor(d, req, plan))
@@ -181,6 +195,8 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
   /** Re-run discovery. Explicit, because it spends someone else's rate limit. */
   app.post('/v1/plans/:id/options/refresh', spendLimit(20), async (req) => {
     const { id } = req.params as { id: string }
+    const planGate = d.plans.mustPlan(id)
+    requirePlanOrganiser(d, req, planGate)
     const body = z.object({ slots: SlotsSchema.partial().optional() }).parse(req.body ?? {})
     if (body.slots) {
       const plan0 = d.plans.mustPlan(id)
@@ -195,6 +211,8 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
 
   app.post('/v1/plans/:id/choose', async (req) => {
     const { id } = req.params as { id: string }
+    const planGate = d.plans.mustPlan(id)
+    requirePlanOrganiser(d, req, planGate)
     const body = z.object({ option_id: z.string().min(1) }).parse(req.body)
     d.plans.chooseOption(id, body.option_id)
     const plan = d.plans.mustPlan(id)
@@ -204,6 +222,8 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
   /** The handover: coordination becomes a GMP/1 group with real mandates. */
   app.post('/v1/plans/:id/convert', async (req, reply) => {
     const { id } = req.params as { id: string }
+    const planGate = d.plans.mustPlan(id)
+    requirePlanOrganiser(d, req, planGate)
     const body = z
       .object({
         unit_amount: z.number().int().nonnegative().optional(),

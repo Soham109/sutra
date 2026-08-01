@@ -53,7 +53,11 @@ export function WhatNow({
   if (status === 'committing') {
     return (
       <section className="whatnow is-live">
-        <h2>Everyone’s in. Charging all {payers.length} cards now.</h2>
+        <h2>
+          {charges
+            ? `Everyone’s in. Charging all ${payers.length} cards now.`
+            : `Everyone’s in. Sealing the split now.`}
+        </h2>
         <p>
           {charges
             ? 'Each person is charged their own amount, on their own card, in the same moment. If any single one fails, the ones that already went through are not left stranded — the group lands on a partial result and says exactly who paid what.'

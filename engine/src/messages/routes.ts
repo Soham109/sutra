@@ -120,7 +120,7 @@ export function registerMessageRoutes(app: FastifyInstance, d: MessageRoutesDeps
     if (mentionsSutra(body.text)) {
       const members = d.groups.db.membersOf(id)
       const botText = await safeBotReply(async () => ({
-        text: replyToGroupMention(group, members, body.text),
+        text: await replyToGroupMention(group, members, body.text),
         usedRules: [] as string[],
       }))
       d.groups.db.appendEvent(id, null, 'message.posted', botMessage(botText.text, botText.usedRules))

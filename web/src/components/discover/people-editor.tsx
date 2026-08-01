@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
 import type { Circle, User } from '@/lib/api'
 import { Avatar, Badge } from '@/components/ui'
+import { PeoplePicker, personKey, type PickedPerson } from '@/components/people/PeoplePicker'
 import { MoneyInput, Row, Section, ToggleChip } from './fields'
 import { type DraftMember, ROLES, ROLE_LABEL, ROLE_LINE, type Role, uid } from './model'
 
@@ -25,38 +25,6 @@ export function PeopleEditor({
   circleId: string
   onCircle: (id: string) => void
 }) {
-  const [typed, setTyped] = useState('')
-
-  const taken = (name: string) =>
-    members.some((m) => m.name.trim().toLowerCase() === name.trim().toLowerCase())
-
-  const addByName = (name: string, userId?: string) => {
-    const clean = name.trim()
-    if (!clean || taken(clean)) return
-    onMembers([
-      ...members,
-      { key: uid('m'), name: clean, role: 'payer', weight: 1, backstopCap: 0, sponsorFor: '', userId },
-    ])
-  }
-
-  const addCircle = (c: Circle) => {
-    const next = [...members]
-    for (const u of c.members) {
-      if (next.some((m) => m.userId === u.id || m.name.trim().toLowerCase() === u.name.trim().toLowerCase())) continue
-      next.push({
-        key: uid('m'),
-        name: u.name,
-        role: 'payer',
-        weight: 1,
-        backstopCap: 0,
-        sponsorFor: '',
-        userId: u.id,
-      })
-    }
-    onMembers(next)
-    onCircle(circleId === c.id ? '' : c.id)
-  }
-
   const patch = (key: string, change: Partial<DraftMember>) =>
     onMembers(members.map((m) => (m.key === key ? { ...m, ...change } : m)))
 
@@ -73,9 +41,48 @@ export function PeopleEditor({
       .filter((n, i, all) => n.length > 0 && all.indexOf(n) !== i),
   )
 
-  const unaddedFriends = friends.filter(
-    (f) => !members.some((m) => m.userId === f.id || m.name.trim().toLowerCase() === f.name.trim().toLowerCase()),
-  )
+  // The picker only knows "who is in", identified by account or by typed
+  // name — the per-row role/weight/backstop state below is DraftMember's own
+  // business and travels along by matching that same identity.
+  const pickerValue: PickedPerson[] = members.map((m) => ({
+    key: personKey(m),
+    name: m.name,
+    userId: m.userId,
+  }))
+
+  const handlePicked = (next: PickedPerson[]) => {
+    // A circle just went from "not fully in" to "fully in" — file the group
+    // under it, the same shortcut the old chip-based picker gave you.
+    const prevKeys = new Set(pickerValue.map((p) => p.key))
+    const nextKeys = new Set(next.map((p) => p.key))
+    for (const c of circles) {
+      const keys = c.members.map((u) => personKey({ userId: u.id, name: u.name }))
+      if (keys.length === 0) continue
+      const wasFull = keys.every((k) => prevKeys.has(k))
+      const isFull = keys.every((k) => nextKeys.has(k))
+      if (!wasFull && isFull) {
+        onCircle(circleId === c.id ? '' : c.id)
+        break
+      }
+    }
+
+    const existingKeys = new Set(pickerValue.map((p) => p.key))
+    const kept = members.filter((m) => nextKeys.has(personKey(m)))
+    const additions = next
+      .filter((p) => !existingKeys.has(p.key))
+      .map((p) => ({
+        key: uid('m'),
+        name: p.name,
+        role: 'payer' as const,
+        weight: 1,
+        backstopCap: 0,
+        sponsorFor: '',
+        userId: p.userId,
+      }))
+    const merged = [...kept, ...additions]
+    const mergedDraftKeys = new Set(merged.map((m) => m.key))
+    onMembers(merged.map((m) => (m.sponsorFor && !mergedDraftKeys.has(m.sponsorFor) ? { ...m, sponsorFor: '' } : m)))
+  }
 
   // One payer, and that payer is you.
   const solo = members.length === 1
@@ -199,81 +206,13 @@ export function PeopleEditor({
         </p>
       )}
 
-      <div className="row wrap" style={{ gap: 8, marginTop: 14 }}>
-        <input
-          className="input grow"
-          style={{ minWidth: 180 }}
-          value={typed}
-          placeholder="Add somebody by name…"
-          aria-label="Add a member by name"
-          onChange={(e) => setTyped(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              addByName(typed)
-              setTyped('')
-            }
-          }}
-        />
-        <button
-          type="button"
-          className="btn btn-secondary"
-          disabled={!typed.trim() || taken(typed)}
-          onClick={() => {
-            addByName(typed)
-            setTyped('')
-          }}
-        >
-          Add
-        </button>
+      <div style={{ marginTop: 14 }}>
+        <PeoplePicker value={pickerValue} onChange={handlePicked} label="Add someone" />
       </div>
-      {typed.trim() !== '' && taken(typed) && (
-        <p className="tiny" style={{ color: 'var(--warn)', marginTop: 6 }}>
-          {typed.trim()} is already in the group.
-        </p>
-      )}
-
-      {unaddedFriends.length > 0 && (
-        <div style={{ marginTop: 14 }}>
-          <span className="field-label">Friends</span>
-          <Row gap={6}>
-            {unaddedFriends.map((f) => (
-              <ToggleChip key={f.id} on={false} onClick={() => addByName(f.name, f.id)} title={`@${f.handle}`}>
-                <Avatar name={f.name} color={f.accent} size="sm" />
-                {f.name}
-              </ToggleChip>
-            ))}
-          </Row>
-        </div>
-      )}
-
-      {circles.length > 0 && (
-        <div style={{ marginTop: 14 }}>
-          <span className="field-label">Circles</span>
-          <Row gap={6}>
-            {circles.map((c) => (
-              <ToggleChip
-                key={c.id}
-                on={circleId === c.id}
-                onClick={() => addCircle(c)}
-                title={c.members.map((m) => m.name).join(', ')}
-              >
-                <span aria-hidden>{c.emoji}</span>
-                {c.name}
-                <span className="mono faint">{c.members.length}</span>
-              </ToggleChip>
-            ))}
-          </Row>
-          <p className="tiny faint" style={{ marginTop: 6 }}>
-            Adding a circle files the group under it, so the same people are one click away next time.
-          </p>
-        </div>
-      )}
-
-      {friends.length === 0 && circles.length === 0 && (
-        <p className="tiny faint" style={{ marginTop: 10 }}>
-          You have no saved friends yet — names typed here work perfectly well. Anyone you add by name gets their
-          own approval link.
+      {circleId && (
+        <p className="tiny faint" style={{ marginTop: 6 }}>
+          Filed under {circles.find((c) => c.id === circleId)?.name ?? 'a circle'} — the same people are one click
+          away next time.
         </p>
       )}
     </Section>

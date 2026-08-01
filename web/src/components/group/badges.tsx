@@ -11,7 +11,7 @@ const GROUP_LABEL: Record<GroupStatus, string> = {
   draft: 'Draft',
   collecting: 'Collecting',
   deciding: 'Deciding',
-  committing: 'Charging',
+  committing: 'Sealing',
   committed: 'Committed',
   partial: 'Partial',
   aborted: 'Aborted',

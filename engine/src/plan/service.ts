@@ -549,9 +549,12 @@ export class PlanService {
       title: opts.title ?? plan.title,
       merchant: {
         id: option.source,
-        name: option.subtitle || option.title,
+        // Title is the venue/product. Subtitle is often a street or merchant
+        // brand — using it as the merchant *name* made Koramangala dinners
+        // show up as "Mahayogi Vemana Road" on the group page and receipt.
+        name: option.title,
         url: safeUrl(merchantUrl),
-        country_code_iso2: 'US',
+        country_code_iso2: place?.country_code?.slice(0, 2).toUpperCase() || 'US',
       },
       cart,
       members: going.map((p) => ({

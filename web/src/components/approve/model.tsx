@@ -79,6 +79,8 @@ export interface Joinable {
   deadline_at: string
   policy_text: string
   terminal: boolean
+  rail?: string
+  rail_capability?: { charges: boolean; mandates: boolean; disclosure: string }
   members: JoinableMember[]
 }
 

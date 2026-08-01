@@ -122,9 +122,44 @@ export function ChargingCard({ v }: { v: MemberView }) {
   )
 }
 
-/** The celebratory moment. A ticket, because that is what it is. */
+/** The celebratory moment. A ticket — but only when a card was actually charged. */
 export function Ticket({ v }: { v: MemberView }) {
+  const atVenue = v.rail === 'at_venue' || !v.rail_capability.charges
   const amount = v.charged_amount || v.share_amount
+
+  if (atVenue) {
+    return (
+      <section className="ap-ticket ap-flip">
+        <div className="ap-ticket-top">
+          <div className="eyebrow" style={{ color: 'var(--ok)' }}>
+            Agreed — pay at the table
+          </div>
+          <div style={{ margin: '8px 0 2px' }}>
+            <Money minor={amount} currency={v.group.currency} size="xl" />
+          </div>
+          <div className="small muted">
+            {v.group.title} · {v.group.merchant.name}
+          </div>
+        </div>
+        <div className="ap-perf" />
+        <div className="ap-ticket-bottom">
+          <div className="ap-stub">
+            <span className="k">You owe</span>
+            <span className="amount">{money(amount, v.group.currency)}</span>
+          </div>
+          <div className="ap-stub">
+            <span className="k">Pay</span>
+            <span>{v.group.merchant.name} directly</span>
+          </div>
+          <p className="tiny muted" style={{ marginTop: 10 }}>
+            Nothing was charged through sutra. Show this amount when the check arrives — you still
+            pay the venue yourself, on your own card.
+          </p>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="ap-ticket ap-flip">
       <div className="ap-ticket-top">
@@ -147,16 +182,16 @@ export function Ticket({ v }: { v: MemberView }) {
           <span>your own card</span>
         </div>
         <div className="ap-stub">
-          <span className="k">Credential</span>
-          <span>single use, locked to {v.group.merchant.name}</span>
+          <span className="k">Merchant</span>
+          <span>locked to {v.group.merchant.name}</span>
         </div>
         <div className="ap-stub">
           <span className="k">Your cap</span>
           <span className="amount">{money(v.cap_amount, v.group.currency)}</span>
         </div>
         <p className="tiny muted" style={{ marginTop: 10 }}>
-          Nobody pooled money and nobody fronted your share. It went on your card through a single-use,
-          merchant-locked credential that cannot be used again — not by us, not by {v.group.merchant.name}.
+          Nobody pooled money and nobody fronted your share. It went on your card through Prava —
+          capped at your amount, scoped to this merchant.
         </p>
         <a
           className="btn btn-secondary btn-block"

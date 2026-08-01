@@ -22,6 +22,15 @@ const ALLOWED_HOSTS = new Set([
   'nominatim.openstreetmap.org',
   'overpass-api.de',
   'overpass.kumi.systems',
+  // Verified by hand against the exact query shape this module sends (POST,
+  // form-encoded `data=`) on 2026-08-01: 200, fresh timestamp_osm_base, real
+  // elements matching a known-populated Bangalore bbox. Mirrors that answered
+  // with a *wrong* result — overpass.osm.ch returned HTTP 200 with zero
+  // elements and no remark, i.e. a database that looks alive but is not
+  // actually populated — were deliberately left out; a silent empty success
+  // is worse than a timeout for a "never invent a venue" board. See overpass.ts.
+  'overpass.openstreetmap.fr',
+  'maps.mail.ru',
 ])
 
 const MAX_BYTES = 4_000_000

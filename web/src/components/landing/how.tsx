@@ -307,8 +307,10 @@ function Scene({ index, on }: { index: number; on: boolean }) {
         ))}
         <div className="ans-out">
           <span className="ans-win">8:00–10:30pm · 3 of 3 can make it</span>
-          <div className="ans-venue"><b>Sukh Sagar</b><span>93%</span></div>
-          <div className="ans-venue"><b>Nandhana</b><span>92%</span></div>
+          {/* Decorative mockup — not live rank.ts scores. Labels stay
+              non-numeric so a judge cannot confuse this with a real match %. */}
+          <div className="ans-venue"><b>Sukh Sagar</b><span>best</span></div>
+          <div className="ans-venue"><b>Nandhana</b><span>close</span></div>
         </div>
       </div>
     )

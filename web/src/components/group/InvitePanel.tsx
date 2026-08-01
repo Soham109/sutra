@@ -79,7 +79,7 @@ export function InvitePanel({ groupId, title, members = [], currency = 'USD' }: 
     <section className="invite-panel">
       <div className="invite-head">
         <div><span className="eyebrow">Bring everyone in</span><h3>One link for the whole group</h3></div>
-        <span className="invite-signal"><i /> Live</span>
+        <span className="invite-signal"><i /> Ready</span>
       </div>
       <p>Everyone gets their own link and their own exact amount. Nobody picks a name off a list, so nobody claims the wrong share.</p>
       <div className="invite-url"><span>{url || 'Preparing join link…'}</span><button type="button" onClick={() => void copy()}>Copy</button></div>

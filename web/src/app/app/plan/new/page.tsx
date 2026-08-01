@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Shell } from '@/components/shell'
+import { PeoplePicker, type PickedPerson } from '@/components/people/PeoplePicker'
 import { ErrorNote, Skeleton } from '@/components/ui'
 import { money } from '@/lib/format'
 import { api } from '@/lib/api'
@@ -41,7 +42,7 @@ function NewPlanInner() {
   const router = useRouter()
   const params = useSearchParams()
   const [read, setRead] = useState<Understood | null>(null)
-  const [people, setPeople] = useState<string[]>([])
+  const [people, setPeople] = useState<PickedPerson[]>([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [text, setText] = useState('')
@@ -63,7 +64,10 @@ function NewPlanInner() {
       try {
         const res = await api.post<Understood>('/v1/agent/plan', { text, dry_run: true })
         setRead(res)
-        setPeople([...res.understood.people, ''])
+        // Names the extractor read out of the sentence arrive with no
+        // account attached — same as anyone typed in by hand. The picker
+        // below still offers to link them if one matches a friend.
+        setPeople(res.understood.people.map((name) => ({ key: `n:${name.trim().toLowerCase()}`, name })))
       } catch (e) {
         setError((e as Error).message)
       }
@@ -75,10 +79,12 @@ function NewPlanInner() {
     setBusy(true)
     setError('')
     try {
-      const named = people.map((p) => p.trim()).filter(Boolean)
+      // A friend picked here carries their real account through, so they can
+      // be notified and the plan shows up in their own dashboard — not just
+      // a name typed into a box (see MemberInputSchema.user_id).
       const res = await api.post<{ plan: PlanView }>('/v1/agent/plan', {
         text,
-        participants: named.map((name) => ({ name })),
+        participants: people.map((p) => ({ name: p.name, user_id: p.userId })),
       })
       router.push(`/app/plans/${res.plan.plan_id}`)
     } catch (e) {
@@ -133,36 +139,21 @@ function NewPlanInner() {
           {/* "Dinner alone in some good cafe" is a complete instruction. Asking
               who else is coming — and disabling the button until you name
               somebody — is the app arguing with a sentence it just read
-              correctly. Adding people stays possible; it is no longer required. */}
+              correctly. Adding people stays possible; it is no longer required.
+              And when it is needed, it offers real friends instead of a blank
+              box labelled "Person 2". */}
           <section className="field">
-            <span className="field-label">
-              {read.understood.solo ? 'Just you' : 'Who to ask'}
-            </span>
-            {read.understood.solo && people.every((p) => !p.trim()) ? (
+            {read.understood.solo && people.length === 0 ? (
               <p className="solo-note">
                 You said this one is just for you, so there is nobody to poll — I’ll go straight to
-                finding places. Add a name below if you change your mind.
+                finding places. Add someone below if you change your mind.
               </p>
             ) : null}
-            <div className="bill-people">
-              {people.map((p, i) => (
-                <input
-                  key={i}
-                  className="input"
-                  value={p}
-                  placeholder={read.understood.solo && i === 0 ? 'Add somebody (optional)' : `Person ${i + 1}`}
-                  onChange={(e) => {
-                    const next = [...people]
-                    next[i] = e.target.value
-                    if (i === people.length - 1 && e.target.value.trim()) next.push('')
-                    setPeople(next)
-                  }}
-                />
-              ))}
-            </div>
+            <PeoplePicker value={people} onChange={setPeople} label={read.understood.solo ? 'Just you' : 'Who to ask'} />
             <span className="tiny faint">
-              Each gets their own link. They answer on their phone with no account, and nothing they
-              tap can charge them.
+              Each gets their own link. Friends with accounts see the plan on their dashboard; anyone
+              added by name just answers on their phone with no account — and nothing anyone taps can
+              charge them.
             </span>
           </section>
 
@@ -182,7 +173,7 @@ function NewPlanInner() {
           <button className="btn btn-primary btn-lg" disabled={busy} onClick={() => void create()}>
             {busy
               ? 'Setting it up…'
-              : people.some((p) => p.trim())
+              : people.length > 0
                 ? 'Ask the group'
                 : read.understood.solo
                   ? 'Find me somewhere'

@@ -8,6 +8,7 @@ import { useSession } from '@/components/session'
 import { Shell } from '@/components/shell'
 import { Avatar, Badge, ErrorNote, Skeleton } from '@/components/ui'
 import { api } from '@/lib/api'
+import { disablePush, enablePush, pushPermission, pushSupported } from '@/lib/push'
 
 type ThemeChoice = 'light' | 'dark' | 'system'
 
@@ -33,10 +34,14 @@ export default function SettingsPage() {
   const [signingOut, setSigningOut] = useState(false)
   const [extensionToken, setExtensionToken] = useState('')
   const [extensionStatus, setExtensionStatus] = useState('')
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushNote, setPushNote] = useState('')
+  const [pushOn, setPushOn] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_KEY)
     setTheme(stored === 'light' || stored === 'dark' ? stored : 'system')
+    setPushOn(pushPermission() === 'granted')
   }, [])
 
   const applyTheme = (choice: ThemeChoice) => {
@@ -199,6 +204,68 @@ export default function SettingsPage() {
                 as <code className="mono">data-theme</code> before first paint — so a dark reload never flashes paper.
                 System follows your OS and stores nothing.
               </p>
+            </div>
+          </Section>
+
+          {/* --- notifications ---------------------------------------------- */}
+          <Section title="Notifications" hint="when someone accepts, declines, or a group commits">
+            <div className="card card-pad col" style={{ gap: 14 }}>
+              {(() => {
+                const support = pushSupported()
+                if (!support.supported) {
+                  return (
+                    <p className="small muted" style={{ margin: 0 }}>
+                      {support.reason}
+                    </p>
+                  )
+                }
+                return (
+                  <>
+                    <p className="small muted" style={{ margin: 0 }}>
+                      Optional. Browser push for when you are not looking at the tab. Protocol events
+                      only reach a device that has turned this on — there is no separate in-app inbox
+                      bell yet.
+                    </p>
+                    <div className="row wrap" style={{ gap: 8, alignItems: 'center' }}>
+                      <button
+                        className="btn btn-primary"
+                        disabled={!user || pushBusy}
+                        onClick={() => {
+                          setPushBusy(true)
+                          setPushNote('')
+                          void (async () => {
+                            try {
+                              if (pushOn) {
+                                const res = await disablePush()
+                                if (res.ok) {
+                                  setPushOn(false)
+                                  setPushNote('Notifications turned off for this browser.')
+                                } else {
+                                  setPushNote(res.reason ?? 'Could not turn notifications off.')
+                                }
+                              } else {
+                                const res = await enablePush()
+                                if (res.ok) {
+                                  setPushOn(true)
+                                  setPushNote('Notifications are on for this browser.')
+                                } else {
+                                  setPushNote(res.reason ?? 'Could not turn notifications on.')
+                                }
+                              }
+                            } finally {
+                              setPushBusy(false)
+                            }
+                          })()
+                        }}
+                      >
+                        {pushBusy ? 'Working…' : pushOn ? 'Turn off notifications' : 'Turn on notifications'}
+                      </button>
+                      <span className="tiny faint">{pushOn ? 'On in this browser' : 'Off'}</span>
+                    </div>
+                    {pushNote && <p className="tiny muted" style={{ margin: 0 }}>{pushNote}</p>}
+                  </>
+                )
+              })()}
             </div>
           </Section>
 

@@ -98,7 +98,7 @@ export default function CirclesPage() {
             </div>
           )}
 
-          {circles !== null && circles.length === 0 && (
+          {circles !== null && circles.length === 0 && !error && (
             <div className="card">
               <Empty
                 title="No circles yet"

@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Shell } from '@/components/shell'
 import { BillCapture } from '@/components/bill/capture'
-import { PeoplePicker } from '@/components/bill/people-picker'
+import { PeoplePicker, personKey, type PickedPerson } from '@/components/people/PeoplePicker'
+import { useSession } from '@/components/session'
 import { ErrorNote } from '@/components/ui'
 import { money, toMinor } from '@/lib/format'
 import { api } from '@/lib/api'
@@ -43,15 +44,30 @@ interface ParsedBill {
 
 export default function BillPage() {
   const router = useRouter()
+  const { user } = useSession()
   const [text, setText] = useState('')
   const [bill, setBill] = useState<ParsedBill | null>(null)
-  const [people, setPeople] = useState<string[]>(['Me'])
+  // You are always in your own split. Seeded with your real account once the
+  // session loads, so "you" is a linked member like everyone else you add —
+  // not a bare "Me" string nobody could ever notify.
+  const [people, setPeople] = useState<PickedPerson[]>([{ key: 'n:me', name: 'Me' }])
+  const seededSelf = useRef(false)
   const [claims, setClaims] = useState<Record<number, Set<string>>>({})
   const [venue, setVenue] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   /** set when the text came out of a photo rather than a keyboard */
   const [ocr, setOcr] = useState<{ confidence: number; source: 'ocr' | 'vision' } | null>(null)
+
+  useEffect(() => {
+    if (seededSelf.current || !user) return
+    seededSelf.current = true
+    setPeople((prev) =>
+      prev.length === 1 && !prev[0]!.userId
+        ? [{ key: personKey({ userId: user.id, name: user.name }), name: user.name, userId: user.id, accent: user.accent }]
+        : prev,
+    )
+  }, [user])
 
   // The composer on the dashboard hands the receipt over through session
   // storage rather than the URL — a receipt is too long, and too personal, to
@@ -83,7 +99,9 @@ export default function BillPage() {
     }
   }
 
-  const named = people.map((p) => p.trim()).filter(Boolean)
+  // Claims and totals are keyed by display name, matching how the engine
+  // matches claimants — the account link travels separately, in `people`.
+  const named = people.map((p) => p.name)
 
   const toggle = (itemIdx: number, person: string) =>
     setClaims((prev) => {
@@ -134,7 +152,10 @@ export default function BillPage() {
         title: venue.trim() ? `${venue.trim()} — the bill` : 'Split the bill',
         venue: venue.trim() || 'The table',
         text,
-        members: named.map((n) => ({ name: n })),
+        // Anyone picked as a friend carries their real account through, so
+        // their seat is notifiable and shows up in their own dashboard —
+        // not just a name typed into a box.
+        members: people.map((p) => ({ name: p.name, user_id: p.userId })),
         claimants: bill.items.map((_, i) => claimantsOf(i)),
         force,
       })
@@ -262,7 +283,7 @@ export default function BillPage() {
                   </ul>
                 )}
 
-                <PeoplePicker value={named} onChange={setPeople} />
+                <PeoplePicker value={people} onChange={setPeople} label="Who’s at the table" />
 
                 <table className="bill-table">
                   <thead>

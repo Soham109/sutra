@@ -32,7 +32,7 @@ export default function JoinPage() {
 
   const payers = useMemo(() => data?.members.filter((member) => member.role !== 'observer') ?? [], [data])
   const progress = useMemo(() => ({
-    done: payers.filter((member) => ['approved', 'charging', 'charged'].includes(member.status)).length,
+    done: payers.filter((member) => ['approved', 'charging', 'charged', 'settled'].includes(member.status)).length,
     total: payers.length,
   }), [payers])
 
@@ -65,7 +65,14 @@ export default function JoinPage() {
       </section>
 
       <div className="ap-join-heading">
-        <div><h2>Choose your seat</h2><p>Open the share with your name. Approval still needs your passkey.</p></div>
+        <div>
+          <h2>Choose your seat</h2>
+          <p>
+            {data.rail === 'at_venue' || data.rail_capability?.charges === false
+              ? 'Open the share with your name. Confirm your amount — no card, no passkey.'
+              : 'Open the share with your name. Approval still needs your passkey.'}
+          </p>
+        </div>
         <button className="btn btn-ghost" onClick={() => void load()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
       </div>
 

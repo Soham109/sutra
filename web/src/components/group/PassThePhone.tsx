@@ -74,8 +74,31 @@ export function PassThePhone({
         )}
 
         <p className="pass-hint">
-          Point a camera at it. No account, no app — it opens their own share of {title}.
+          Hand them this phone — or share / copy if their camera won’t scan.
         </p>
+        <div className="pass-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => {
+              const url = `${origin}/a/${m.member_id}`
+              if (navigator.share) {
+                void navigator.share({ title: m.name, text: `Your share of ${title}`, url }).catch(() => undefined)
+              } else {
+                void navigator.clipboard.writeText(url)
+              }
+            }}
+          >
+            Share {m.name}&apos;s link
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => void navigator.clipboard.writeText(`${origin}/a/${m.member_id}`)}
+          >
+            Copy link
+          </button>
+        </div>
       </div>
 
       <div className="pass-nav">

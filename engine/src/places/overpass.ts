@@ -11,22 +11,61 @@ import type { OverpassFilter } from './taxonomy.js'
 // contract (see index.ts) where failure degrades to an empty board rather than
 // an exception in the request path.
 
+// Every host here was hand-verified on 2026-08-01 against the exact POST body
+// this module sends: HTTP 200, a fresh `timestamp_osm_base`, and real elements
+// for a known-dense Bangalore bbox. Hosts that looked reachable but answered
+// wrong were deliberately excluded rather than added on faith:
+//   - overpass.osm.ch          200 OK, 0 elements, no remark — its database
+//                               is not actually populated (timestamp_osm_base
+//                               was a bare counter, not a date). A confident
+//                               empty answer is worse than a timeout here.
+//   - overpass.openstreetmap.ru, overpass.private.coffee, overpass.monicz.dev,
+//     overpass.nchc.org.tw     connection accepted, then nothing — hung for
+//                               the full probe with zero bytes back.
 const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
-  // The mirror is not a load-balancing trick — it is only tried when the
-  // primary rate-limits or times out, which it does under demo traffic.
+  // Fastest, most consistent mirror in testing (~2s on a query the primary
+  // sometimes 504s under demo load). Genuinely independent infrastructure,
+  // not a DNS alias of the primary.
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  // Kept even though it was unresponsive in testing: racing means a dead
+  // mirror only loses, it no longer costs the caller anything, and it may
+  // well be back by the time this runs.
   'https://overpass.kumi.systems/api/interpreter',
 ]
 
-/** Overpass asks clients not to run queries in parallel. One at a time it is. */
-const gate = new RateGate(250)
+/**
+ * Overpass asks clients not to run queries in parallel *against one server*.
+ * That is a per-host rule, not a global one — racing several independently
+ * operated mirrors at once is the normal, polite way to use this network, so
+ * each host gets its own gate rather than sharing a single process-wide one.
+ */
+const gates = new Map<string, RateGate>()
+function gateFor(host: string): RateGate {
+  let g = gates.get(host)
+  if (!g) {
+    g = new RateGate(250)
+    gates.set(host, g)
+  }
+  return g
+}
 
-const SERVER_TIMEOUT_S = 20
-// Per attempt, with headroom over the server-side timeout so a query that Overpass
-// itself gives up on comes back as a remark we can read rather than a dead socket.
-const ATTEMPT_TIMEOUT_MS = 25_000
-// Shared across attempts: without it, two hung endpoints cost a caller a minute.
-const TOTAL_BUDGET_MS = 40_000
+// A query that is merely slow and legitimately working can take ~10s on a
+// loaded free instance (measured), so the server-side and per-attempt budgets
+// stay generous enough to let that finish rather than mistaking load for
+// failure. What changed from the old sequential design is HEDGE_DELAY_MS: mirrors
+// start racing a few seconds apart instead of only after the previous one is
+// declared dead, so a single hung mirror can no longer consume the whole budget.
+const SERVER_TIMEOUT_S = 15
+// Headroom over the server-side timeout so a query that Overpass itself gives
+// up on comes back as a remark we can read rather than a dead socket.
+const ATTEMPT_TIMEOUT_MS = 18_000
+// How long a mirror gets to answer before the next one starts racing it too.
+const HEDGE_DELAY_MS = 3_000
+// Shared across every hedge: without it, a run of hung mirrors still costs a
+// caller the sum of their timeouts instead of one bounded wait.
+const TOTAL_BUDGET_MS = 20_000
 const DEFAULT_LIMIT = 30
 
 export interface Venue {
@@ -67,49 +106,121 @@ export async function findVenues(opts: FindVenuesOpts): Promise<Venue[]> {
   const query = buildQuery(opts)
   const body = `data=${encodeURIComponent(query)}`
 
-  const deadline = Date.now() + TOTAL_BUDGET_MS
-  let lastError: Error | null = null
+  const tasks: RaceTask<Venue[]>[] = ENDPOINTS.map((endpoint, i) => ({
+    delay_ms: i * HEDGE_DELAY_MS,
+    run: (signal) => fetchFrom(endpoint, body, opts.center, signal),
+  }))
 
-  for (const endpoint of ENDPOINTS) {
-    const remaining = deadline - Date.now()
-    if (remaining <= 0) break
-    const host = new URL(endpoint).hostname
+  return raceHedged(tasks, { budget_ms: TOTAL_BUDGET_MS, signal: opts.signal })
+}
 
-    try {
-      const res = await gate.run(() =>
-        osmFetch(endpoint, {
-          method: 'POST',
-          body,
-          timeout_ms: Math.min(ATTEMPT_TIMEOUT_MS, remaining),
-          signal: opts.signal,
-        }),
-      )
-      // 429 = over the slot limit, 504 = the query outran the server. Both mean
-      // "ask someone else", not "there are no venues here".
-      if (res.status === 429 || res.status === 504 || res.status >= 500) {
-        lastError = new Error(`overpass ${host} returned ${res.status}`)
-        continue
-      }
-      if (res.status !== 200) throw new Error(`overpass ${host} returned ${res.status}`)
-
-      const parsed = JSON.parse(res.body) as { elements?: OverpassElement[]; remark?: string }
-      // Overpass reports server-side trouble as HTTP 200 with a remark and an
-      // empty element list. Any remark on a plain venue query means the answer
-      // is incomplete, and an incomplete answer rendered as "nothing near you"
-      // is the one lie this module must not tell.
-      const remark = parsed.remark?.trim()
-      if (remark) {
-        lastError = new Error(`overpass ${host}: ${remark}`)
-        continue
-      }
-      return rankByDistance(normalise(parsed.elements ?? []), opts.center)
-    } catch (e) {
-      // An abort is the caller's decision, not an endpoint fault — do not retry.
-      if (opts.signal?.aborted) throw e
-      lastError = e as Error
+/** One mirror's turn: fetch, parse, and treat a remark or bad status as a rejection. */
+function fetchFrom(
+  endpoint: string,
+  body: string,
+  center: { lat: number; lng: number },
+  signal: AbortSignal,
+): Promise<Venue[]> {
+  const host = new URL(endpoint).hostname
+  return (async () => {
+    const res = await gateFor(host).run(() =>
+      osmFetch(endpoint, { method: 'POST', body, timeout_ms: ATTEMPT_TIMEOUT_MS, signal }),
+    )
+    // 429 = over the slot limit, 504 = the query outran the server. Both mean
+    // "ask someone else", not "there are no venues here".
+    if (res.status === 429 || res.status === 504 || res.status >= 500) {
+      throw new Error(`overpass ${host} returned ${res.status}`)
     }
+    if (res.status !== 200) throw new Error(`overpass ${host} returned ${res.status}`)
+
+    const parsed = JSON.parse(res.body) as { elements?: OverpassElement[]; remark?: string }
+    // Overpass reports server-side trouble as HTTP 200 with a remark and an
+    // empty element list. Any remark on a plain venue query means the answer
+    // is incomplete, and an incomplete answer rendered as "nothing near you"
+    // is the one lie this module must not tell.
+    const remark = parsed.remark?.trim()
+    if (remark) throw new Error(`overpass ${host}: ${remark}`)
+
+    return rankByDistance(normalise(parsed.elements ?? []), center)
+  })()
+}
+
+// ---------------------------------------------------------------------------
+// Hedged racing — deliberately knows nothing about Overpass. Given several
+// tasks staggered by `delay_ms`, the first to fulfil wins and everyone else
+// is aborted; if all of them reject, the caller gets the most informative
+// one rather than a generic "nothing answered". Exported and tested on its
+// own (see overpass-race.test.ts) because the timing logic is the part most
+// likely to hide a bug, and it is the part that must not need a live mirror
+// to verify.
+// ---------------------------------------------------------------------------
+
+export interface RaceTask<T> {
+  /** how long this task waits for an earlier one before it gets its own turn */
+  delay_ms: number
+  run: (signal: AbortSignal) => Promise<T>
+}
+
+export async function raceHedged<T>(tasks: RaceTask<T>[], opts: { budget_ms: number; signal?: AbortSignal }): Promise<T> {
+  // One clock for the whole race: aborting on a winner (below) or on the
+  // budget running out (here) both flow through the same signal, so every
+  // in-flight or not-yet-started task hears about it the same way.
+  const raceOver = new AbortController()
+  const signal = opts.signal ? AbortSignal.any([raceOver.signal, opts.signal]) : raceOver.signal
+  const budgetTimer = setTimeout(() => raceOver.abort(), opts.budget_ms)
+
+  try {
+    // Promise.any: first fulfilment wins outright; it only rejects once every
+    // task has, which is exactly "ask several, take whoever answers first".
+    return await Promise.any(tasks.map((task) => runOne(task, signal)))
+  } catch (e) {
+    // An abort is the caller's decision, not a task failure. Surface the
+    // signal's own reason rather than the AggregateError every task rejected
+    // with once it fired — that error has no useful `.message`.
+    if (opts.signal?.aborted) {
+      throw opts.signal.reason instanceof Error ? opts.signal.reason : (e as Error)
+    }
+    const errors = e instanceof AggregateError ? (e.errors as Error[]) : [e as Error]
+    // Last to settle is usually the most informative: earlier rejections tend
+    // to be the fast, generic "someone else answered first" kind.
+    throw errors[errors.length - 1] ?? new Error('every attempt failed')
+  } finally {
+    clearTimeout(budgetTimer)
+    // Stop any stragglers now that the race is decided either way — finishing
+    // a race that is already lost or already won is pointless load.
+    raceOver.abort()
   }
-  throw lastError ?? new Error('overpass unreachable')
+}
+
+function runOne<T>(task: RaceTask<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const fire = () => {
+      // Not necessarily this task losing — the caller's own abort looks the
+      // same from here. raceHedged reads the caller's signal separately, so
+      // this message only ever surfaces when every task truly failed.
+      if (signal.aborted) return reject(new Error('cancelled before this attempt\'s turn'))
+      task.run(signal).then(resolve, reject)
+    }
+    if (task.delay_ms <= 0) {
+      fire()
+      return
+    }
+    const timer = setTimeout(fire, task.delay_ms)
+    // The race ending before this task's turn even starts is the common case
+    // (an early task wins). Skipping the wait is not enough on its own,
+    // though: Promise.any only rejects once *every* input has settled, so a
+    // cancelled task must reject rather than sit forever unsettled — left
+    // pending, it would make raceHedged hang whenever this was the last task
+    // still owed an answer.
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer)
+        reject(new Error('cancelled before this attempt\'s turn'))
+      },
+      { once: true },
+    )
+  })
 }
 
 /** Exported for tests: the query text is the contract with Overpass. */

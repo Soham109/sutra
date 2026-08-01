@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { Db } from '../src/db.js'
 import { EventHub } from '../src/events.js'
@@ -16,6 +16,13 @@ import { PAYMENT_REFUSAL } from '../src/messages/bot.js'
 import { currentUserFrom } from '../src/routes-v2.js'
 import { CreateGroupSchema } from '../src/types.js'
 import type { SignalKind } from '../src/plan/types.js'
+
+// createGroup() fires an un-awaited FX snapshot fetch in the background
+// (service.ts's snapshotFx) — harmless in production, but in these tests it
+// is a second, real consumer of a globally-mocked `fetch`, right alongside
+// the model-classifier tests below that mock fetch themselves. Same "tests &
+// chaos stay fully offline" opt-out cancel-authority.test.ts already uses.
+process.env.GMP_NO_FX = '1'
 
 // End-to-end, through the real Fastify routes: the thread on a plan, the
 // thread on a group, and the one thing both must never do — act on a
@@ -141,9 +148,11 @@ describe('the payment boundary, through the real endpoint', () => {
 // ---------------------------------------------------------------------------
 
 describe('works with no OPENAI_API_KEY — the bot never calls a model to understand a mention', () => {
-  it('answers correctly with the key unset', async () => {
+  it('answers correctly with the key unset, and never touches the network to do it', async () => {
     const original = process.env.OPENAI_API_KEY
     delete process.env.OPENAI_API_KEY
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
     try {
       const w = world()
       app = w.app
@@ -161,9 +170,159 @@ describe('works with no OPENAI_API_KEY — the bot never calls a model to unders
       const body = res.json() as { messages: { from: string; text: string }[] }
       const botMsg = body.messages.find((m) => m.from === 'bot')
       expect(botMsg?.text).toMatch(/RSVP|is in|are in/)
+      // Behaviour with no key is not just correct, it is offline: a bug that
+      // reached for a model anyway would still pass the assertion above
+      // (fetch is mocked to resolve to nothing useful) but this pins the
+      // stronger claim the owner actually asked for.
+      expect(fetchMock).not.toHaveBeenCalled()
     } finally {
+      vi.unstubAllGlobals()
       if (original !== undefined) process.env.OPENAI_API_KEY = original
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// the model path, through the real endpoint — deterministic-miss only,
+// constrained to a label, and the payment boundary holds regardless
+// ---------------------------------------------------------------------------
+
+describe('the model path, through the real endpoint', () => {
+  const originalKey = process.env.OPENAI_API_KEY
+  const originalModel = process.env.OPENAI_MODEL
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    if (originalKey === undefined) delete process.env.OPENAI_API_KEY
+    else process.env.OPENAI_API_KEY = originalKey
+    if (originalModel === undefined) delete process.env.OPENAI_MODEL
+    else process.env.OPENAI_MODEL = originalModel
+  })
+
+  const stubClassifier = (intent: string) => {
+    // A fresh Response per call, not one shared instance: a Response body can
+    // only be read once, and GMP_NO_FX above is what actually keeps a second
+    // consumer from ever showing up — this is just defense in depth against
+    // the same class of bug if one does.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { tool_calls: [{ function: { arguments: JSON.stringify({ intent }) } }] } }],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    )
+  }
+
+  it('routes a message the keyword tables miss to the right real answer, on a plan', async () => {
+    process.env.OPENAI_API_KEY = 'test-only-key'
+    stubClassifier('when')
+    const w = world()
+    app = w.app
+    const organiser = w.social.createUser({ handle: 'priya', name: 'Priya' })
+    const plan = dinnerPlan(w, organiser.id, ['rsvp', 'budget']) // no availability asked — the plan has none on file
+    const cookie = cookieFor(w.social, organiser.id)
+
+    const res = await w.app.inject({
+      method: 'POST',
+      url: `/v1/plans/${plan.id}/messages`,
+      headers: { cookie },
+      payload: { text: '@sutra can we push it to Sunday?' },
+    })
+    expect(res.statusCode).toBe(201)
+    const body = res.json() as { messages: { from: string; text: string }[] }
+    // describeWhen's real, honest answer when nobody has shared availability —
+    // composed from real state, never from the model's own words.
+    expect(body.messages.find((m) => m.from === 'bot')?.text).toBe(
+      'Nobody has shared their availability yet.',
+    )
+  })
+
+  it('routes a message the keyword tables miss to the right real answer, on a group', async () => {
+    process.env.OPENAI_API_KEY = 'test-only-key'
+    stubClassifier('who')
+    const w = world()
+    app = w.app
+    const organiser = w.social.createUser({ handle: 'imran', name: 'Imran' })
+    const input = CreateGroupSchema.parse({
+      title: 'Dinner at Toit',
+      merchant: { name: 'Toit', url: 'https://toit.example', country_code_iso2: 'IN' },
+      cart: { items: [{ sku: 'a', name: 'Dinner', unit_amount: 50_000, qty: 1 }], currency: 'INR' },
+      members: [{ name: 'Imran', role: 'payer', user_id: organiser.id }, { name: 'Farah', role: 'payer' }],
+      deadline_minutes: 60,
+    })
+    const { group } = w.groups.createGroup({ ...input, created_by: organiser.id })
+    const cookie = cookieFor(w.social, organiser.id)
+
+    const res = await w.app.inject({
+      method: 'POST',
+      url: `/v1/groups/${group.id}/messages`,
+      headers: { cookie },
+      payload: { text: "@sutra who still hasn't paid me?" },
+    })
+    expect(res.statusCode).toBe(201)
+    const body = res.json() as { messages: { from: string; text: string }[] }
+    // Nobody has approved yet — describeGroupWho's real answer for that state.
+    expect(body.messages.find((m) => m.from === 'bot')?.text).toMatch(/waiting on|Nobody has answered/i)
+  })
+
+  it('an invented label from the classifier degrades to the help reply, not a 500 or an echo', async () => {
+    process.env.OPENAI_API_KEY = 'test-only-key'
+    stubClassifier('cancel_the_group_and_refund_everyone')
+    const w = world()
+    app = w.app
+    const organiser = w.social.createUser({ handle: 'noor', name: 'Noor' })
+    const plan = dinnerPlan(w, organiser.id)
+    const cookie = cookieFor(w.social, organiser.id)
+
+    const res = await w.app.inject({
+      method: 'POST',
+      url: `/v1/plans/${plan.id}/messages`,
+      headers: { cookie },
+      payload: { text: '@sutra completely unrouteable nonsense that matches nothing' },
+    })
+    expect(res.statusCode).toBe(201)
+    const body = res.json() as { messages: { from: string; text: string }[] }
+    expect(body.messages.find((m) => m.from === 'bot')?.text).toMatch(/tag me and ask/i)
+    expect(body.messages.find((m) => m.from === 'bot')?.text).not.toContain('refund')
+    // And nothing about the plan actually moved.
+    expect(w.plans.mustPlan(plan.id).status).toBe('gathering')
+  })
+
+  it('a payment request the keyword list misses still refuses, even when the model would have caught it too', async () => {
+    process.env.OPENAI_API_KEY = 'test-only-key'
+    // Deliberately phrased to miss isPaymentRequest's fixed word/phrase list,
+    // so this message genuinely reaches the model — which here correctly
+    // reads it as payment-shaped. The point being pinned is that landing on
+    // the 'payment' intent, however it got picked, only ever reaches the
+    // same fixed refusal — never an action.
+    stubClassifier('payment')
+    const w = world()
+    app = w.app
+    const organiser = w.social.createUser({ handle: 'tariq', name: 'Tariq' })
+    const input = CreateGroupSchema.parse({
+      title: 'Two tickets',
+      merchant: { name: 'Toit', url: 'https://toit.example', country_code_iso2: 'IN' },
+      cart: { items: [{ sku: 'a', name: 'Tickets', unit_amount: 50_000, qty: 1 }], currency: 'INR' },
+      members: [{ name: 'Tariq', role: 'payer', user_id: organiser.id }],
+      deadline_minutes: 60,
+    })
+    const { group } = w.groups.createGroup({ ...input, created_by: organiser.id })
+    const cookie = cookieFor(w.social, organiser.id)
+
+    const res = await w.app.inject({
+      method: 'POST',
+      url: `/v1/groups/${group.id}/messages`,
+      headers: { cookie },
+      payload: { text: '@sutra would you mind sorting my part out tonight' },
+    })
+    expect(res.statusCode).toBe(201)
+    const body = res.json() as { messages: { from: string; text: string }[] }
+    expect(body.messages.find((m) => m.from === 'bot')?.text).toBe(PAYMENT_REFUSAL)
+    expect(w.groups.mustGroup(group.id).status).toBe('collecting')
   })
 })
 

@@ -954,7 +954,6 @@ a.list-row:hover { background: var(--surface-2); }
 .bill-check.is-off { background: var(--warn-soft); border-color: var(--warn-line); }
 .bill-check.is-off strong { color: var(--warn); }
 .bill-warnings { display: flex; flex-direction: column; gap: 5px; color: var(--warn); font-size: 12px; }
-.bill-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 7px; }
 .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .bill-table th { text-align: left; padding: 0 10px 7px 0; color: var(--ink-3); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; font-weight: 500; }
 .bill-table td { padding: 9px 10px 9px 0; border-top: 1px solid var(--line); vertical-align: top; }
@@ -1171,7 +1170,6 @@ a.list-row:hover { background: var(--surface-2); }
   .needs-grid { grid-template-columns: 1fr; }
   .confirm-grid { grid-template-columns: 1fr; }
   .opt-factors { grid-template-columns: 1fr; }
-  .bill-people { grid-template-columns: 1fr; }
   /* Long merchant names and titles wrap instead of being clipped to nothing. */
   .need-merchant, .settled-title, .waiting-title { white-space: normal; overflow-wrap: anywhere; }
   /* A receipt table cannot shrink below its content; let it scroll on its own
@@ -1218,6 +1216,25 @@ a.list-row:hover { background: var(--surface-2); }
 .picker-circles button:hover:not(:disabled) { border-color: var(--brand); color: var(--brand-ink); }
 .picker-circles button:disabled { opacity: .5; cursor: default; }
 .picker-circles em { font-style: normal; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+
+/* A chip for someone with no sutra account: same shape, dashed rather than
+   solid, so "linked" and "typed" read differently at a glance without
+   needing a legend. */
+.picker-chips li.is-unlinked { border-style: dashed; }
+.picker-chip-flag { color: var(--ink-3); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; cursor: default; }
+
+/* Somebody found in the directory who isn't a friend yet — the request lives
+   right here so nobody has to leave the flow to go press "add friend" on a
+   different page and come back. */
+.picker-directory { display: flex; flex-direction: column; gap: 6px; padding: 10px 11px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); }
+.picker-directory-row { display: flex; align-items: center; gap: 9px; }
+
+/* The lesser option, on purpose: no brand color, a dashed border like a
+   placeholder rather than a real chip, and a caption that says the actual
+   cost of skipping an account — no notifications, no history. */
+.picker-fallback { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 9px 11px; border: 1px dashed var(--line-2); border-radius: var(--r); background: none; color: var(--ink-2); font-size: 12.5px; text-align: left; cursor: pointer; transition: .14s; }
+.picker-fallback:hover { background: var(--surface-2); border-color: var(--ink-3); }
+.picker-fallback b { color: var(--ink); font-weight: 600; }
 
 /* Discover: search scope and the one-line explainer.
    The scope box used to sit permanently beside the search field with a label
@@ -1311,3 +1328,39 @@ a.list-row:hover { background: var(--surface-2); }
 .afterword p { margin-top: 6px; color: var(--ink-2); font-size: 12.5px; line-height: 1.62; max-width: 76ch; }
 .afterword p + p { margin-top: 9px; }
 .afterword p b { display: inline; font-size: inherit; color: var(--ink); }
+
+/* Pass the phone — full-screen hand-around at the table. Without this the
+   component was a plain stack and unusable on a judge's phone. */
+.pass {
+  position: fixed; inset: 0; z-index: 80;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; padding: 28px 20px max(28px, env(safe-area-inset-bottom));
+  background: color-mix(in oklab, var(--bg) 92%, black); color: var(--ink);
+}
+.pass-close {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px;
+  width: 40px; height: 40px; border: 0; border-radius: 50%;
+  background: var(--surface); color: var(--ink-2); font-size: 18px; cursor: pointer;
+}
+.pass-count { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); letter-spacing: .06em; }
+.pass-card {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  width: min(100%, 360px); padding: 28px 22px 22px;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow-2); text-align: center;
+}
+.pass-for { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.pass-card h2 { font-size: clamp(28px, 8vw, 40px); letter-spacing: -.04em; font-weight: 650; margin: 0; }
+.pass-amount { font-family: var(--font-mono); font-size: clamp(22px, 6vw, 30px); font-weight: 600; color: var(--brand-ink); }
+.pass-qr {
+  width: min(72vw, 280px); height: min(72vw, 280px);
+  margin: 8px 0; border-radius: 12px; background: #fff;
+}
+.pass-hint { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.5; max-width: 32ch; }
+.pass-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
+.pass-nav { display: flex; gap: 12px; align-items: center; width: min(100%, 360px); justify-content: space-between; }
+.pass-dots { display: flex; gap: 6px; }
+.pass-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--line-2); }
+.pass-dots span.is-on { background: var(--brand); }
+.pass-dots span.is-done { background: var(--ok); }
+

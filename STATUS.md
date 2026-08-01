@@ -130,12 +130,56 @@ Lower priority, only if the above is done:
 - Publish the extension, or accept "load unpacked" and say so.
 - Fold the ~10 undocumented endpoints into the README tables.
 
-## 8. Do not break these
+## 9. NANDA track — fulfilled checklist (re-run 2026-08-01 evening)
 
-- `numReplicas: 1` in `railway.json` — a Railway volume cannot be shared; more replicas
-  corrupt the SQLite database.
-- The `/data` volume with `DB_PATH=/data/gmp.db` — without it every deploy wipes every
-  group and receipt.
-- **Run the engine test suite from PowerShell.** Under Git Bash all files fail with
-  `Cannot read properties of undefined (reading 'config')` and zero tests run. It reads
-  like a broken codebase. Never "fix" a test file in response to it.
+The prize is **"Best Prava Adapter for the NANDA Town"** — the Python plugin,
+not Index registration. Evidence: [`docs/NANDA-EVIDENCE.md`](docs/NANDA-EVIDENCE.md).
+
+| Check | Result | Command |
+|---|---|---|
+| Plugin discovered by nest | `prava_mandates` + `prepaid_credits` | `nest plugins list payments` |
+| Unit/integration tests | **46 passed, 1 skipped** | `npm run nanda:test` |
+| Narrated group-purchase scene | **all checks passed** | `npm run nanda:scene` |
+| Baseline vs prepaid_credits | all assertions hold, byte-identical traces | `python scripts/baseline_diff.py` |
+| nest HTML reports | regenerated locally (`*.html` gitignored) | `nest report traces/*.jsonl -o report-*.html` |
+| Discovery `nanda check` @ production | **all green** | `$env:SUTRA_PUBLIC_URL="https://sutra-gmp.vercel.app"; npm run nanda:check` |
+| SkillMD registry | **submitted** id `47063b5f-5000-4c03-8f33-c98555618f85` | curl the registry URL in HANDOFF §3.3 |
+| Registry `reachable` badge | still **`null`** — say so, do not invent a badge | — |
+| Real card charge via plugin | **not done** — needs human passkey (§1) | `npm run e2e:proof -- --watch` |
+
+**Pitch line for Prof. Raskar:** open a terminal, run `npm run nanda:scene`, watch
+four named agents mint mandates, Dev decline mid-flight, Maya's backstop absorb
+the shortfall, conservation invariants tick, then prepaid_credits fail the same
+purchase by pooling money in the coordinator. That contrast *is* the $1,000 argument.
+
+**Do not** run `nanda index-register`. It is not the prize.
+
+---
+
+## 10. Session progress log (append-only)
+
+### 2026-08-01 ~21:50 IST — critic swarm → concrete fixes
+Agents: [empty-state audit](98fe8d6b-30f2-4cfa-8517-ed707a52c61e), [PeoplePicker](89295a21-d89a-48d2-b11f-2b189e63b5ef) (DONE),
+[feature brainstorm](786bba22-f699-4bbe-a9ff-f9703b4e9f1c), [UI workflow](b3bf6e45-9548-43ac-bdc5-0d02d3a6f7f7),
+[demo stress](21638e3e-c6a3-46cd-830f-83685bb3ef25), [money security](296b6c87-70cb-416e-bf5d-679bcb9941b0),
+[proxy elevation](e2bb9f51-4734-4e76-bf36-41cc65d13b96), [judge-harsh](0fda1816-6e09-4845-bb3e-6e592b531a51),
+[mobile approve](796bcca4-3e9c-457a-a91c-b2abbab79a2e), [demo wow](ecadb2c0-1f75-4558-b016-2e004bf35c0e),
+[landing honesty](0d293a0f-c4fb-4b4b-97bf-223e58e1cfcc), [spec gap](d5c9e248-c520-40df-af71-22da81f3d8d1).
+
+**Shipped this hour (local, not submitted / not deployed):**
+- **CRITICAL** `web/src/app/api/[...path]/route.ts` — stop injecting `ENGINE_API_TOKEN` on every
+  browser call (only `POST /v1/groups` still gets it). This was reopening cancel / plan-privacy /
+  chat membership short-circuits.
+- **at_venue honesty:** Ticket branches (Agreed / pay at table); WhatNow H2; join page copy;
+  PortalNote gated to `prava_mandates`; group badge `committing` → Sealing; join progress counts `settled`.
+- PassThePhone: full-screen CSS + share/copy links (was unstyled / QR-only).
+- Plan empty board: don’t blame “no location” when a place already exists.
+- Softened “friend is notified / inbox always works” claims (notify never fires on protocol events — still open).
+
+**Still open (do next, ranked):**
+1. You: real sandbox passkey charge (`e2e:proof --watch`) — criterion #1.
+2. Wire `notifier.notify` on `member.approved` / `group.committed` (or stop claiming push).
+3. Plan cancel/choose/convert organiser auth (`routes-plan.ts`).
+4. Pin `verifyReceipt` to `/health` public key.
+5. Deploy web so live loses fabricated %s / gets rail-honest Ticket.
+6. Shell CTA → `/app/plan/new`; collapse group protocol chrome.

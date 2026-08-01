@@ -45,7 +45,30 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     const value = request.headers.get(name)
     if (value) headers.set(name, value)
   }
-  if (ENGINE_TOKEN) headers.set('authorization', `Bearer ${ENGINE_TOKEN}`)
+
+  // CRITICAL: do NOT stamp ENGINE_API_TOKEN on every browser call.
+  //
+  // The engine treats that bearer as the operator: cancel any group, full plan
+  // participant ids, skip chat membership checks. The Next app talks to the
+  // engine only through this proxy, so injecting the token everywhere made
+  // every visitor of sutra-gmp.vercel.app into an operator — undoing the
+  // cancel-authority and plan-privacy fixes.
+  //
+  // Only POST /v1/groups (create) requires the operator token under GMP/1;
+  // bill/split and plan convert create groups in-process. Session identity
+  // travels on the cookie we already forward above.
+  const pathJoined = path.join('/')
+  const needsOperatorToken = request.method === 'POST' && pathJoined === 'v1/groups'
+  if (needsOperatorToken && ENGINE_TOKEN) {
+    headers.set('authorization', `Bearer ${ENGINE_TOKEN}`)
+  } else {
+    const clientAuth = request.headers.get('authorization')
+    // Never let a client smuggle the master token through; session bearers
+    // (sutra_session_*) and extension tokens are fine to forward.
+    if (clientAuth && (!ENGINE_TOKEN || clientAuth !== `Bearer ${ENGINE_TOKEN}`)) {
+      headers.set('authorization', clientAuth)
+    }
+  }
 
   // An event stream is supposed to stay open. Everything else is not: without a
   // deadline here, a sleeping Railway container or bad conference wifi leaves

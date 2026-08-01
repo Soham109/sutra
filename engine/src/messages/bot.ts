@@ -16,6 +16,7 @@ import {
 } from '../plan/types.js'
 import { cartTotal, type Cart, type GroupRow, type MemberRow } from '../types.js'
 import { ulid } from '../ids.js'
+import { classifyIntentWithOpenAI } from './classify.js'
 
 // ---------------------------------------------------------------------------
 // The @sutra bot: a coordination delegate that talks in the thread instead of
@@ -24,16 +25,21 @@ import { ulid } from '../ids.js'
 // Every reply in this file is built from exactly two ingredients: real rows
 // already in the plan/group store, and — when the tagger has standing rules
 // on file — decideSignals' own arithmetic (delegate/rules.ts). There is no
-// third ingredient. No model call, no invented venue, no invented name. If a
-// question has no answer in either of those two places, the honest reply is
-// "I don't know that yet," never a guess dressed up as one.
+// third ingredient. No invented venue, no invented name. If a question has no
+// answer in either of those two places, the honest reply is "I don't know
+// that yet," never a guess dressed up as one.
 //
-// That is also why this module needs no OPENAI_API_KEY: unlike
-// agent/extract.ts, which reaches for a model to parse messy free text into
-// slots, this bot only ever has to pick ONE of a small, fixed set of known
-// questions apart — a job the deterministic keyword tables below do exactly
-// as reliably as a model would, without a network round trip or a new way
-// for the "no invented facts" rule to be broken.
+// UNDERSTANDING the question is a separate concern from ANSWERING it, and
+// only the first of those is allowed to touch a model. classifyIntentSmart
+// below runs the deterministic keyword tables first — same order as
+// agent/extract.ts's own deterministic-then-model split — and only when they
+// come up empty does it ask a model to place the message into one of the
+// same fixed intents classifyIntent already knows about (classify.ts). That
+// call returns a single validated label and nothing else — never a sentence,
+// a number or a name — so every reply below is still built from exactly the
+// two ingredients this comment opened with. With no OPENAI_API_KEY, or on any
+// model failure, behaviour is byte-for-byte what it was before this file
+// ever heard of a model: the deterministic tables decide alone.
 // ---------------------------------------------------------------------------
 
 export const SUTRA_BOT_NAME = 'Sutra'
@@ -108,6 +114,29 @@ export function classifyIntent(text: string, scope: 'plan' | 'group'): Intent {
   if (OPTIONS_RE.test(text)) return 'options'
   if (BUDGET_RE.test(text)) return 'budget'
   return 'help'
+}
+
+/**
+ * classifyIntent's own floor, plus one optional storey: when the keyword
+ * tables genuinely find nothing, and only then, a model is asked to place the
+ * message into the SAME closed set of intents — never asked to answer it.
+ * classify.ts re-validates whatever comes back against that same set before
+ * this function will accept it, so a model outage, a missing key, or an
+ * answer outside the enum all collapse to identical behaviour: 'help', the
+ * exact reply classifyIntent already gives keyword-less text on its own.
+ *
+ * The payment check at the top of classifyIntent has already run once by the
+ * time this could ever call the model — real payment phrasing never reaches
+ * here. The isPaymentRequest recheck below is not load-bearing; it exists so
+ * nothing downstream can ever come to depend on the model's word being the
+ * last one on the one boundary this bot is not allowed to get wrong.
+ */
+export async function classifyIntentSmart(text: string, scope: 'plan' | 'group'): Promise<Intent> {
+  const deterministic = classifyIntent(text, scope)
+  if (deterministic !== 'help') return deterministic
+  const modelIntent = await classifyIntentWithOpenAI(text, scope)
+  if (modelIntent && isPaymentRequest(text)) return 'payment'
+  return modelIntent ?? 'help'
 }
 
 // ---------------------------------------------------------------------------
@@ -394,7 +423,7 @@ export async function replyToPlanMention(
   taggerUserId: string,
   text: string,
 ): Promise<{ text: string; usedRules: string[] }> {
-  const intent = classifyIntent(text, 'plan')
+  const intent = await classifyIntentSmart(text, 'plan')
   if (intent === 'refresh') {
     const outcome = await runRefresh(deps, plan, taggerUserId)
     return { text: describeRefresh(outcome), usedRules: outcome.usedRuleFields }
@@ -476,7 +505,13 @@ export function answerGroupQuestion(intent: Intent, state: GroupBotState): strin
   }
 }
 
-/** The one entry point routes.ts calls for a group mention. Pure — no I/O. */
-export function replyToGroupMention(group: GroupRow, members: MemberRow[], text: string): string {
-  return answerGroupQuestion(classifyIntent(text, 'group'), { group, members })
+/**
+ * The one entry point routes.ts calls for a group mention. Still read-only —
+ * classifyIntentSmart's optional model call is the only I/O this path can
+ * ever do; answerGroupQuestion itself remains the same pure function over
+ * real rows it always was.
+ */
+export async function replyToGroupMention(group: GroupRow, members: MemberRow[], text: string): Promise<string> {
+  const intent = await classifyIntentSmart(text, 'group')
+  return answerGroupQuestion(intent, { group, members })
 }

@@ -440,6 +440,28 @@ export class Social {
       .all(userId, userId) as unknown as { id: string }[]
     return rows.map((r) => r.id)
   }
+
+  /**
+   * Friends ranked "who did I actually just split something with" instead of
+   * A→Z. This walks the same recent-first group list `/v1/my/groups` already
+   * uses and records each co-member the first time they appear — i.e. in
+   * their most recent shared group — so the order is read off real
+   * membership rows, never guessed or scored by anything invented.
+   */
+  recentCollaborators(userId: string, limit = 20): string[] {
+    const groupIds = this.groupsFor(userId).slice(0, 200)
+    const seen = new Set<string>([userId])
+    const order: string[] = []
+    for (const groupId of groupIds) {
+      if (order.length >= limit) break
+      for (const m of this.db.membersOf(groupId)) {
+        if (!m.user_id || seen.has(m.user_id)) continue
+        seen.add(m.user_id)
+        order.push(m.user_id)
+      }
+    }
+    return order
+  }
 }
 
 function hashToken(token: string): string {
