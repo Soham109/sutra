@@ -10,7 +10,7 @@ import { checkOcrIntegrity } from './bill/integrity.js'
 import type { PlanStore } from './plan/store.js'
 import { capabilityOf } from './rails.js'
 import { UserError, type GroupService } from './service.js'
-import { Social, type User } from './social.js'
+import { Social, publicUser, type User } from './social.js'
 import { groupView } from './routes.js'
 import { cartTotal, CreateGroupSchema, GROUP_TERMINAL, type Cart } from './types.js'
 
@@ -114,7 +114,7 @@ export function registerProductRoutes(
     return {
       user,
       reliability: social.reliability(user.id),
-      friends: social.friendsOf(user.id),
+      friends: social.friendsOf(user.id).map(publicUser),
       circles: social.circlesFor(user.id),
     }
   })
@@ -164,38 +164,82 @@ export function registerProductRoutes(
 
   // ---- people ------------------------------------------------------------
 
+  /**
+   * The directory. Public by design — you have to be able to find a friend by
+   * name — but it returns a display identity only. It used to spread the raw
+   * database row, which put every user's email, and eventually their password
+   * hash, in front of anybody who asked.
+   */
   app.get('/v1/people', async (req) => {
     const q = String((req.query as { q?: string }).q ?? '').toLowerCase()
     const me = currentUser(req)
     const friendIds = new Set(me ? social.friendsOf(me.id).map((f) => f.id) : [])
+    const outgoing = new Set(me ? social.outgoingRequests(me.id).map((r) => r.id) : [])
+    const incoming = new Set(me ? social.incomingRequests(me.id).map((r) => r.id) : [])
     return {
       people: social
         .allUsers()
         .filter((u) => !q || u.name.toLowerCase().includes(q) || u.handle.includes(q))
-        .map((u) => ({ ...u, is_friend: friendIds.has(u.id), is_me: u.id === me?.id })),
+        .map((u) => ({
+          ...publicUser(u),
+          is_friend: friendIds.has(u.id),
+          is_me: u.id === me?.id,
+          request_sent: outgoing.has(u.id),
+          request_received: incoming.has(u.id),
+        })),
     }
   })
 
+  /** Ask to be someone's friend. They have to say yes. */
   app.post('/v1/people/:id/friend', async (req) => {
     const me = requireUser(req)
     const { id } = req.params as { id: string }
     if (!social.byId(id)) throw new UserError('no such person', 404)
-    social.addFriend(me.id, id)
-    return { friends: social.friendsOf(me.id) }
+    const state = social.requestFriend(me.id, id)
+    return {
+      state,
+      friends: social.friendsOf(me.id).map(publicUser),
+      outgoing: social.outgoingRequests(me.id).map(publicUser),
+    }
+  })
+
+  app.post('/v1/people/:id/accept', async (req) => {
+    const me = requireUser(req)
+    const { id } = req.params as { id: string }
+    if (!social.acceptFriend(me.id, id)) throw new UserError('no pending request from that person', 404)
+    return {
+      friends: social.friendsOf(me.id).map(publicUser),
+      incoming: social.incomingRequests(me.id).map(publicUser),
+    }
+  })
+
+  app.post('/v1/people/:id/decline', async (req) => {
+    const me = requireUser(req)
+    const { id } = req.params as { id: string }
+    social.declineFriend(me.id, id)
+    return { incoming: social.incomingRequests(me.id).map(publicUser) }
+  })
+
+  app.get('/v1/people/requests', async (req) => {
+    const me = requireUser(req)
+    return {
+      incoming: social.incomingRequests(me.id).map(publicUser),
+      outgoing: social.outgoingRequests(me.id).map(publicUser),
+    }
   })
 
   app.post('/v1/people/:id/unfriend', async (req) => {
     const me = requireUser(req)
     const { id } = req.params as { id: string }
     social.removeFriend(me.id, id)
-    return { friends: social.friendsOf(me.id) }
+    return { friends: social.friendsOf(me.id).map(publicUser) }
   })
 
   app.get('/v1/people/:id/reliability', async (req) => {
     const { id } = req.params as { id: string }
     const user = social.byId(id)
     if (!user) throw new UserError('no such person', 404)
-    return { user, reliability: social.reliability(id) }
+    return { user: publicUser(user), reliability: social.reliability(id) }
   })
 
   // ---- circles -----------------------------------------------------------
@@ -220,7 +264,7 @@ export function registerProductRoutes(
       emoji: body.emoji,
       memberIds: body.member_ids,
     })
-    return { circle: { ...circle, members: social.circleMembers(circle.id) } }
+    return { circle: { ...circle, members: social.circleMembers(circle.id).map(publicUser) } }
   })
 
   app.post('/v1/circles/:id/delete', async (req) => {

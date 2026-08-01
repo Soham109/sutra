@@ -588,7 +588,11 @@ a.list-row:hover { background: var(--surface-2); }
 
 /* Product shell refresh --------------------------------------------------- */
 .shell { grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
-.sidebar { background: #11110f; color: #f7f6f2; border-right: 0; padding: 10px; }
+/* The sidebar was hardcoded near-black regardless of theme, so light mode had
+   a black rail down one side. Colour comes from tokens now; only the shape is
+   fixed here. */
+.sidebar { background: var(--surface-2); color: var(--ink); border-right: 1px solid var(--line); padding: 10px; }
+[data-theme='dark'] .sidebar { background: #11110f; color: #f7f6f2; border-right: 0; }
 .sidebar-head { padding: 10px 10px 24px; }
 .sidebar .nav-section-label { color: #6f6c65; padding-inline: 10px; }
 .sidebar-nav { padding: 0; }

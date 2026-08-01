@@ -16,6 +16,29 @@ export interface User {
   created_at: string
 }
 
+/**
+ * What one person may see about another.
+ *
+ * The row that comes out of SQLite carries `email` and `password_hash`, and
+ * `/v1/people` was returning it verbatim to every signed-in user — so anyone
+ * could enumerate every address on the service, and would have seen the hashes
+ * too once real accounts existed.
+ *
+ * Directory listings are public by design here: you need to find a friend by
+ * name to add them. What is public is a display identity — nothing that could
+ * be used to contact, impersonate, or attack the account.
+ */
+export interface PublicUser {
+  id: string
+  handle: string
+  name: string
+  accent: string
+}
+
+export function publicUser(u: User): PublicUser {
+  return { id: u.id, handle: u.handle, name: u.name, accent: u.accent }
+}
+
 export interface Circle {
   id: string
   owner_id: string
@@ -58,6 +81,17 @@ export function installSocialSchema(db: Db): void {
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       PRIMARY KEY (user_id, friend_id)
     );
+
+    -- One row while an ask is outstanding; deleted when accepted or declined.
+    -- A friendship is two rows in the friendships table; a request is one row
+    -- here, and the direction is the whole point.
+    CREATE TABLE IF NOT EXISTS friend_requests (
+      from_id TEXT NOT NULL,
+      to_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      PRIMARY KEY (from_id, to_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_friend_req_to ON friend_requests(to_id);
 
     -- A circle is a group you keep re-forming: default people, default policy.
     CREATE TABLE IF NOT EXISTS circles (
@@ -188,13 +222,80 @@ export class Social {
 
   // ---- friends ------------------------------------------------------------
 
-  addFriend(userId: string, friendId: string): void {
+  /**
+   * Ask. Do not assume.
+   *
+   * This used to write both rows immediately, so pressing a button added YOU to
+   * a stranger's friend list without them ever hearing about it. In a product
+   * where a friend can be dropped into a group that asks them for money, being
+   * added to someone's list has to be something you agreed to.
+   *
+   * If they already asked you, this accepts instead — pressing "add" on someone
+   * who is waiting on you should obviously mean yes.
+   */
+  requestFriend(userId: string, friendId: string): 'friends' | 'requested' | 'already' {
     if (userId === friendId) throw new Error('you are already yourself')
+    if (this.areFriends(userId, friendId)) return 'already'
+
+    const theyAsked = this.db.sql
+      .prepare(`SELECT 1 FROM friend_requests WHERE from_id = ? AND to_id = ?`)
+      .get(friendId, userId)
+    if (theyAsked) {
+      this.acceptFriend(userId, friendId)
+      return 'friends'
+    }
+
+    this.db.sql
+      .prepare(`INSERT OR IGNORE INTO friend_requests (from_id, to_id) VALUES (?, ?)`)
+      .run(userId, friendId)
+    return 'requested'
+  }
+
+  /** `userId` accepts the request `friendId` sent them. */
+  acceptFriend(userId: string, friendId: string): boolean {
+    const pending = this.db.sql
+      .prepare(`DELETE FROM friend_requests WHERE from_id = ? AND to_id = ?`)
+      .run(friendId, userId)
+    if (pending.changes === 0) return false
+    // Stored as two rows so a lookup never needs an OR.
     const stmt = this.db.sql.prepare(
       `INSERT OR IGNORE INTO friendships (user_id, friend_id) VALUES (?, ?)`,
     )
     stmt.run(userId, friendId)
     stmt.run(friendId, userId)
+    // Any request in the other direction is now moot.
+    this.db.sql.prepare(`DELETE FROM friend_requests WHERE from_id = ? AND to_id = ?`).run(userId, friendId)
+    return true
+  }
+
+  declineFriend(userId: string, friendId: string): void {
+    this.db.sql.prepare(`DELETE FROM friend_requests WHERE from_id = ? AND to_id = ?`).run(friendId, userId)
+  }
+
+  areFriends(a: string, b: string): boolean {
+    return !!this.db.sql
+      .prepare(`SELECT 1 FROM friendships WHERE user_id = ? AND friend_id = ?`)
+      .get(a, b)
+  }
+
+  /** People waiting on this user to answer. */
+  incomingRequests(userId: string): User[] {
+    return this.db.sql
+      .prepare(
+        `SELECT u.* FROM users u JOIN friend_requests r ON r.from_id = u.id
+         WHERE r.to_id = ? ORDER BY r.created_at DESC`,
+      )
+      .all(userId) as unknown as User[]
+  }
+
+  /** People this user has asked, who have not answered yet. */
+  outgoingRequests(userId: string): User[] {
+    return this.db.sql
+      .prepare(
+        `SELECT u.* FROM users u JOIN friend_requests r ON r.to_id = u.id
+         WHERE r.from_id = ? ORDER BY r.created_at DESC`,
+      )
+      .all(userId) as unknown as User[]
   }
 
   removeFriend(userId: string, friendId: string): void {
