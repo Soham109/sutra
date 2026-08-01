@@ -112,20 +112,26 @@ export class PravaClient implements PravaAdapter {
         max_charges: 1,
       },
     })
-    if (res.authorizeOnly !== true) {
-      // The only signal that the session really became authorize-only. Without
-      // it we may have created an ordinary checkout that charges immediately.
-      throw new PravaHttpError(
-        200,
-        'MANDATE_SETUP_NOT_HONOURED',
-        'session did not come back authorizeOnly — refusing to treat it as a mandate setup',
-      )
-    }
+    // The docs say `authorizeOnly` is "present and true for mandate-setup
+    // sessions". The live sandbox does not send it at all — verified
+    // 2026-08-01, a Create Session response carries exactly session_id,
+    // session_token, expires_at, iframe_url, order_id, for a mandate_setup body
+    // and a plain one alike.
+    //
+    // We briefly refused to proceed without it, which blocked every approval.
+    // There is no substitute assertion available at creation time either: a
+    // mandate does not exist until the human completes the passkey ceremony,
+    // so `GET /v1/mandates?customer_id=…` is empty for both kinds of session
+    // immediately after creation. The real confirmation is the one the poller
+    // already performs — a standing mandate appearing `active` for this
+    // customer once they have approved. Anything stricter here is a guess
+    // dressed as a check.
     return {
       sessionId: res.session_id,
       approvalUrl: res.iframe_url,
       expiresAt: res.expires_at,
       orderId: res.order_id ?? null,
+      authorizeOnly: res.authorizeOnly ?? null,
     }
   }
 

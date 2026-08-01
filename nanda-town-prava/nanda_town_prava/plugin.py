@@ -102,6 +102,15 @@ _MEMBER_STATUS: dict[str, PaymentStatus] = {
 _GROUP_STATUS_TERMINAL = frozenset({"committed", "partial", "aborted", "expired"})
 _GROUP_STATUS_KNOWN = _GROUP_STATUS_TERMINAL | {"draft", "collecting", "deciding", "committing"}
 
+# Member states in which the engine has already cancelled that member's
+# mandate, so the card network is no longer holding their cap.
+_MANDATE_RELEASED = frozenset({"declined", "expired", "dropped", "failed"})
+
+# Member states that mean "no live mandate session exists for this member".
+# `invited` is the initial state; a member is put back to `viewed` by a
+# requote (GMP/1 §4.1), which cancels their old mandate first.
+_NEEDS_SESSION = frozenset({"invited", "viewed"})
+
 
 class RefundNotSupportedError(NotImplementedError):
     """A settled card charge does not roll back. Raised by :meth:`PravaMandates.refund`.
@@ -204,6 +213,10 @@ class Authorization:
     agent_captured: int = 0
     agent_released: int = 0
     group_status: str = "collecting"
+    # How many times the engine sent each principal back for a fresh passkey
+    # tap at a larger share (GMP/1 §4.1, capped at 2 by the engine). Zero for
+    # every member on the happy path.
+    requote_rounds: dict[str, int] = field(default_factory=dict)
     rail: str | None = None
     voided: bool = False
     partial_settlement: bool = False
@@ -244,6 +257,7 @@ class Authorization:
                 "agent_captured": self.agent_captured,
                 "agent_released": self.agent_released,
                 "group_status": self.group_status,
+                "requote_rounds": dict(self.requote_rounds),
                 "voided": self.voided,
                 "partial_settlement": self.partial_settlement,
                 "unknown_states": list(self.unknown_states),
@@ -851,36 +865,17 @@ class PravaMandates:
         # Reserve against the caps the engine actually minted rather than our
         # pre-flight estimate, so the ledger can never drift from the consent
         # the cardholders gave.
-        total_caps, agent_cap = self_share, self_share
+        first_view: dict[str, Any] | None = None
         with contextlib.suppress(EngineError, KeyError):
-            view = await self._bundle.transport.get_group(auth.group_id)
-            total_caps = sum(
-                int(m.get("cap_amount") or 0)
-                for m in view.get("members", [])
-                if str(m.get("role", "payer")) != "backstop"
-            )
-            agent_cap = sum(
-                int(m.get("cap_amount") or 0)
-                for m in view.get("members", [])
-                if str(m.get("name", "")) == str(self._agent_id)
-            )
-        self._reserve(auth, total_caps, agent_cap)
+            first_view = await self._bundle.transport.get_group(auth.group_id)
+        if first_view is None:
+            self._reserve(auth, self_share, self_share)
+        else:
+            self._reserve(auth, *self._caps_from_view(first_view))
 
         # Each member's own hosted passkey ceremony. The agent cannot approve
         # for them and must not try — it hands out URLs.
-        for member_id in auth.member_ids:
-            try:
-                view = await self._bundle.transport.open_member(member_id)
-            except (EngineError, KeyError):
-                continue
-            url = view.get("approval_url")
-            if url:
-                auth.approval_urls[str(view.get("name", member_id))] = str(url)
-
-        if self._auto_approve:
-            for member_id in auth.member_ids:
-                with contextlib.suppress(EngineError, KeyError):
-                    await self._bundle.transport.approve_member(member_id)
+        await self._drive_members(auth, first_view)
 
         await self._await_terminal(auth)
 
@@ -898,6 +893,78 @@ class PravaMandates:
                 receipt=receipt,
             )
         return receipt
+
+    def _caps_from_view(self, view: dict[str, Any]) -> tuple[int, int]:
+        """``(total live cap, this agent's slice of it)`` from a group view.
+
+        The cap is what the card network is actually holding, so a member
+        whose mandate the engine has already cancelled — dropped by a quorum
+        decision, declined, expired — contributes nothing. An *armed*
+        backstop is holding a second mandate on the same card, so its
+        standing offer counts too.
+
+        Both numbers are read off the engine rather than recomputed here:
+        the plugin's arithmetic is not the consent, the mandate is.
+        """
+        total = 0
+        mine = 0
+        for member in view.get("members", []):
+            if str(member.get("status", "")) in _MANDATE_RELEASED:
+                continue
+            cap = int(member.get("cap_amount") or 0)
+            if member.get("backstop_armed"):
+                cap += int(member.get("backstop_cap") or 0)
+            total += cap
+            if str(member.get("name", "")) == str(self._agent_id):
+                mine += cap
+        return total, mine
+
+    async def _drive_members(
+        self, auth: Authorization, view: dict[str, Any] | None = None
+    ) -> None:
+        """Mint (or re-mint) each principal's hosted approval session.
+
+        Deliberately re-entrant. GMP/1 §4.1 can send a member back to
+        ``viewed`` with a **larger** share when the locked set shrinks — a
+        *requote* — and doing so cancels the mandate they already approved,
+        because consent cannot stretch. On a real engine the next actor is
+        the same human tapping their passkey a second time, on a page that
+        now shows the new number; here that is a second ``open_member``,
+        and, when the engine is running its own Prava mock, a second
+        auto-approval.
+
+        Without this the plugin opens each session exactly once and then
+        polls a group that can never move again. That is precisely what
+        happened the first time ``live`` mode was pointed at the deployed
+        engine — see ``docs/NANDA-EVIDENCE.md``.
+        """
+        if view is None:
+            try:
+                view = await self._bundle.transport.get_group(auth.group_id)
+            except (EngineError, KeyError):
+                return
+        by_id = {
+            str(m.get("member_id")): m for m in view.get("members", []) if m.get("member_id")
+        }
+        for member_id in auth.member_ids:
+            status = str(by_id.get(member_id, {}).get("status", ""))
+            if status and status not in _NEEDS_SESSION:
+                # A session already exists. Re-approving is a no-op on an
+                # already-active mandate, and impossible on a real rail.
+                if self._auto_approve and status == "awaiting_approval":
+                    with contextlib.suppress(EngineError, KeyError):
+                        await self._bundle.transport.approve_member(member_id)
+                continue
+            try:
+                opened = await self._bundle.transport.open_member(member_id)
+            except (EngineError, KeyError):
+                continue
+            url = opened.get("approval_url")
+            if url:
+                auth.approval_urls[str(opened.get("name", member_id))] = str(url)
+            if self._auto_approve:
+                with contextlib.suppress(EngineError, KeyError):
+                    await self._bundle.transport.approve_member(member_id)
 
     def _self_reservation(
         self, principals: tuple[Principal, ...], total_minor: int, tolerance_bps: int
@@ -984,6 +1051,9 @@ class PravaMandates:
             if auth.group_status in _GROUP_STATUS_TERMINAL:
                 await self._fetch_receipt(auth)
                 return
+            # A requote cancelled somebody's mandate and is waiting on a fresh
+            # one. Polling alone would wait forever.
+            await self._drive_members(auth, view)
             if time.monotonic() >= deadline:
                 return
             await asyncio.sleep(self._poll_interval)
@@ -1002,10 +1072,17 @@ class PravaMandates:
                 auth.unknown_states = tuple(
                     dict.fromkeys((*auth.unknown_states, f"member:{member_status}"))
                 )
+            round_ = int(member.get("requote_round") or 0)
+            if round_:
+                auth.requote_rounds[str(member.get("name", ""))] = round_
             charged = int(member.get("charged_amount") or 0)
             captured += charged
             if str(member.get("name", "")) == auth.payer:
                 agent_captured += charged
+        # A requote mints larger mandates, so the hold can grow after `pay()`.
+        # `_reserve` only ever ratchets up: `reserved` is the peak the network
+        # held, which is what `captured + released + outstanding` must equal.
+        self._reserve(auth, *self._caps_from_view(view))
         self._capture(auth, captured, agent_captured)
         if auth.group_status in _GROUP_STATUS_TERMINAL:
             # Terminal: the network releases every hold it did not capture.
@@ -1030,11 +1107,17 @@ class PravaMandates:
     # -- ledger movements ----------------------------------------------------
 
     def _reserve(self, auth: Authorization, total_caps: int, agent_cap: int) -> None:
-        """Record the holds: the network's total, and this agent's slice of it."""
+        """Record the holds: the network's total, and this agent's slice of it.
+
+        Ratchets up and is idempotent under repeated polling, so re-reading a
+        group view can never double-debit an agent's headroom.
+        """
         auth.reserved = max(total_caps, auth.reserved)
-        if agent_cap > 0:
-            auth.agent_reserved = agent_cap
-            self._headroom[self._agent_id] = self.balance(self._agent_id) - agent_cap
+        delta = max(agent_cap, auth.agent_reserved) - auth.agent_reserved
+        if delta <= 0:
+            return
+        auth.agent_reserved += delta
+        self._headroom[self._agent_id] = self.balance(self._agent_id) - delta
 
     def _release(self, auth: Authorization) -> None:
         """Release every hold the rail no longer needs. Idempotent under polling."""

@@ -11,16 +11,18 @@ engine. This script is the thing that proves it.
     export ENGINE_API_TOKEN=...            # never printed by this script
     python scripts/live_check.py
 
-Six checks, in order:
+Seven checks, in order:
 
 1. ``GET /health`` — which adapter is the engine actually running?
 2. single principal: ``pay()`` → ``verify_payment()`` → ``CONFIRMED``
 3. four principals, four cards, four passkeys, one merchant, one purchase
-4. unknown states — an unrecognised status string, and a group the engine
+4. ``quorum(3)`` of four plus a backstop, which forces a real GMP/1 requote
+   cascade — the path that broke the first time this script was run
+5. unknown states — an unrecognised status string, and a group the engine
    has never heard of. Both must be ``PENDING``; neither may be
    ``CONFIRMED`` and neither may be ``FAILED``.
-5. ``refund()`` pre-charge — cancels every mandate, charges nobody
-6. ``refund()`` post-charge — refuses, because a settled card charge does
+6. ``refund()`` pre-charge — cancels every mandate, charges nobody
+7. ``refund()`` post-charge — refuses, because a settled card charge does
    not roll back
 
 Auto-approval stands in for the passkey tap and only works while the
@@ -168,9 +170,9 @@ async def check_group() -> None:
             Principal(name="Soham"),
             Principal(name="Arsh"),
             Principal(name="Dev"),
-            Principal(name="Maya", role="backstop", backstop_cap=6000),
+            Principal(name="Maya"),
         ],
-        policy={"type": "quorum", "m": 3},
+        policy={"type": "all_of"},
     )
 
     print(f"  group_id : {group.group_id}")
@@ -235,8 +237,56 @@ async def check_group() -> None:
     check("settlement_conserved across the boundary", report["settlement_conserved"])
 
 
+async def check_requote() -> None:
+    """quorum(m<n) forces a requote cascade. This is where the plugin broke."""
+    head(4, "quorum(3) of 4 + a backstop — the GMP/1 requote cascade")
+    payments = live("organizer-2", auto_approve=True, await_seconds=60.0)
+    ref = PaymentRef(f"live-quorum-{RUN}")
+
+    group = await payments.pay_group(
+        AgentId("velvet-tickets"),
+        Money(amount=18600),
+        ref,
+        principals=[
+            Principal(name="Soham"),
+            Principal(name="Arsh"),
+            Principal(name="Dev"),
+            Principal(name="Maya", role="backstop", backstop_cap=6000),
+        ],
+        policy={"type": "quorum", "m": 3},
+    )
+    auth = payments.authorization(ref)
+    assert auth is not None
+    view = await payments._bundle.transport.get_group(auth.group_id)  # noqa: SLF001
+    print(f"  group_id : {group.group_id}   status: {group.status}")
+    print(f"  decision : {view.get('decision_note')!r}")
+    print("  per-member state from the engine:")
+    for m in view.get("members", []):
+        print(
+            f"    {str(m.get('name')):<8} role={str(m.get('role')):<8} "
+            f"status={str(m.get('status')):<10} share={m.get('share_amount')} "
+            f"cap={m.get('cap_amount')} charged={m.get('charged_amount')} "
+            f"requote_round={m.get('requote_round')}"
+        )
+    status = await payments.verify_payment(ref)
+    print(f"  verify_payment -> {status}")
+    print(f"  requote_rounds recorded by the plugin: {json.dumps(auth.requote_rounds)}")
+    print(f"  reserved={auth.reserved} captured={auth.captured} released={auth.released} "
+          f"outstanding={auth.outstanding}")
+    check("the engine really did requote", bool(auth.requote_rounds),
+          json.dumps(auth.requote_rounds))
+    check("group committed after the requote", auth.group_status == "committed",
+          auth.group_status)
+    check("verify_payment is CONFIRMED", status is PaymentStatus.CONFIRMED)
+    check("the merchant got the whole cart", auth.captured == 18600, str(auth.captured))
+    report = payments.conservation_report()
+    check("authorization_conserved across a requote", report["authorization_conserved"])
+    check("no_pooled_funds", report["no_pooled_funds"])
+    check("settlement_conserved", report["settlement_conserved"])
+
+
 # ---------------------------------------------------------------------------
-# 4. unknown states
+# 5. unknown states
 # ---------------------------------------------------------------------------
 
 
@@ -290,7 +340,7 @@ class _StubHandler(BaseHTTPRequestHandler):
 
 
 async def check_unknown() -> None:
-    head(4, "unknown states over a real socket")
+    head(5, "unknown states over a real socket")
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), _StubHandler)
     port = server.server_address[1]
@@ -360,12 +410,12 @@ def _orphan_auth() -> Any:
 
 
 # ---------------------------------------------------------------------------
-# 5 + 6. refunds
+# 6 + 7. refunds
 # ---------------------------------------------------------------------------
 
 
 async def check_refund_precharge() -> None:
-    head(5, "refund() pre-charge — cancels every mandate, charges nobody")
+    head(6, "refund() pre-charge — cancels every mandate, charges nobody")
     payments = live("buyer-1", auto_approve=False, await_seconds=0.0)
     ref = PaymentRef(f"live-void-{RUN}")
 
@@ -400,7 +450,7 @@ async def check_refund_precharge() -> None:
 
 
 async def check_refund_postcharge(payments: PravaMandates, ref: PaymentRef) -> None:
-    head(6, "refund() post-charge — refuses, and says why")
+    head(7, "refund() post-charge — refuses, and says why")
     auth = payments.authorization(ref)
     assert auth is not None
     ok, why = payments.can_refund(ref)
@@ -434,6 +484,7 @@ async def main() -> int:
     check_health()
     payments, ref = await check_single()
     await check_group()
+    await check_requote()
     await check_unknown()
     await check_refund_precharge()
     await check_refund_postcharge(payments, ref)

@@ -23,7 +23,8 @@
     "demo": "npm run demo -w cli",
     "e2e:plan": "tsx e2e/plan-flow.ts",
     "e2e:product": "tsx e2e/product-flow.ts",
-    "e2e:sandbox": "tsx e2e/sandbox-smoke.ts"
+    "e2e:sandbox": "tsx e2e/sandbox-smoke.ts",
+    "e2e:proof": "tsx e2e/sandbox-proof.ts"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

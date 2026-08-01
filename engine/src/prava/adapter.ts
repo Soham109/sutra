@@ -29,6 +29,12 @@ export interface MandateSession {
   approvalUrl: string // Prava's `iframe_url` — the hosted passkey ceremony
   expiresAt: string
   orderId?: string | null
+  /**
+   * Documented as "present and true for mandate-setup sessions"; the live
+   * sandbox omits it entirely (verified 2026-08-01). Carried as an observation,
+   * never as a gate — see the note in client.ts.
+   */
+  authorizeOnly?: boolean | null
 }
 
 export interface MandateSummary {

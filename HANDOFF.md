@@ -56,15 +56,39 @@ npx vercel alias set <deployment-url> sutra-gmp.vercel.app
 
 ## 3. Next steps, in order
 
-### 3.1 Prava sandbox key — the single highest-value thing left
-`PRAVA_API_KEY` is empty and `PRAVA_ENV=mock`. "End-to-end functionality, nothing mocked" is the #1
-judging criterion. Get `sk_test_*` from dashboard.prava.space, then on Railway:
-`PRAVA_ENV=sandbox`, `PRAVA_API_KEY=sk_test_…`. Everything is already written against the real API
-shapes and switches over with no code change.
+### 3.1 Prava sandbox — DONE, now needs a human with a phone
+The engine runs `PRAVA_ENV=sandbox` against a real `sk_test_*` key. `/health` reports
+`"prava_adapter":"sandbox"`. `npm run e2e:proof` creates a group and mints a **real** Prava mandate
+session per member, returning hosted `sandbox.collect.prava.space` approval URLs.
+
+What remains is the one step no script may perform: a human opening that URL on a phone and
+completing the passkey ceremony with a sandbox test card. Then the poller sees the mandate go
+active and the engine commits on its own. `npm run e2e:proof -- --watch` polls until terminal and
+prints the charged total and the receipt URL.
+
+Merchant identity registered with Prava: application name `sutra` (this became the permanent
+merchant id — it appears as `merchantId: "sutra"` inside the session token), merchant URL
+`https://sutra-gmp.vercel.app`.
 
 **Prava production access** (they emailed a Tally form): *not needed, and do not submit yet.* Their
 own instruction is "only submit once you have your sandbox functioning end to end", and access is
 revoked after judging anyway. Sandbox is the demo of record.
+
+**Key hygiene:** the sandbox secret was pasted into a chat transcript. It is sandbox-only so the
+blast radius is small, but rotate it in the Prava dashboard after judging.
+
+#### A live-doc discrepancy worth knowing
+The API reference says the Create Session response carries `authorizeOnly: true` for mandate-setup
+sessions, and an earlier revision of `client.ts` refused to proceed without it. **The live sandbox
+never sends that field** — a 201 carries exactly `session_id, session_token, expires_at,
+iframe_url, order_id`, identically for a `mandate_setup` body and a plain one. That guard blocked
+every approval until it was removed.
+
+There is also no substitute assertion available at creation time: a mandate does not exist until
+the human passkeys, so `GET /v1/mandates?customer_id=…` returns `{"mandates":[]}` for both kinds of
+session immediately afterwards (verified). The real confirmation is the one the poller already
+does — a standing mandate appearing `active` for that customer. Sessions expire ~15 minutes after
+creation, which is why sessions are created lazily on first open rather than at group creation.
 
 ### 3.2 NANDA prize work (see §5 — the human's stated priority)
 
