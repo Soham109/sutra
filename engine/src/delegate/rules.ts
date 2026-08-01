@@ -169,7 +169,7 @@ function windowFor(onDateIso: string, rw: RecurringWindow): TimeWindow {
 // Per-kind decisions
 // ---------------------------------------------------------------------------
 
-type Decision<T> = { outcome: 'decide'; value: T; why: string } | { outcome: 'skip'; why: string }
+export type Decision<T> = { outcome: 'decide'; value: T; why: string } | { outcome: 'skip'; why: string }
 
 /**
  * Decline (`in: false`) requires a DEFINITE reason: a stated category that
@@ -177,8 +177,15 @@ type Decision<T> = { outcome: 'decide'; value: T; why: string } | { outcome: 'sk
  * blacklists. Anything the rule cannot evaluate — no category on the plan
  * yet, no date yet, a currency it cannot compare — is a skip, never a guess
  * in either direction.
+ *
+ * Exported (alongside `decideAvailability`) as well as being called from
+ * `decideSignals` below: `SignalPayload` has no room for a "why", so a caller
+ * that wants the reasoning behind an ACCEPTED or DECLINED answer — not just a
+ * skipped one — reads it from here directly. e2e/agent-mesh.ts does exactly
+ * that, to narrate a delegate's decision with the same reasoning the engine
+ * computed, not an invented explanation.
  */
-function decideRsvp(rules: StandingRules, slots: Slots): Decision<boolean> {
+export function decideRsvp(rules: StandingRules, slots: Slots): Decision<boolean> {
   const r = rules.auto_rsvp
   if (!r) return { outcome: 'skip', why: 'no standing rule for RSVP decisions is on file' }
 
@@ -237,7 +244,7 @@ function decideRsvp(rules: StandingRules, slots: Slots): Decision<boolean> {
   return { outcome: 'decide', value: true, why: 'within every standing rule that applies' }
 }
 
-function decideAvailability(rules: StandingRules, slots: Slots): Decision<TimeWindow> {
+export function decideAvailability(rules: StandingRules, slots: Slots): Decision<TimeWindow> {
   const a = rules.availability
   if (!a) return { outcome: 'skip', why: 'no standing availability is on file' }
   const windows = recurringWindows(a)

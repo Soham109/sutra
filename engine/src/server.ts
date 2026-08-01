@@ -62,13 +62,15 @@ export async function main(): Promise<void> {
 
   const app = Fastify({ logger: { level: 'warn' } })
 
+  installSocialSchema(db)
+  const social = new Social(db)
+
   registerRoutes(app, service, poller, {
     apiToken: process.env.ENGINE_API_TOKEN ?? 'dev-token',
     appBaseUrl: APP_BASE_URL,
+    social: { userFor: (req) => currentUserFrom(social, req) },
   })
 
-  installSocialSchema(db)
-  const social = new Social(db)
   const catalog = new Catalog({
     // Any Shopify storefront works; these are only the default shelf searched
     // when the user does not scope the query to a merchant.
@@ -124,6 +126,14 @@ export async function main(): Promise<void> {
     social,
     currentUser: (req) => currentUserFrom(social, req),
   })
+
+  // ---- delegate agents -----------------------------------------------------
+  // Standing rules a human sets in advance, so their own agent can answer the
+  // coordination questions above (in/when/where/budget) without either human
+  // in the loop or an invented answer. Never a payment path — see
+  // engine/src/delegate/rules.ts and docs/AGENT-MESH.md.
+  installDelegateSchema(db)
+  registerDelegateRoutes(app, { store: new DelegateStore(db), plans, planStore, social })
 
   // Liveness for the platform, and a fast way for a human to tell which build
   // is actually running. Deliberately unauthenticated and cheap: a health

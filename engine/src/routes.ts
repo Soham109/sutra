@@ -12,6 +12,12 @@ import { describePolicy, cartTotal, type Policy } from './types.js'
 export interface RoutesConfig {
   apiToken: string
   appBaseUrl: string
+  /**
+   * Resolves the signed-in account behind a request, for the few core routes
+   * that need to know who is asking. A function rather than the object itself
+   * because the social layer is built after these routes are registered.
+   */
+  social?: { userFor: (req: { headers: Record<string, unknown> }) => { id: string } | undefined }
 }
 
 export function registerRoutes(
@@ -87,8 +93,26 @@ export function registerRoutes(
     return groupView(service, service.mustGroup(id))
   })
 
-  app.post('/v1/groups/:id/cancel', async (req) => {
+  /**
+   * Calling off the whole thing is the organiser's decision alone.
+   *
+   * This used to trust the URL: a live probe cancelled a real group with no
+   * cookie and no token, dropping every member, and the event log recorded it
+   * as "organizer cancelled" — which was a lie, because the caller was
+   * anonymous. A group link is shown on a screen at a table and encoded in a
+   * QR anyone can photograph, so "holds the link" cannot mean "may destroy it".
+   */
+  app.post('/v1/groups/:id/cancel', async (req, reply) => {
     const { id } = req.params as { id: string }
+    const g = service.mustGroup(id)
+    const holdsToken = (req.headers.authorization ?? '') === `Bearer ${cfg.apiToken}`
+    const viewer = cfg.social ? cfg.social.userFor(req as { headers: Record<string, unknown> }) : undefined
+    // A group created before accounts existed has no owner to check against;
+    // the token stays the way in for those and for server-to-server callers.
+    const isOrganiser = !!g.created_by && viewer?.id === g.created_by
+    if (!holdsToken && !isOrganiser) {
+      return reply.status(403).send({ error: 'only the person who started this group can call it off' })
+    }
     await service.cancelGroup(id)
     return groupView(service, service.mustGroup(id))
   })

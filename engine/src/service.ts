@@ -686,6 +686,16 @@ export class GroupService {
       }
     }
 
+    // Belt and braces for the crash-mid-settlement case above. If the log says
+    // a charge for this entry already succeeded, that money is gone from the
+    // card whatever the member row currently says, and the only correct action
+    // is to finish the bookkeeping — never to open a fresh attempt.
+    const done = this.succeededCharge(g.id, member.id, entry.source)
+    if (done) {
+      this.recordCharged(g, member, entry, done)
+      return 'charged'
+    }
+
     const maxAttempts = g.straggler_policy === 'retry_once' ? 2 : 1
     let attempt = this.lastAttempt(g.id, member.id, entry.source)
 
@@ -824,6 +834,17 @@ export class GroupService {
     mandateId: string,
     txnId: string,
   ): Promise<void> {
+    // Write down that the money moved BEFORE doing anything slow.
+    //
+    // Prava returning a transaction id means the card has been charged. The
+    // settlement report below can take five retries and several seconds, and
+    // this used to run first — so a restart in that window left the event log
+    // saying "succeeded" while the member row still said "charging". On resume
+    // the saga read the row, decided the charge had not happened, minted a NEW
+    // idempotency reference and charged the same card a second time for real.
+    // The row is now durable before the first sleep.
+    this.recordCharged(g, member, entry, txnId)
+
     // Settlement report failure is retried, never re-charged (§10.9). A 200 is
     // not enough: the report can come back status "failed" or with the network
     // saying visaConfirmation FAILURE, and treating either as settled would
@@ -852,8 +873,22 @@ export class GroupService {
       })
     }
 
+  }
+
+  /**
+   * Persist the fact of a completed charge. Called before the settlement report
+   * and again on resume, so it has to be safe to call twice — a member who is
+   * already marked charged is left alone rather than re-announced.
+   */
+  private recordCharged(
+    g: GroupRow,
+    member: MemberRow,
+    entry: ChargePlanEntry,
+    txnId: string,
+  ): void {
     const fresh = this.mustMember(member.id)
     if (entry.source === 'share') {
+      if (fresh.status === 'charged') return
       this.db.casMember(fresh.id, fresh.version, {
         status: 'charged',
         prava_charge_txn_id: txnId,
@@ -865,6 +900,7 @@ export class GroupService {
         txn_id: txnId,
       })
     } else {
+      if (fresh.backstop_absorbed > 0) return
       this.db.casMember(fresh.id, fresh.version, {
         backstop_absorbed: entry.amount,
       })
@@ -874,6 +910,24 @@ export class GroupService {
         txn_id: txnId,
       })
     }
+  }
+
+  /**
+   * The transaction id of a charge this group has already recorded as
+   * succeeding, if there is one. The event log — not the mutable member row —
+   * is the authority on whether money has left somebody's card.
+   */
+  private succeededCharge(
+    groupId: string,
+    memberId: string,
+    source: 'share' | 'backstop',
+  ): string | null {
+    for (const e of this.db.eventsAfter(groupId, 0)) {
+      if (e.member_id !== memberId || e.type !== 'charge.succeeded') continue
+      const p = JSON.parse(e.payload_json) as { source: string; txn_id?: string }
+      if (p.source === source && p.txn_id) return p.txn_id
+    }
+    return null
   }
 
   private failEntry(g: GroupRow, member: MemberRow, entry: ChargePlanEntry, reason: string): void {

@@ -178,14 +178,19 @@ export class Social {
       .get(email.trim().toLowerCase()) as User | undefined
   }
 
+  // `SELECT *` here put the caller's own scrypt hash on the wire on every
+  // /v1/me — the same bug shape that leaked the directory, one table over.
+  // Name the columns so a new column can never join the response by accident.
   byId(id: string): User | undefined {
-    return this.db.sql.prepare(`SELECT * FROM users WHERE id = ?`).get(id) as User | undefined
+    return this.db.sql
+      .prepare(`SELECT id, handle, name, email, accent, created_at FROM users WHERE id = ?`)
+      .get(id) as User | undefined
   }
 
   byHandle(handle: string): User | undefined {
-    return this.db.sql.prepare(`SELECT * FROM users WHERE handle = ?`).get(handle.toLowerCase()) as
-      | User
-      | undefined
+    return this.db.sql
+      .prepare(`SELECT id, handle, name, email, accent, created_at FROM users WHERE handle = ?`)
+      .get(handle.toLowerCase()) as User | undefined
   }
 
   allUsers(): User[] {
