@@ -164,21 +164,40 @@ export function Disclosure({
 }
 
 /** Section scaffold: a title, a one-line reason it exists, and the controls. */
+/**
+ * One step of the builder.
+ *
+ * Five sections opened at once is the whole reason this screen felt like work:
+ * the decisions that matter (what, who, how much) were buried among the ones
+ * that already have a correct default (policy, tolerance, straggler handling).
+ *
+ * A collapsible section shows its CURRENT VALUE in the header, so nothing is
+ * hidden — you can always see what it is set to, and only open it if you want
+ * it different. That is the difference between progressive disclosure and
+ * burying a control.
+ */
 export function Section({
   step,
   title,
   lede,
   aside,
   children,
+  collapsible = false,
+  defaultOpen = false,
+  summary,
 }: {
   step: number
   title: string
   lede: string
   aside?: React.ReactNode
   children: React.ReactNode
+  collapsible?: boolean
+  defaultOpen?: boolean
+  /** What this section is currently set to, shown while collapsed. */
+  summary?: React.ReactNode
 }) {
-  return (
-    <section className="card card-pad">
+  const head = (
+    <>
       <div className="row-between wrap" style={{ marginBottom: 4, alignItems: 'flex-start' }}>
         <div className="row" style={{ gap: 10, alignItems: 'baseline' }}>
           <span className="mono tiny faint">{String(step).padStart(2, '0')}</span>
@@ -189,8 +208,40 @@ export function Section({
       <p className="small muted" style={{ marginBottom: 14, maxWidth: '62ch' }}>
         {lede}
       </p>
+    </>
+  )
+
+  if (!collapsible) {
+    return (
+      <section className="card card-pad">
+        {head}
+        {children}
+      </section>
+    )
+  }
+
+  return (
+    <details className="card card-pad section-fold" open={defaultOpen}>
+      <summary>
+        <div className="row-between wrap" style={{ alignItems: 'flex-start', gap: 12 }}>
+          <div className="row" style={{ gap: 10, alignItems: 'baseline' }}>
+            <span className="mono tiny faint">{String(step).padStart(2, '0')}</span>
+            <h2 style={{ fontSize: 18 }}>{title}</h2>
+          </div>
+          <div className="row" style={{ gap: 10 }}>
+            {summary ? <span className="section-current">{summary}</span> : null}
+            {aside}
+            <span className="section-chev" aria-hidden>
+              ⌄
+            </span>
+          </div>
+        </div>
+      </summary>
+      <p className="small muted" style={{ margin: '10px 0 14px', maxWidth: '62ch' }}>
+        {lede}
+      </p>
       {children}
-    </section>
+    </details>
   )
 }
 

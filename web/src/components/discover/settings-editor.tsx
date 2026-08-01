@@ -47,6 +47,8 @@ export function SettingsEditor({
       step={5}
       title="Settings"
       lede="How long people have, how much price drift you will absorb without asking again, and what happens to whoever never answers."
+      collapsible
+      summary={`${deadlineMinutes} min to answer · ${(toleranceBps / 100).toFixed(2)}% drift allowed`}
     >
       <div className="col" style={{ gap: 18 }}>
         <div className="col" style={{ gap: 8 }}>

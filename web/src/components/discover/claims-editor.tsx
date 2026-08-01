@@ -31,6 +31,9 @@ export function ClaimsEditor({
       title="Who’s claiming what"
       lede="A claim is what you are asking that person to pay for. Split a line between everyone, or let one person carry it alone — the arithmetic follows the claims, not the headcount."
       aside={contestedCount > 0 ? <Badge tone="warn">{contestedCount} contested</Badge> : undefined}
+      collapsible
+      defaultOpen={contestedCount > 0}
+      summary="everyone shares each line"
     >
       {elig.length === 0 ? (
         <p className="small muted">

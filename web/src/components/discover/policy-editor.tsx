@@ -2,6 +2,7 @@
 
 import type { Policy } from '@/lib/api'
 import { PolicyChip } from '@/components/ui'
+import { policySentence } from '@/lib/format'
 import { Disclosure, Row, Section, ToggleChip } from './fields'
 import {
   type DraftMember,
@@ -144,6 +145,8 @@ export function PolicyEditor({
       title="The policy"
       lede="The rule that decides whether the group commits. It is evaluated by the engine, not by a person, and it is printed on every approval page so nobody agrees to a rule they cannot see."
       aside={<PolicyChip policy={policy} />}
+      collapsible
+      summary={policySentence(policy)}
     >
       {!advanced && (
         <div className="col" style={{ gap: 10 }}>

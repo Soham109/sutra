@@ -1053,3 +1053,13 @@ a.list-row:hover { background: var(--surface-2); }
 .discover-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 12px; }
 .discover-examples button { padding: 6px 12px; border: 1px dashed var(--line-2); border-radius: 999px; background: transparent; color: var(--ink-2); font-size: 12.5px; cursor: pointer; transition: .14s; }
 .discover-examples button:hover { border-style: solid; border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }
+
+/* Collapsible builder steps. The header keeps showing the current value, so
+   collapsing hides the controls, never the state. */
+.section-fold > summary { cursor: pointer; list-style: none; }
+.section-fold > summary::-webkit-details-marker { display: none; }
+.section-fold > summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; border-radius: 6px; }
+.section-current { color: var(--ink-2); font-size: 12.5px; text-align: right; max-width: 34ch; }
+.section-chev { color: var(--ink-3); font-size: 15px; transition: transform .2s ease; }
+.section-fold[open] > summary .section-chev { transform: rotate(180deg); }
+.section-fold[open] > summary .section-current { display: none; }
