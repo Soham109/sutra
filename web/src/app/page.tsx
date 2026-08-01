@@ -3,10 +3,8 @@ import { Mark } from '@/components/shell'
 import { ConsentThreadDemo } from '@/components/landing/consent-thread'
 import { HowItWorks } from '@/components/landing/how'
 import { LandingNav } from '@/components/landing/nav'
-// Parked with the hero orbit below.
-// import { MandateOrbit } from '@/components/landing/mandate-orbit'
+import { MandateOrbit } from '@/components/landing/mandate-orbit'
 import { ProductLab } from '@/components/landing/product-lab'
-import { ScrollStory } from '@/components/landing/scroll-story'
 import './landing.css'
 
 const REPO = 'https://github.com/Soham109/sutra'
@@ -25,15 +23,12 @@ export default function Landing() {
         <div className="l-hero-actions"><Link className="l-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link><Link className="l-button l-button-quiet" href="/app/bill">Split a bill</Link></div>
         <div className="l-hero-proof"><span>Nothing pooled</span><span>Nothing fronted</span><span>Nothing invented</span></div>
       </div>
-      {/* Orbit parked — it never sat right against the warm/editorial direction.
-          The scroll sequence below carries the explaining now. <MandateOrbit /> */}
+      <MandateOrbit />
       </section>
 
       <HowItWorks />
 
       <div className="l-signal-rail"><div className="l-signal-track"><span><b>Say it</b> sentence → structured plan</span><i /><span><b>Paste it</b> link → imported item</span><i /><span><b>Scan it</b> receipt → exact lines</span><i /><span><b>Share it</b> invite → individual consent</span><i /><span aria-hidden><b>Say it</b> sentence → structured plan</span></div></div>
-
-      <ScrollStory />
 
       <section id="product" className="l-wrap l-section l-product-section"><header className="l-section-head l-section-head-wide"><span className="l-section-no">PRODUCT</span><h2>Start where the group already is.</h2><p>A sentence, merchant page, paper receipt or saved circle enters one shared system. Switch the surface below—the people and rules stay intact.</p></header><ProductLab /></section>
 
@@ -54,7 +49,7 @@ export default function Landing() {
       </div></section>
       */}
 
-      {/* Parked: the closing CTA repeated the hero verbatim. */}
+      <section className="l-final"><div className="l-wrap l-final-inner"><div><h2>Make the plan.<br /><span>Lose the treasurer.</span></h2><p>One group, one decision, everyone pays with their own card. Nobody fronts anything, nobody chases anyone.</p></div><Link className="l-final-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link></div></section>
     </main>
     <footer className="l-footer"><div className="l-wrap"><div className="l-brand"><Mark /><span>sutra</span></div><p>Group coordination and checkout—without turning one friend into the bank.</p><div><a href={SPEC}>Protocol</a><a href={REPO}>GitHub</a><span>GMP/1 · 2026</span></div></div></footer>
   </div>

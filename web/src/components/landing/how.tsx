@@ -148,7 +148,7 @@ const CREW = [
   { name: 'Maya', from: 'Jayanagar', when: '7.30–10.30pm' },
 ]
 
-/** A phone. Content goes inside the screen. */
+/** A phone. Real proportions, a bezel, a notch, and a home indicator. */
 function Phone({
   children,
   className = '',
@@ -162,8 +162,34 @@ function Phone({
     <div className={`ph ${className}`} style={delay ? { animationDelay: `${delay}ms` } : undefined}>
       <span className="ph-notch" aria-hidden />
       <div className="ph-screen">{children}</div>
+      <span className="ph-home" aria-hidden />
     </div>
   )
+}
+
+/* Icons. Inline so they inherit colour and cost nothing to load. */
+const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+
+function Icon({ name, className = '' }: { name: string; className?: string }) {
+  const p = { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, className: `ico ${className}` }
+  switch (name) {
+    case 'clock':
+      return <svg {...p}><circle cx="8" cy="8" r="6" {...S} /><path d="M8 4.6V8l2.2 1.6" {...S} /></svg>
+    case 'pin':
+      return <svg {...p}><path d="M8 14s4.5-4 4.5-7a4.5 4.5 0 1 0-9 0c0 3 4.5 7 4.5 7Z" {...S} /><circle cx="8" cy="6.9" r="1.6" {...S} /></svg>
+    case 'wallet':
+      return <svg {...p}><rect x="2" y="4" width="12" height="9" rx="2" {...S} /><path d="M11 8.5h1.6" {...S} /></svg>
+    case 'check':
+      return <svg {...p}><path d="M3.4 8.4 6.6 11.4l6-6.6" {...S} /></svg>
+    case 'sparkle':
+      return <svg {...p}><path d="M8 2.2 9.3 6l3.8 1.3-3.8 1.3L8 12.4 6.7 8.6 2.9 7.3 6.7 6 8 2.2Z" {...S} /></svg>
+    case 'scan':
+      return <svg {...p}><path d="M3 6V4.4A1.4 1.4 0 0 1 4.4 3H6M10 3h1.6A1.4 1.4 0 0 1 13 4.4V6M13 10v1.6a1.4 1.4 0 0 1-1.4 1.4H10M6 13H4.4A1.4 1.4 0 0 1 3 11.6V10" {...S} /></svg>
+    case 'card':
+      return <svg {...p}><rect x="2" y="4" width="12" height="8" rx="1.6" {...S} /><path d="M2 7h12" {...S} /></svg>
+    default:
+      return null
+  }
 }
 
 /** A QR-ish block. Deterministic from a seed so it never flickers on re-render. */
@@ -189,7 +215,7 @@ function Scene({ index, on }: { index: number; on: boolean }) {
     return (
       <div className="sc sc-one">
         <Phone className="ph-lead">
-          <span className="ph-bar">Sutra bot</span>
+          <span className="ph-bar"><Icon name="sparkle" /> Sutra bot</span>
           <p className="ph-typed">
             Dinner Saturday with Arsh and Maya near Koramangala, under ₹800 each
             {on && <i className="ph-caret" />}
@@ -223,7 +249,7 @@ function Scene({ index, on }: { index: number; on: boolean }) {
               <b className="brow-price">$40.00</b>
             </div>
             <div className="brow-sheet">
-              <span className="brow-chip">read from this page</span>
+              <span className="brow-chip"><Icon name="scan" /> read from this page</span>
               <b>Men’s Soft Merino Tee</b>
               <small>$40.00 · USD · via json-ld</small>
               <span className="brow-cta">Split this</span>
@@ -240,15 +266,18 @@ function Scene({ index, on }: { index: number; on: boolean }) {
       <div className="sc sc-qr">
         <div className="qr-card">
           <Qr />
-          <b>Scan to join</b>
+          <b><Icon name="scan" /> Scan to join</b>
           <small>4 links · no account needed</small>
         </div>
         <div className="qr-fan">
           {CREW.map((c, i) => (
             <Phone key={c.name} className="ph-mini" delay={i * 150}>
+              <span className="ph-av ph-av-sm">{c.name[0]}</span>
               <span className="ph-mini-top">your share</span>
               <b className="ph-mini-amt">₹780</b>
-              <span className="ph-mini-btn">Review</span>
+              <span className="ph-mini-btn">
+                <Icon name="card" /> Review
+              </span>
             </Phone>
           ))}
         </div>
@@ -264,9 +293,10 @@ function Scene({ index, on }: { index: number; on: boolean }) {
           <Phone key={f.name} className="ph-mini ph-ans" delay={i * 170}>
             <span className="ph-av">{f.name[0]}</span>
             <b className="ph-ans-name">{f.name}</b>
-            <span className="ph-ans-row">free {f.when}</span>
-            <span className="ph-ans-row">from {f.from}</span>
-            <span className="ph-ans-tick">✓</span>
+            <span className="ph-ans-row"><Icon name="clock" /> {f.when}</span>
+            <span className="ph-ans-row"><Icon name="pin" /> {f.from}</span>
+            <span className="ph-ans-row"><Icon name="wallet" /> set</span>
+            <span className="ph-ans-tick"><Icon name="check" /></span>
           </Phone>
         ))}
         <div className="ans-out">
@@ -284,7 +314,7 @@ function Scene({ index, on }: { index: number; on: boolean }) {
       <div className="pay-row">
         {CREW.map((f, i) => (
           <Phone key={f.name} className="ph-mini ph-paid" delay={i * 120}>
-            <span className="ph-paid-tick">✓</span>
+            <span className="ph-paid-tick"><Icon name="check" /></span>
             <b className="ph-mini-amt">₹780</b>
             <span className="ph-mini-top">charged</span>
           </Phone>

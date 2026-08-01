@@ -461,3 +461,31 @@
   .landing *, .landing *::before, .landing *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   .l-signal-track { transform: none; }.orbit-stage { transform: none; }
 }
+
+/* Phones that actually read as phones ------------------------------------- */
+/* The earlier version was a rounded box of text at whatever aspect the flex
+   row gave it, which is why it read as a card. A phone is recognisable from
+   its proportions before anything else, so the aspect ratio is pinned and the
+   screen is inset inside a visible bezel. */
+.ph { border: none; background: #1b1917; padding: 5px; border-radius: 26px; box-shadow: 0 14px 34px rgb(17 17 15 / .16), inset 0 0 0 1px rgb(255 255 255 / .07); }
+.ph-screen { background: #fff; border-radius: 21px; padding: 20px 12px 16px; overflow: hidden; }
+.ph-notch { top: 11px; width: 34px; height: 5px; background: #2e2a26; z-index: 2; }
+.ph-home { position: absolute; bottom: 9px; left: 50%; translate: -50% 0; width: 42px; height: 3px; border-radius: 2px; background: rgb(255 255 255 / .35); z-index: 2; }
+
+.ph-lead { width: min(258px, 100%); aspect-ratio: 9 / 17.5; height: auto; margin-inline: auto; }
+.ph-mini { flex: 1 1 0; min-width: 0; aspect-ratio: 9 / 17.5; height: auto; }
+.ph-mini .ph-screen { padding: 19px 8px 15px; align-items: center; text-align: center; gap: 3px; }
+
+.sc-one { justify-content: center; }
+.ico { flex: none; vertical-align: -2px; }
+.ph-bar { display: inline-flex; align-items: center; gap: 5px; }
+.ph-av-sm { width: 22px; height: 22px; font-size: 10px; margin-bottom: 3px; }
+.ph-mini-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.ph-ans-row { display: inline-flex; align-items: center; gap: 4px; justify-content: center; color: #85817a; }
+.brow-chip, .qr-card b { display: inline-flex; align-items: center; gap: 5px; }
+.ph-paid-tick, .ph-ans-tick { color: #fff; }
+.ph-ans-tick { color: var(--l-green); }
+
+/* The panel needs height for a phone to breathe. */
+.how-panel { height: 430px; }
+@media (max-width: 900px) { .how-panel { height: 380px; } }
