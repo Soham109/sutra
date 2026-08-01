@@ -963,6 +963,104 @@
     return best
   }
 
+  /**
+   * The price next to the buy button.
+   *
+   * `fromDomTotal` anchors on words like "Total" and "Amount due", which only
+   * exist on a CHECKOUT. A product page has no total — it has a price and a
+   * button that says "Add to Cart". So on Amazon, and on every other store
+   * whose price is rendered by JavaScript rather than published as markup,
+   * every other strategy returns nothing and this one is the only thing left.
+   *
+   * Deliberately generic rather than a per-site adapter: the anchor is the buy
+   * ACTION, which every product page on the internet has, in whatever markup
+   * its authors felt like. Confidence stays low and the warning always names
+   * the button it anchored on, because this is a read off rendered text, not a
+   * fact the merchant published.
+   *
+   * Only useful in a real browser — running against fetched HTML, the price is
+   * usually still an empty div waiting for JavaScript. That is exactly why the
+   * extension can do this and pasting a link cannot.
+   */
+  var BUY_LABELS = /\b(?:add to (?:cart|bag|basket)|buy (?:it )?now|add to trolley|proceed to (?:buy|checkout)|pre-?order now)\b/i
+
+  /**
+   * Text that marks a nearby amount as something OTHER than what you would
+   * pay: the crossed-out original, the discount, the free-shipping threshold.
+   * On a discounted product the list price is the biggest number on the page,
+   * so without this the group gets billed the pre-sale price.
+   */
+  var NOT_THE_PRICE =
+    /(?:\blist\s*price\b|\bwas\b|\brrp\b|\bmrp\b|m\.r\.p|\borig(?:inal)?\b|\byou\s*save\b|\bsave\b|\bsavings?\b|\bdiscount\b|\btypical\s*price\b|\bcompare\s*at\b|\bfree\s*(?:shipping|delivery)\b|\borders?\s*over\b|\bspend\b|\bpayments?\s*of\b|\bmonthly\b|\bemi\b|\bper\s*month\b|\/\s*mo\b|\binstal?ments?\b|\bfrom\s*$)/i
+
+  function fromBuyAction(doc, loc, ctx) {
+    var body = doc.body
+    if (!body) return null
+    var buttons = qsa(body, 'button, input[type=submit], a[role=button], [data-action], .a-button-input')
+    var anchor = null
+    for (var i = 0; i < buttons.length && i < 400; i++) {
+      var label = text(buttons[i], 60) || attr(buttons[i], 'value') || attr(buttons[i], 'aria-label') || ''
+      if (BUY_LABELS.test(label)) { anchor = { el: buttons[i], label: label.trim() }; break }
+    }
+    if (!anchor) return null
+
+    // Climb from the button until the surrounding block contains money, but
+    // not so far that the whole page counts as "near the button".
+    var el = anchor.el
+    var hops = 0
+    while (el && hops < 7) {
+      var blob = text(el, 1200)
+      var found = findMoney(blob, ctx.weakCurrency)
+      if (found.length) {
+        // Drop the amounts that are explicitly NOT what you would pay. A
+        // struck-through list price is usually the largest number on a
+        // product page, so picking "the biggest one near the button" would
+        // reliably overcharge the group on anything discounted.
+        var live = []
+        for (var f = 0; f < found.length; f++) {
+          // The window has to stop at the previous amount. Running a flat 44
+          // characters back made "M.R.P: ₹34,990  ₹24,990" reject the sale
+          // price too, because the previous label was still inside the window
+          // — leaving only the instalment line as a candidate.
+          var floor = f > 0 ? found[f - 1].index + found[f - 1].raw.length : 0
+          var around = blob.slice(Math.max(floor, found[f].index - 44), found[f].index)
+          if (NOT_THE_PRICE.test(around)) continue
+          live.push(found[f])
+        }
+        if (!live.length) { el = el.parentElement; hops++; continue }
+
+        // Of what remains, the one physically nearest the button. Instalment
+        // lines ("4 payments of $27.50") and shipping thresholds sit further
+        // out; the price sits against the button.
+        var best = live[0]
+        for (var g = 1; g < live.length; g++) {
+          if (live[g].index < best.index) best = live[g]
+        }
+        if (best.money.amount_minor <= 0) return null
+        var name = clean(doc.title) || meta(doc, ['og:title']) || 'Item'
+        return {
+          source: 'buy-action',
+          kind: 'dom',
+          title: name,
+          currency: best.money.currency,
+          total_minor: best.money.amount_minor,
+          items: [{ name: name, unit_amount: best.money.amount_minor, qty: 1, sku: null }],
+          fees: [],
+          confidence: found.length > 6 ? 0.28 : 0.36,
+          warnings: [
+            'this page publishes no machine-readable price, so this was read off the text beside the "' +
+              anchor.label.slice(0, 28) +
+              '" button — check it before you split',
+          ],
+          label: anchor.label.slice(0, 40),
+        }
+      }
+      el = el.parentElement
+      hops++
+    }
+    return null
+  }
+
   function fromDomTotal(doc, loc, ctx) {
     var body = doc.body
     if (!body) return null
@@ -1085,7 +1183,7 @@
 
   // Highest authority first. `selection` outranks everything for the *number*
   // because it is the one signal a human deliberately gave us.
-  var PRIORITY = ['selection', 'shopify-cart', 'json-ld', 'shopify-meta', 'microdata', 'og', 'dom-total']
+  var PRIORITY = ['selection', 'shopify-cart', 'json-ld', 'shopify-meta', 'microdata', 'og', 'dom-total', 'buy-action']
 
   function merge(cands, doc, loc, ctx) {
     cands = cands.filter(Boolean)
@@ -1224,7 +1322,7 @@
     var owner = out.provenance.total_minor
     var byNumber = {
       'shopify-cart': 0.97, 'json-ld': 0.9, 'shopify-meta': 0.86, 'microdata': 0.78,
-      'selection': 0.75, 'og': 0.66, 'dom-total': 0.34, 'derived': 0.6,
+      'selection': 0.75, 'og': 0.66, 'dom-total': 0.34, 'buy-action': 0.32, 'derived': 0.6,
     }
     var c = owner && byNumber[owner] !== undefined ? Math.min(best, byNumber[owner]) : best * 0.5
     if (out.total_minor === null) c = Math.min(c, 0.25)
@@ -1353,6 +1451,15 @@
     if (!haveGoodNumber) {
       var dom = guard(fromDomTotal, doc, loc, ctx)
       if (dom) out.push(dom)
+      // Last of the last resorts. A product page has no "Total" label to
+      // anchor on — it has a price and an "Add to Cart" button — so when
+      // nothing above found a number at all, try the price beside that button.
+      // This is the only strategy that reaches a marketplace which renders its
+      // price in JavaScript, and only from inside a real browser.
+      if (!dom || dom.total_minor === null || dom.total_minor === undefined) {
+        var buy = guard(fromBuyAction, doc, loc, ctx)
+        if (buy) out.push(buy)
+      }
     }
     return out
   }
@@ -1419,6 +1526,7 @@
       fromMicrodata: fromMicrodata,
       fromMeta: fromMeta,
       fromDomTotal: fromDomTotal,
+      fromBuyAction: fromBuyAction,
       fromShopifyCart: fromShopifyCart,
       fromSelection: fromSelection,
       makeCtx: makeCtx,

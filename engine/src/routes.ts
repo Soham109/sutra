@@ -425,9 +425,26 @@ function eventView(e: EventRow) {
     group_id: e.group_id,
     member_id: e.member_id,
     type: e.type,
-    payload: JSON.parse(e.payload_json),
+    payload: redactedPayload(e),
     at: e.created_at,
   }
+}
+
+/**
+ * This SSE stream is deliberately unauthenticated — a group's link is the
+ * totem/shared-screen credential (§21.2), so `groupView`/`memberView` never
+ * put a `user_id` in a public response either, on purpose. A chat message's
+ * payload is the one event shape here that carries one (`author_user_id`,
+ * from messages/routes.ts), and without this it would be the sole place a
+ * plain group link reveals which sutra account said something. Same secret,
+ * same omission — just enforced where events are serialized instead of
+ * where they are written, since nothing about who may read this stream is
+ * known at write time.
+ */
+function redactedPayload(e: EventRow): unknown {
+  const payload = JSON.parse(e.payload_json) as Record<string, unknown>
+  if (e.type === 'message.posted') return { ...payload, author_user_id: null }
+  return payload
 }
 
 // ---------------------------------------------------------------------------

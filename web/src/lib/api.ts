@@ -127,6 +127,14 @@ export interface Group {
   tolerance_bps: number
   straggler_policy: string
   no_blame: boolean
+  /**
+   * Which rail carries this group, and therefore whether any card is charged
+   * at all. The server has always sent both; the client type simply never
+   * declared them, so every surface had to guess — and a surface that guesses
+   * this wrong tells somebody their card was charged when it was not.
+   */
+  rail: Rail
+  rail_capability: { charges: boolean; mandates: boolean; settled_verb: string }
   /** the organizer — the one viewer no-blame mode does not hide declines from */
   created_by: string | null
   circle_id: string | null
@@ -263,6 +271,27 @@ export interface Dashboard {
     at: string
   }[]
   exposure: Exposure[]
+}
+
+// --- chat: a live thread on a plan or a group -------------------------------
+// One event type (`message.posted`) on whichever log the plan or group
+// already has, so this rides the existing SSE stream rather than opening a
+// new one — see useMessages.ts.
+
+export interface ChatMessage {
+  seq: number
+  message_id: string
+  from: 'user' | 'bot'
+  /** null for the bot — posting requires a signed-in account, so this is
+   *  never null for a human line. */
+  author_user_id: string | null
+  author_name: string
+  text: string
+  mentions_sutra: boolean
+  /** set only on a bot reply that actually drew on the tagger's standing
+   *  rules, e.g. ['budget_ceiling_minor'] — never present otherwise. */
+  used_rules?: string[]
+  created_at: string
 }
 
 export interface SearchResponse {

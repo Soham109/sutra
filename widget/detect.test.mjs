@@ -434,3 +434,42 @@ test('widget.js and extension/detect.js carry the same detector as detect.js', (
   const ext = readFileSync(join(here, '..', 'extension', 'detect.js'), 'utf8')
   assert.equal(ext.trim(), source.trim(), 'extension/detect.js is stale — run `node widget/build-bookmarklet.mjs`')
 })
+
+// A marketplace product page: no JSON-LD, no og:price, no microdata, and a
+// price that only exists because JavaScript rendered it. Every structured
+// strategy returns nothing here, and there is no "Total" label to scrape —
+// this is the shape that made pasting an Amazon link impossible. The one
+// anchor such a page always has is its buy button.
+test('marketplace PDP with no structured data — price read beside the buy button', async () => {
+  const d = await detect('amazon-like-pdp.html', { url: 'https://www.amazon.com/dp/B0B8V4K7F2' })
+  assert.equal(d.strategy.includes('buy-action'), true, 'buy-action should have contributed')
+  // The item price, not the struck-through list price and not the sponsored
+  // item further down the page.
+  assert.equal(d.total_minor, 10999)
+  assert.equal(d.currency, 'USD')
+  // Read off rendered text, so it must never claim to be certain.
+  assert.ok(d.confidence < 0.5, `confidence should stay low, got ${d.confidence}`)
+  assert.ok(
+    d.warnings.some((w) => /read off the text beside/.test(w)),
+    'must warn that this was scraped, not published',
+  )
+})
+
+// The opposite guard: a page that DOES publish its price must never fall
+// through to scraping, because the published number is the trustworthy one.
+test('a page with real structured data never reaches buy-action', async () => {
+  const d = await detect('shopify-allbirds-product.html')
+  assert.equal(d.strategy.includes('buy-action'), false)
+})
+
+// The trap the buy-button strategy has to avoid. On a discounted item the
+// struck-through M.R.P. is the LARGEST number beside the button, the instalment
+// is the smallest, and the free-delivery threshold is neither. Only one of the
+// five amounts on this page is what a person would actually be charged, and
+// billing a group the pre-sale price would be exactly the kind of confidently
+// wrong number this whole detector exists to refuse.
+test('discounted marketplace item — takes the price paid, not the struck-out one', async () => {
+  const d = await detect('marketplace-discounted.html', { url: 'https://www.example-market.in/dp/XM5' })
+  assert.equal(d.total_minor, 2499000, `expected ₹24,990, got ${money(d)}`)
+  assert.equal(d.currency, 'INR')
+})

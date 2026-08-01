@@ -8,6 +8,7 @@ import { Avatar, Countdown, ErrorNote, Skeleton } from '@/components/ui'
 import { OptionCard } from '@/components/plan/option-card'
 import { ConvertPanel } from '@/components/plan/convert'
 import type { PlanView, RankedOptions } from '@/components/plan/model'
+import { ChatThread } from '@/components/chat/ChatThread'
 import { api } from '@/lib/api'
 
 // The organiser's view of a plan in flight: who has answered, what the group's
@@ -217,6 +218,8 @@ export default function PlanPage({ params }: { params: Promise<{ id: string }> }
             onDone={(groupId) => router.push(`/app/groups/${groupId}`)}
           />
         )}
+
+        <ChatThread scope="plan" id={plan.plan_id} />
       </div>
     </Shell>
   )

@@ -20,6 +20,7 @@ import { PlanService } from './plan/service.js'
 import { PlanStore, installPlanSchema } from './plan/store.js'
 import { registerDelegateRoutes } from './delegate/routes.js'
 import { DelegateStore, installDelegateSchema } from './delegate/store.js'
+import { registerMessageRoutes } from './messages/routes.js'
 import { GroupService } from './service.js'
 import { MockPrava } from './prava/mock.js'
 import { PravaClient } from './prava/client.js'
@@ -144,7 +145,22 @@ export async function main(): Promise<void> {
   // in the loop or an invented answer. Never a payment path — see
   // engine/src/delegate/rules.ts and docs/AGENT-MESH.md.
   installDelegateSchema(db)
-  registerDelegateRoutes(app, { store: new DelegateStore(db), plans, planStore, social })
+  const delegateStore = new DelegateStore(db)
+  registerDelegateRoutes(app, { store: delegateStore, plans, planStore, social })
+
+  // ---- messages ------------------------------------------------------------
+  // A live thread on a plan or a group, riding the SAME event logs and SSE
+  // streams those already have — no new transport. Tagging @sutra gets a
+  // reply from the same delegate machinery above, in the room.
+  registerMessageRoutes(app, {
+    plans,
+    planStore,
+    groups: service,
+    delegateStore,
+    social,
+    currentUser: (req) => currentUserFrom(social, req),
+    apiToken,
+  })
 
   // Liveness for the platform, and a fast way for a human to tell which build
   // is actually running. Deliberately unauthenticated and cheap: a health

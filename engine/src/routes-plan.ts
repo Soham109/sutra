@@ -238,6 +238,13 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     // participant_id exactly the way planView() used to — computed once at
     // connect time, same as the rest of this route's setup.
     const viewer = viewerFor(d, req, plan)
+    // A chat message's payload (messages/routes.ts) carries author_user_id —
+    // the one payload field on this whole stream shaped exactly like the
+    // participant_id this route already redacts, and for the same reason:
+    // it names which sutra account said something. Reuse the same rule,
+    // with "is this MY OWN message" (by account, not by seat) as the second
+    // way to earn it back, since posting a message requires an account.
+    const me = d.currentUser(req)
 
     reply.hijack()
     reply.raw.writeHead(200, {
@@ -252,13 +259,17 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
         cursor = e.seq
         const participant_id =
           viewer.full || e.participant_id === viewer.selfParticipantId ? e.participant_id : null
+        const payload = JSON.parse(e.payload_json) as Record<string, unknown>
+        if (e.type === 'message.posted' && !viewer.full && payload.author_user_id !== me?.id) {
+          payload.author_user_id = null
+        }
         reply.raw.write(
           `id: ${e.seq}\nevent: plan\ndata: ${JSON.stringify({
             seq: e.seq,
             plan_id: e.plan_id,
             participant_id,
             type: e.type,
-            payload: JSON.parse(e.payload_json),
+            payload,
             at: e.created_at,
           })}\n\n`,
         )

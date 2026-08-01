@@ -22,6 +22,8 @@ import { MemberPanel } from '@/components/group/MemberPanel'
 import { InvitePanel } from '@/components/group/InvitePanel'
 import { ReplayBar, type Speed } from '@/components/group/Replay'
 import { TerminalBanner } from '@/components/group/TerminalBanner'
+import { WhatNow } from '@/components/group/WhatNow'
+import { ChatThread } from '@/components/chat/ChatThread'
 import { BACKSTOP_MOMENTS, deriveAt, fromGroup, pNum, pStr } from '@/components/group/derive'
 import { short } from '@/components/group/narrate'
 import { useGroupStream } from '@/lib/useGroupStream'
@@ -168,10 +170,11 @@ export default function GroupWarRoom() {
                   {group.merchant.name} ↗
                 </a>
                 <span className="faint"> · {group.merchant.country_code_iso2}</span>
-                <span className="faint"> · </span>
-                <span className="mono tiny faint" title={cartHash}>
-                  cart {short(cartHash, 8)}
-                </span>
+                {/* The cart hash used to sit here, in the second line of the
+                    page, reading "cart 4453d67b…5792". It is what makes the
+                    receipt tamper-evident and it belongs on the receipt, not
+                    in the headline of a page somebody opened to find out who
+                    still owes them money. */}
               </p>
             </div>
 
@@ -219,12 +222,26 @@ export default function GroupWarRoom() {
           />
         )}
 
+        {/* Who we are waiting on and whether any money has moved — the two
+            things somebody opens this page to find out, above everything the
+            protocol wants to tell them about itself. */}
+        {!replay && (
+          <WhatNow
+            status={status}
+            members={view.members}
+            currency={currency}
+            groupId={group.group_id}
+            charges={group.rail_capability?.charges ?? group.rail !== 'at_venue'}
+            terminal={group.terminal}
+          />
+        )}
+
         <div className="gr-grid">
           {/* --- left: the thread and the log --------------------------- */}
           <div className="stack" style={{ ['--gap' as string]: '16px' }}>
             <div className="card card-pad gr-flip" key={`thread-${status}`}>
               <div className="row-between" style={{ marginBottom: 2 }}>
-                <span className="eyebrow">Consent thread</span>
+                <span className="eyebrow">Who has approved</span>
                 <span className="tiny faint">
                   {status === 'committing'
                     ? 'Charging every card at once'
@@ -238,7 +255,7 @@ export default function GroupWarRoom() {
 
             <div className="card">
               <div className="gr-sec">
-                <h3>Event log</h3>
+                <h3>What happened, in order</h3>
                 <span className="row tiny" style={{ gap: 7 }}>
                   {replay ? (
                     <span className="faint mono">replaying {visible.length}/{events.length}</span>
@@ -308,6 +325,8 @@ export default function GroupWarRoom() {
                 </button>
               </ErrorNote>
             )}
+
+            {!replay && <ChatThread scope="group" id={group.group_id} />}
           </div>
 
           {/* --- right: who, what, and under which rule ------------------ */}
@@ -335,17 +354,17 @@ export default function GroupWarRoom() {
                     <span className="mono tiny">{new Date(group.deadline_at).toLocaleString()}</span>
                   </div>
                   <div className="gr-line">
-                    <span className="muted">Tolerance</span>
-                    <span className="mono tiny">{group.tolerance_bps} bps</span>
+                    <span className="muted">Price may drift by</span>
+                    <span className="mono tiny">{(group.tolerance_bps / 100).toFixed(2)}%</span>
                   </div>
                   <div className="gr-line">
-                    <span className="muted">Stragglers</span>
+                    <span className="muted">If somebody never answers</span>
                     <span className="tiny" style={{ textAlign: 'right' }}>
                       {STRAGGLER_LABEL[group.straggler_policy] ?? group.straggler_policy}
                     </span>
                   </div>
                   <div className="gr-line">
-                    <span className="muted">Blame</span>
+                    <span className="muted">If somebody says no</span>
                     <span className="tiny" style={{ textAlign: 'right' }}>
                       {group.no_blame ? 'Declines stay anonymous' : 'Declines are attributed'}
                     </span>
