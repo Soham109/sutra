@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Shell } from '@/components/shell'
 import { BillCapture } from '@/components/bill/capture'
+import { PeoplePicker } from '@/components/bill/people-picker'
 import { ErrorNote } from '@/components/ui'
 import { money, toMinor } from '@/lib/format'
 import { api } from '@/lib/api'
@@ -44,7 +45,7 @@ export default function BillPage() {
   const router = useRouter()
   const [text, setText] = useState('')
   const [bill, setBill] = useState<ParsedBill | null>(null)
-  const [people, setPeople] = useState<string[]>(['Me', ''])
+  const [people, setPeople] = useState<string[]>(['Me'])
   const [claims, setClaims] = useState<Record<number, Set<string>>>({})
   const [venue, setVenue] = useState('')
   const [error, setError] = useState('')
@@ -261,25 +262,7 @@ export default function BillPage() {
                   </ul>
                 )}
 
-                <div className="field">
-                  <span className="field-label">Who’s at the table</span>
-                  <div className="bill-people">
-                    {people.map((p, i) => (
-                      <input
-                        key={i}
-                        className="input"
-                        value={p}
-                        placeholder={`Person ${i + 1}`}
-                        onChange={(e) => {
-                          const next = [...people]
-                          next[i] = e.target.value
-                          if (i === people.length - 1 && e.target.value.trim()) next.push('')
-                          setPeople(next)
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <PeoplePicker value={named} onChange={setPeople} />
 
                 <table className="bill-table">
                   <thead>

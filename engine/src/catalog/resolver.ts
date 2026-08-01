@@ -42,6 +42,22 @@ export async function resolveProductUrl(raw: string, signal?: AbortSignal): Prom
 
   // Shopify storefronts answer with exact JSON — try that before parsing HTML.
   const shopify = await tryShopifyJson(url, signal, warnings)
+  if (shopify === 'no-such-product') {
+    // A Shopify store that 404s both JSON endpoints for a /products/ handle is
+    // telling us that item does not exist. Many such stores then serve their
+    // "not found" page with HTTP 200 and a storefront's worth of markup, so
+    // falling through to scraping produced a confident, completely unrelated
+    // product: a dead Bombay Shaving link resolved to "Bestsellers" at ₹99.
+    // Believing the store's own answer is the only safe move.
+    return {
+      product: null,
+      strategy: 'no-such-product',
+      warnings: [
+        ...warnings,
+        'that store does not have an item at that address — the link may be old, or the product may have been removed. Check the URL on the merchant’s site.',
+      ],
+    }
+  }
   if (shopify) return { product: shopify, strategy: 'shopify-json', warnings }
 
   let page
@@ -102,6 +118,14 @@ export async function resolveProductUrl(raw: string, signal?: AbortSignal): Prom
       strategy: winner,
       warnings: [...warnings, 'no product markup found on that page — paste the item page URL, not a search or category page'],
     }
+  }
+  // A price of zero is not a price. It is what falls out of a heuristic that
+  // found a heading and no number — a category page yielding the title
+  // "Collections" and an amount of 0, which then flows into a cart and asks
+  // real people to split nothing. Refusing costs one honest error message;
+  // accepting puts a fabricated line in front of a group.
+  if (merged.price && merged.price.amount_minor <= 0) {
+    delete merged.price
   }
   if (!merged.price) {
     warnings.push('the merchant did not publish a machine-readable price — enter it yourself before inviting the group')
@@ -256,18 +280,18 @@ async function tryShopifyJson(
   url: URL,
   signal: AbortSignal | undefined,
   warnings: string[],
-): Promise<ProductDetail | null> {
+): Promise<ProductDetail | 'no-such-product' | null> {
   const m = /\/products\/([^/?#]+)/.exec(url.pathname)
   if (!m) return null
-  const jsonUrl = `${url.origin}${url.pathname.replace(/\/+$/, '')}.js`
+  const base = `${url.origin}${url.pathname.replace(/\/+$/, '')}`
 
   try {
-    const res = await safeFetch(jsonUrl, { accept: 'application/json', signal })
-    if (res.status >= 400 || !res.contentType.includes('json')) return null
-    const p = JSON.parse(res.body) as ShopifyProduct
+    const read = await readShopifyProduct(base, signal)
+    if (read === 'not-found') return 'no-such-product'
+    if (!read) return null
+    const { product: p, currency } = read
     if (!p?.title || !Array.isArray(p.variants)) return null
 
-    const currency = 'USD' // Shopify .js reports cents in the store's currency
     const variants: Variant[] = p.variants.map((v) => ({
       id: String(v.id),
       name: v.title === 'Default Title' ? p.title : v.title,
@@ -301,6 +325,115 @@ async function tryShopifyJson(
     warnings.push('this looked like a Shopify URL but the JSON endpoint did not answer — falling back to page parsing')
     return null
   }
+}
+
+/**
+ * Read a Shopify product, from whichever of the two endpoints answers.
+ *
+ * `<path>.js` is the one this used to use, and it is the better shape: prices
+ * are already integer minor units. But it is served as `text/javascript` by a
+ * good number of real storefronts — Gymshark among them — and the old check
+ * demanded `application/json`, so a perfectly good product page came back as
+ * "no product markup found". That store also ships no JSON-LD, so every later
+ * strategy failed too and the whole resolve died on a URL that works.
+ *
+ * `<path>.json` is the fallback, and its prices are DECIMAL STRINGS in major
+ * units ("38.00"), not cents. Reading one as the other is a hundredfold error
+ * in a number somebody is about to be asked to pay, so the two shapes are
+ * converted separately and never share a code path.
+ */
+async function readShopifyProduct(
+  base: string,
+  signal: AbortSignal | undefined,
+): Promise<{ product: ShopifyProduct; currency: string } | 'not-found' | null> {
+  const currency = await shopCurrency(base, signal)
+
+  // Shopify's own content types for these are inconsistent across shops, so
+  // the body is what decides, not the header.
+  const dotJs = await safeFetch(`${base}.js`, { accept: 'application/json', signal }).catch(() => null)
+  if (dotJs && dotJs.status < 400) {
+    const parsed = parseJson<ShopifyProduct>(dotJs.body)
+    if (parsed?.title && Array.isArray(parsed.variants)) return { product: parsed, currency }
+  }
+
+  const dotJson = await safeFetch(`${base}.json`, { accept: 'application/json', signal }).catch(() => null)
+
+  // Both endpoints answered, and both said this handle does not exist. That is
+  // the store's own verdict on its own catalogue, and it is worth more than
+  // anything scraped off the page it serves instead.
+  if (dotJs?.status === 404 && dotJson?.status === 404) return 'not-found'
+
+  if (dotJson && dotJson.status < 400) {
+    const wrapper = parseJson<{ product?: RawShopifyJson }>(dotJson.body)
+    const raw = wrapper?.product
+    if (raw?.title && Array.isArray(raw.variants)) {
+      const minor = currency === 'JPY' || currency === 'KRW' ? 1 : 100
+      return {
+        currency,
+        product: {
+          ...raw,
+          images: (raw.images ?? []).map((i) => (typeof i === 'string' ? i : i.src)).filter(Boolean),
+          variants: raw.variants.map((v) => ({
+            id: v.id,
+            title: v.title,
+            // "38.00" -> 3800. Round after multiplying: 19.99 * 100 is
+            // 1998.9999999999998 in floating point.
+            price: Math.round(Number(v.price) * minor),
+            available: v.available !== false,
+            options: [v.option1, v.option2, v.option3].filter((o): o is string => !!o),
+          })),
+        },
+      }
+    }
+  }
+  return null
+}
+
+function parseJson<T>(body: string): T | null {
+  try {
+    return JSON.parse(body) as T
+  } catch {
+    return null
+  }
+}
+
+/**
+ * A storefront's own currency, from the endpoint Shopify serves for exactly
+ * this. The old code hardcoded USD and commented that .js "reports cents in
+ * the store's currency" — which is true, and is precisely why assuming the
+ * currency is wrong. A UK shop's £38 was being shown as $38.
+ */
+async function shopCurrency(base: string, signal: AbortSignal | undefined): Promise<string> {
+  try {
+    const origin = new URL(base).origin
+    const res = await safeFetch(`${origin}/meta.json`, { accept: 'application/json', signal })
+    if (res.status >= 400) return 'USD'
+    const meta = parseJson<{ currency?: string }>(res.body)
+    const code = meta?.currency?.trim().toUpperCase()
+    return code && /^[A-Z]{3}$/.test(code) ? code : 'USD'
+  } catch {
+    return 'USD'
+  }
+}
+
+/** The `<path>.json` shape, which differs from `.js` in every field that matters. */
+interface RawShopifyJson {
+  title: string
+  vendor?: string
+  product_type?: string
+  body_html?: string
+  images?: ({ src: string } | string)[]
+  options?: { name: string }[] | string[]
+  variants: {
+    id: number | string
+    title: string
+    /** decimal string in MAJOR units — "38.00", not 3800 */
+    price: string
+    available?: boolean
+    option1?: string | null
+    option2?: string | null
+    option3?: string | null
+  }[]
 }
 
 interface ShopifyProduct {

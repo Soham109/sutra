@@ -7,6 +7,7 @@ import { UserError, type GroupService } from './service.js'
 import { capabilityOf } from './rails.js'
 import type { Poller } from './poller.js'
 import { MockPrava } from './prava/mock.js'
+import { spendLimit } from './rate-limit.js'
 import { describePolicy, cartTotal, type Policy } from './types.js'
 
 export interface RoutesConfig {
@@ -257,7 +258,9 @@ export function registerRoutes(
   // so the flow works offline. The proposal is an editable card — the human
   // always confirms before anything is created.
 
-  app.post('/v1/agent/propose', async (req) => {
+  // Spends an OpenAI call on the caller's behalf when a key is configured —
+  // same "someone else's rate limit" concern as the plan layer's agent route.
+  app.post('/v1/agent/propose', spendLimit(20), async (req) => {
     const body = z.object({ prompt: z.string().min(3).max(2000) }).parse(req.body)
     const key = process.env.OPENAI_API_KEY
     if (key) {

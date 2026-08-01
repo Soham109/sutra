@@ -9,6 +9,7 @@ import { ReceiptSigner } from './receipt.js'
 import { registerRoutes } from './routes.js'
 import { registerProductRoutes, currentUserFrom } from './routes-v2.js'
 import { registerPlanRoutes } from './routes-plan.js'
+import { registerRateLimiting } from './rate-limit.js'
 import { Social, installSocialSchema } from './social.js'
 import { Catalog } from './catalog/index.js'
 import { Places } from './places/index.js'
@@ -60,13 +61,22 @@ export async function main(): Promise<void> {
   const service = new GroupService(db, prava, hub, signer, { appBaseUrl: APP_BASE_URL })
   const poller = new Poller(service)
 
-  const app = Fastify({ logger: { level: 'warn' } })
+  // trustProxy: both Railway (direct hits) and the web app's own BFF proxy
+  // sit in front of this process, so the real caller's address only ever
+  // arrives via X-Forwarded-For. Without this, request.ip is the last hop's
+  // address — Railway's edge or Vercel's egress IP — which is the same for
+  // every request no matter who is actually asking, and the rate limiter
+  // below would treat the entire internet as one caller.
+  const app = Fastify({ logger: { level: 'warn' }, trustProxy: true })
+
+  const apiToken = process.env.ENGINE_API_TOKEN ?? 'dev-token'
+  await registerRateLimiting(app)
 
   installSocialSchema(db)
   const social = new Social(db)
 
   registerRoutes(app, service, poller, {
-    apiToken: process.env.ENGINE_API_TOKEN ?? 'dev-token',
+    apiToken,
     appBaseUrl: APP_BASE_URL,
     social: { userFor: (req) => currentUserFrom(social, req) },
   })
@@ -125,6 +135,7 @@ export async function main(): Promise<void> {
     places,
     social,
     currentUser: (req) => currentUserFrom(social, req),
+    apiToken,
   })
 
   // ---- delegate agents -----------------------------------------------------

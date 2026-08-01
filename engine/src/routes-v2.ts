@@ -13,6 +13,7 @@ import { capabilityOf } from './rails.js'
 import { UserError, type GroupService } from './service.js'
 import { Social, publicUser, type User } from './social.js'
 import { groupView } from './routes.js'
+import { spendLimit } from './rate-limit.js'
 import { cartTotal, CreateGroupSchema, GROUP_TERMINAL, type Cart } from './types.js'
 
 const USER_COOKIE = 'sutra_uid'
@@ -66,7 +67,12 @@ export function registerProductRoutes(
   const sessionCookie = (token: string, maxAge = 60 * 60 * 24 * 90) =>
     `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`
 
-  app.post('/v1/auth/register', async (req, reply) => {
+  // Registration and login are the brute-force surface: a live probe fired 20
+  // back-to-back failed logins in 16 seconds and got 20 clean 401s, nothing
+  // slowing it down. `spendLimit` keys on IP+User-Agent (rate-limit.ts), so
+  // this stays per-device rather than per-conference-wifi — one real person
+  // logging in, even fumbling a password a few times, never gets near it.
+  app.post('/v1/auth/register', spendLimit(5), async (req, reply) => {
     const body = z.object({
       email: z.string().email().max(254),
       password: z.string().min(10).max(128),
@@ -81,7 +87,7 @@ export function registerProductRoutes(
     return { user, reliability: social.reliability(user.id) }
   })
 
-  app.post('/v1/auth/login', async (req, reply) => {
+  app.post('/v1/auth/login', spendLimit(8), async (req, reply) => {
     const body = z.object({ email: z.string().email(), password: z.string().min(1).max(128) }).parse(req.body)
     const user = social.authenticate(body.email, body.password)
     if (!user) throw new UserError('email or password is incorrect', 401)
@@ -459,7 +465,10 @@ export function registerProductRoutes(
   // Prava can charge, so this lands on the at_venue rail: exact allocation,
   // explicit acceptance, signed record — and no claim that a card was charged.
 
-  app.post('/v1/bill/parse', async (req) => {
+  // Bill parsing spends OCR/vision work on the caller's behalf — see
+  // routes-plan.ts's note on /v1/plans/:id/options/refresh for the same
+  // "someone else's rate limit" concern.
+  app.post('/v1/bill/parse', spendLimit(15), async (req) => {
     const body = z
       .object({
         text: z.string().max(20_000).optional(),
@@ -486,7 +495,7 @@ export function registerProductRoutes(
   })
 
   /** A parsed bill plus who claimed what → a real group on the at_venue rail. */
-  app.post('/v1/bill/split', async (req, reply) => {
+  app.post('/v1/bill/split', spendLimit(15), async (req, reply) => {
     const me = currentUser(req)
     const body = z
       .object({
@@ -568,8 +577,12 @@ export function registerProductRoutes(
   })
 
   // ---- discovery ---------------------------------------------------------
+  // Every route below fans out to real merchant/catalog sources on the
+  // caller's behalf — the same "spends someone else's rate limit" concern
+  // as the plan layer's places/agent routes, so they get the same tighter,
+  // still demo-generous ceiling instead of the global default.
 
-  app.get('/v1/discover/search', async (req) => {
+  app.get('/v1/discover/search', spendLimit(30), async (req) => {
     const { q = '', merchant, limit } = req.query as { q?: string; merchant?: string; limit?: string }
     const query = q.trim()
     if (!query) return { products: [], sources: [], query, took_ms: 0 }
@@ -600,7 +613,7 @@ export function registerProductRoutes(
    * is cheapest per unit" — and because it is allowed to return nothing at all
    * when it cannot honestly group anything.
    */
-  app.get('/v1/discover/compare', async (req) => {
+  app.get('/v1/discover/compare', spendLimit(30), async (req) => {
     const { q = '', limit } = req.query as { q?: string; limit?: string }
     const query = q.trim()
     if (!query) return { groups: [], ungrouped: [], currencies: [], query, sources: [], took_ms: 0 }
@@ -618,7 +631,7 @@ export function registerProductRoutes(
     }
   })
 
-  app.post('/v1/discover/resolve', async (req) => {
+  app.post('/v1/discover/resolve', spendLimit(30), async (req) => {
     const body = z.object({ url: z.string().min(4).max(2048) }).parse(req.body)
     const result = await catalog.resolve(body.url)
     if (!result.product) {

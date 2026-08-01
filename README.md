@@ -487,10 +487,10 @@ rather than a fabricated middle. See [`docs/COORDINATION.md`](docs/COORDINATION.
 ```
 
 35001 + 35000 + 34999 = 105000 exactly. Largest remainder, integer minor units,
-no rounding leak. Note the honest ceiling on this flow today: the group is on
-the `at_venue` rail, and the member-acceptance step has no HTTP route yet, so
-those three seats sit in `awaiting_approval` rather than reaching `settled` —
-see *Designed, not built* below.
+no rounding leak. Each member then accepts their own number at
+`POST /v1/members/:id/accept`, and once the policy is satisfied the group
+reaches `committed` with a signed receipt that says `settled at the venue` and
+claims no charge.
 
 ## Built vs designed-not-built
 
@@ -567,16 +567,23 @@ not on a public host.
 
 ### Designed, not built
 
-- **The `at_venue` acceptance endpoint.** `GroupService.acceptShare()` is
-  implemented and exercised by the engine's own tests, but there is **no HTTP
-  route for it**. A group can be created on the `at_venue` rail (bill split, or
-  an OSM venue) and every member's exact amount is allocated, disclosed and
-  recorded — but over the API today those members sit in `awaiting_approval`
-  and the group cannot reach `committed`. This is the largest known gap.
-- **Real authentication.** Identity is a handle in a cookie. It grants no
-  spending power — spending needs the member's own passkey on Prava's page —
-  but it is not auth, and `docs/PRODUCT_AND_MOBILE_ROADMAP.md` treats replacing
-  it as a launch blocker.
+- **A real card charge.** Mandate sessions mint correctly against the real
+  Prava sandbox and the poller commits the group by itself once a mandate goes
+  active — but completing one requires a human opening the hosted approval URL
+  on a phone and passing the passkey ceremony, and no script can do that on
+  their behalf. That is the security property of the protocol, and it is also
+  the largest thing this repository cannot demonstrate on its own. If a receipt
+  here shows a real charge, a person tapped for it.
+
+  *(This section previously claimed `POST /v1/members/:id/accept` had no HTTP
+  route and called that the largest gap. That was wrong — the route is at
+  [`engine/src/routes.ts`](engine/src/routes.ts), the web app calls it, and a
+  bill split reaches `committed` end to end.)*
+- **Per-participant authorisation on the coordination layer.** A plan link is a
+  bearer capability by design — the whole point is answering on a phone with no
+  account — but the plan view hands every participant's id to anyone holding
+  the plan link, which is wider than it should be. The payment layer is not
+  affected: spending needs the member's own passkey on Prava's page.
 - **Mobile clients.** Recommended architecture only; see the roadmap.
 - **Postgres, workers, transactional outbox.** The engine is one process with
   SQLite. The roadmap describes the production shape.

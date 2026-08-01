@@ -594,15 +594,19 @@ a.list-row:hover { background: var(--surface-2); }
 .sidebar { background: var(--surface-2); color: var(--ink); border-right: 1px solid var(--line); padding: 10px; }
 [data-theme='dark'] .sidebar { background: #11110f; color: #f7f6f2; border-right: 0; }
 .sidebar-head { padding: 10px 10px 24px; }
-.sidebar .nav-section-label { color: #6f6c65; padding-inline: 10px; }
+/* The background was fixed to use tokens; the items inside were not, so a
+   light theme still had a near-black #282622 slab marking the current page —
+   the single heaviest thing on the screen, for the one row that needs the
+   least emphasis. The current page is marked with the brand tint and a weight
+   change, which is enough. */
+.sidebar .nav-section-label { color: var(--ink-3); padding-inline: 10px; }
 .sidebar-nav { padding: 0; }
-.sidebar .nav-item { color: #9d9990; border-radius: 10px; padding: 10px 11px; font-size: 13px; }
-.sidebar .nav-item:hover { background: #1d1c19; color: #fff; }
-.sidebar .nav-item[aria-current='page'] { background: #282622; color: #fff; box-shadow: inset 0 0 0 1px #34312c; }
+.sidebar .nav-item { color: var(--ink-2); border-radius: 10px; padding: 10px 11px; font-size: 13px; }
+.sidebar .nav-item:hover { background: var(--surface-3); color: var(--ink); }
+.sidebar .nav-item[aria-current='page'] { background: var(--brand-soft); color: var(--brand-ink); font-weight: 600; box-shadow: inset 0 0 0 1px var(--brand-line); }
 .sidebar .nav-item[aria-current='page'] svg { color: var(--brand); }
-.sidebar .btn-primary { color: #15120f; }
-.sidebar-foot { border-color: #2b2925; }
-.sidebar-foot .faint { color: #77736b; }
+.sidebar-foot { border-color: var(--line); }
+.sidebar-foot .faint { color: var(--ink-3); }
 .topbar { height: var(--topbar-h); padding-inline: 28px; border-color: var(--line); background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(14px); }
 .top-search { width: min(260px, 24vw); display: flex; align-items: center; gap: 9px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-3); border-radius: 10px; font-size: 12px; cursor: pointer; }
 .top-search .kbd { margin-left: auto; }
@@ -1191,3 +1195,22 @@ a.list-row:hover { background: var(--surface-2); }
   .compare-list li { grid-template-columns: minmax(0,1fr) auto; }
   .compare-list li > button { grid-column: 1 / -1; justify-self: start; }
 }
+
+/* Choosing who is in the split ---------------------------------------------
+   Replaces a grid of blank "Person 1 / Person 2 / Person 3" boxes. The app
+   already knows your friends and your circles; typing their names again every
+   week was work it could have done for you. */
+.picker { display: grid; gap: 10px; }
+.picker-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; }
+.picker-chips li { display: inline-flex; align-items: center; gap: 7px; padding: 4px 6px 4px 4px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); font-size: 13px; }
+.picker-chips li button { border: 0; background: none; cursor: pointer; color: var(--ink-3); font-size: 15px; line-height: 1; padding: 0 3px; border-radius: 50%; }
+.picker-chips li button:hover { color: var(--bad); }
+.picker-entry { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+.picker-suggest { display: flex; flex-wrap: wrap; gap: 6px; }
+.picker-suggest button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 5px; border: 1px dashed var(--line-2); border-radius: 999px; background: transparent; color: var(--ink-2); font-size: 12.5px; cursor: pointer; transition: .14s; }
+.picker-suggest button:hover { border-style: solid; border-color: var(--brand); color: var(--brand-ink); background: var(--brand-soft); }
+.picker-circles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.picker-circles button { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); font-size: 12.5px; cursor: pointer; transition: .14s; }
+.picker-circles button:hover:not(:disabled) { border-color: var(--brand); color: var(--brand-ink); }
+.picker-circles button:disabled { opacity: .5; cursor: default; }
+.picker-circles em { font-style: normal; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }

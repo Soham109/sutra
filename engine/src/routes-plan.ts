@@ -13,6 +13,7 @@ import type { PlanService } from './plan/service.js'
 import { viewOption } from './plan/service.js'
 import type { PlanStore } from './plan/store.js'
 import type { Places } from './places/index.js'
+import { spendLimit } from './rate-limit.js'
 import type { Social, User } from './social.js'
 import {
   CreatePlanSchema,
@@ -29,6 +30,46 @@ export interface PlanRoutesDeps {
   places: Places
   social: Social
   currentUser: (req: { headers: Record<string, unknown> }) => User | undefined
+  /**
+   * Same server-to-server credential /v1/groups accepts. A caller that holds
+   * it is trusted the way our own deployed frontend is — see viewerFor().
+   */
+  apiToken: string
+}
+
+// ---------------------------------------------------------------------------
+// Who is looking, and how much of a plan they may see.
+//
+// A participant_id is not just a label: /v1/participants/:id accepts it with
+// no further proof by design — that is the whole "pass the phone, no
+// account" pitch. That makes it exactly as sensitive as the budget signal it
+// can read and forge (see summarySignal in plan/service.ts, "never the
+// number"), and it must NOT be broadcast to everyone who can read a plan the
+// way /v1/groups/:id/joinable deliberately broadcasts member_id — a group
+// member has nothing private tied to their id the way a plan participant's
+// budget is. A live audit read another participant's id straight out of
+// planView(), POSTed a forged budget signal as them, then read it back —
+// zero auth, because nothing here checked who was asking.
+//
+// `full` is earned the same way it already is on /v1/groups/:id/cancel: the
+// plan's own organiser, proven by session when one exists, or the engine's
+// bearer token (server-to-server callers, e.g. the CLI/demo scripts).
+// `selfParticipantId`, when set, keeps a caller able to see the one row that
+// is unambiguously theirs — their own link already told them that id, and
+// the participant page renders "everyone else" by excluding it.
+// ---------------------------------------------------------------------------
+
+interface Viewer {
+  full: boolean
+  selfParticipantId?: string
+}
+
+function viewerFor(d: PlanRoutesDeps, req: { headers: Record<string, unknown> }, plan: PlanRow): Viewer {
+  const holdsToken = req.headers.authorization === `Bearer ${d.apiToken}`
+  const me = d.currentUser(req)
+  const isOrganiser = !!plan.created_by && me?.id === plan.created_by
+  const selfParticipantId = me ? d.store.participantForUser(plan.id, me.id)?.id : undefined
+  return { full: holdsToken || isOrganiser, selfParticipantId }
 }
 
 export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): void {
@@ -47,17 +88,20 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     // Options are best-effort at creation: a plan with nobody's location yet
     // has nowhere to search, and that is a normal state, not an error.
     await d.plans.generateOptions(plan.id).catch(() => undefined)
-    return reply.status(201).send(planView(d, d.plans.mustPlan(plan.id)))
+    // The creator's own response is the one moment an organiser without an
+    // account can grab every participant link at once — see viewerFor().
+    return reply.status(201).send(planView(d, d.plans.mustPlan(plan.id), { full: true }))
   })
 
   app.get('/v1/plans/:id', async (req) => {
     const { id } = req.params as { id: string }
-    return planView(d, d.plans.mustPlan(id))
+    const plan = d.plans.mustPlan(id)
+    return planView(d, plan, viewerFor(d, req, plan))
   })
 
   app.get('/v1/my/plans', async (req) => {
     const me = requireUser(req)
-    return { plans: d.store.plansFor(me.id).map((p) => planView(d, p)) }
+    return { plans: d.store.plansFor(me.id).map((p) => planView(d, p, viewerFor(d, req, p))) }
   })
 
   app.post('/v1/plans/:id/participants', async (req) => {
@@ -71,13 +115,15 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
       .parse(req.body)
     d.plans.mustPlan(id)
     d.plans.addParticipant(id, body)
-    return planView(d, d.plans.mustPlan(id))
+    const plan = d.plans.mustPlan(id)
+    return planView(d, plan, viewerFor(d, req, plan))
   })
 
   app.post('/v1/plans/:id/cancel', async (req) => {
     const { id } = req.params as { id: string }
     d.plans.cancelPlan(id)
-    return planView(d, d.plans.mustPlan(id))
+    const plan = d.plans.mustPlan(id)
+    return planView(d, plan, viewerFor(d, req, plan))
   })
 
   // ---- signals -----------------------------------------------------------
@@ -91,6 +137,10 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
       .currentSignals(plan.id)
       .filter((s) => s.participant_id === p.id)
       .map((s) => JSON.parse(s.payload_json) as SignalPayload)
+    // Whoever holds this link is entitled to see at least their own seat in
+    // the embedded plan — the same id already got them here — but not their
+    // fellow participants' ids, same as everywhere else planView() renders.
+    const viewer = viewerFor(d, req, plan)
     return {
       participant_id: p.id,
       name: p.display_name,
@@ -101,7 +151,7 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
         (kind) => !mine.some((s) => s.kind === kind),
       ),
       my_signals: mine,
-      plan: planView(d, plan),
+      plan: planView(d, plan, { full: viewer.full, selfParticipantId: id }),
     }
   })
 
@@ -110,14 +160,17 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     const payload = SignalPayloadSchema.parse(req.body)
     await d.plans.submitSignal(id, payload)
     const p = d.store.participant(id)!
-    return planView(d, d.plans.mustPlan(p.plan_id))
+    const plan = d.plans.mustPlan(p.plan_id)
+    const viewer = viewerFor(d, req, plan)
+    return planView(d, plan, { full: viewer.full, selfParticipantId: id })
   })
 
   // ---- options -----------------------------------------------------------
 
   app.get('/v1/plans/:id/options', async (req) => {
     const { id } = req.params as { id: string }
-    const r = d.plans.ranked(id)
+    const plan = d.plans.mustPlan(id)
+    const r = redactRanked(d.plans.ranked(id), viewerFor(d, req, plan))
     return {
       plan_id: id,
       best_windows: r.best_windows,
@@ -126,16 +179,17 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
   })
 
   /** Re-run discovery. Explicit, because it spends someone else's rate limit. */
-  app.post('/v1/plans/:id/options/refresh', async (req) => {
+  app.post('/v1/plans/:id/options/refresh', spendLimit(20), async (req) => {
     const { id } = req.params as { id: string }
     const body = z.object({ slots: SlotsSchema.partial().optional() }).parse(req.body ?? {})
     if (body.slots) {
-      const plan = d.plans.mustPlan(id)
-      const merged = SlotsSchema.parse({ ...JSON.parse(plan.slots_json), ...body.slots })
-      d.store.casPlan(plan.id, plan.version, { slots_json: JSON.stringify(merged) })
+      const plan0 = d.plans.mustPlan(id)
+      const merged = SlotsSchema.parse({ ...JSON.parse(plan0.slots_json), ...body.slots })
+      d.store.casPlan(plan0.id, plan0.version, { slots_json: JSON.stringify(merged) })
     }
     await d.plans.generateOptions(id)
-    const r = d.plans.ranked(id)
+    const plan = d.plans.mustPlan(id)
+    const r = redactRanked(d.plans.ranked(id), viewerFor(d, req, plan))
     return { plan_id: id, best_windows: r.best_windows, options: r.options }
   })
 
@@ -143,7 +197,8 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     const { id } = req.params as { id: string }
     const body = z.object({ option_id: z.string().min(1) }).parse(req.body)
     d.plans.chooseOption(id, body.option_id)
-    return planView(d, d.plans.mustPlan(id))
+    const plan = d.plans.mustPlan(id)
+    return planView(d, plan, viewerFor(d, req, plan))
   })
 
   /** The handover: coordination becomes a GMP/1 group with real mandates. */
@@ -178,7 +233,11 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
   app.get('/v1/plans/:id/events', async (req, reply) => {
     const { id } = req.params as { id: string }
     const after = Number((req.query as { after?: string }).after ?? 0)
-    d.plans.mustPlan(id)
+    const plan = d.plans.mustPlan(id)
+    // The timeline names WHO did something ("signal.budget"), so it leaks
+    // participant_id exactly the way planView() used to — computed once at
+    // connect time, same as the rest of this route's setup.
+    const viewer = viewerFor(d, req, plan)
 
     reply.hijack()
     reply.raw.writeHead(200, {
@@ -191,11 +250,13 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     const flush = () => {
       for (const e of d.store.eventsAfter(id, cursor)) {
         cursor = e.seq
+        const participant_id =
+          viewer.full || e.participant_id === viewer.selfParticipantId ? e.participant_id : null
         reply.raw.write(
           `id: ${e.seq}\nevent: plan\ndata: ${JSON.stringify({
             seq: e.seq,
             plan_id: e.plan_id,
-            participant_id: e.participant_id,
+            participant_id,
             type: e.type,
             payload: JSON.parse(e.payload_json),
             at: e.created_at,
@@ -221,7 +282,10 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
   // the geocoder supplies coordinates, OpenStreetMap supplies venues, and
   // rank.ts supplies the ordering. Nothing on the board is invented.
 
-  app.post('/v1/agent/plan', async (req, reply) => {
+  // Spends an LLM call plus a real geocode/places lookup on the caller's
+  // behalf every time it runs — the same "someone else's rate limit" this
+  // file already calls out on options/refresh.
+  app.post('/v1/agent/plan', spendLimit(20), async (req, reply) => {
     const me = d.currentUser(req)
     const body = z
       .object({
@@ -307,18 +371,22 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
       me?.id,
     )
     await d.plans.generateOptions(plan.id).catch(() => undefined)
-    return reply.status(201).send({ ...preview, plan: planView(d, d.plans.mustPlan(plan.id)) })
+    // Creation response, same as POST /v1/plans — the actual creator's one
+    // chance to see every link at once.
+    return reply.status(201).send({ ...preview, plan: planView(d, d.plans.mustPlan(plan.id), { full: true }) })
   })
 
   // ---- places ------------------------------------------------------------
+  // Both spend a real geocoder/OpenStreetMap lookup per call — see the note
+  // on /v1/agent/plan above.
 
-  app.get('/v1/places/geocode', async (req) => {
+  app.get('/v1/places/geocode', spendLimit(40), async (req) => {
     const { q } = req.query as { q?: string }
     if (!q?.trim()) return { places: [], reason: 'no query', cached: false, took_ms: 0 }
     return d.places.geocode(q.trim())
   })
 
-  app.get('/v1/places/search', async (req) => {
+  app.get('/v1/places/search', spendLimit(40), async (req) => {
     const q = req.query as { lat?: string; lng?: string; category?: string; radius_m?: string; limit?: string }
     const lat = Number(q.lat)
     const lng = Number(q.lng)
@@ -358,7 +426,7 @@ function rescaleMinor(
 // View model
 // ---------------------------------------------------------------------------
 
-export function planView(d: PlanRoutesDeps, p: PlanRow) {
+export function planView(d: PlanRoutesDeps, p: PlanRow, viewer: Viewer) {
   const participants = d.store.participants(p.id)
   const signals = d.store.currentSignals(p.id)
   const options = d.store.options(p.id)
@@ -390,10 +458,14 @@ export function planView(d: PlanRoutesDeps, p: PlanRow) {
     participants: participants.map((x) => {
       const mine = byParticipant.get(x.id) ?? []
       const rsvp = mine.find((s) => s.kind === 'rsvp')
+      // The organiser (or the engine token) sees every id, to distribute
+      // links; anyone else sees only the row that is unambiguously theirs.
+      // See the Viewer doc comment above for why this id is sensitive at all.
+      const revealed = viewer.full || x.id === viewer.selfParticipantId
       return {
-        participant_id: x.id,
+        participant_id: revealed ? x.id : null,
         name: x.display_name,
-        user_id: x.user_id,
+        user_id: revealed ? x.user_id : null,
         role: x.role,
         responded_at: x.responded_at,
         // Which questions they have answered — never the answers themselves,
@@ -409,5 +481,34 @@ export function planView(d: PlanRoutesDeps, p: PlanRow) {
     options: options.map(viewOption),
     option_count: options.length,
     responded_count: participants.filter((x) => x.responded_at).length,
+  }
+}
+
+/**
+ * The ranked board leaks participant_id two more ways, both reachable with
+ * zero auth via GET /v1/plans/:id/options: the per-option fit table
+ * (`per_participant`), and who a common meeting window counts as available.
+ * Same treatment as planView() — everyone's numbers stay, only the raw id
+ * that would let a stranger act as that person gets redacted.
+ */
+function redactRanked(r: ReturnType<PlanService['ranked']>, viewer: Viewer) {
+  if (viewer.full) return r
+  return {
+    ...r,
+    best_windows: r.best_windows.map((w) => ({
+      ...w,
+      available: w.available.filter((id) => id === viewer.selfParticipantId),
+      unavailable: w.unavailable.filter((id) => id === viewer.selfParticipantId),
+    })),
+    options: r.options.map((o) => ({
+      ...o,
+      score: {
+        ...o.score,
+        per_participant: o.score.per_participant.map((pp) => ({
+          ...pp,
+          participant_id: pp.participant_id === viewer.selfParticipantId ? pp.participant_id : null,
+        })),
+      },
+    })),
   }
 }

@@ -192,8 +192,10 @@ export default function ParticipantPage({
         <section className="answer-others">
           <h3>The group</h3>
           <ul>
-            {others.map((p) => (
-              <li key={p.participant_id}>
+            {others.map((p, i) => (
+              // Their id is redacted for everyone but the organiser (see
+              // PlanParticipant), so the name is the only stable-ish key here.
+              <li key={p.participant_id ?? `${p.name}-${i}`}>
                 <span>{p.name}</span>
                 <span className={p.responded_at ? 'tiny' : 'tiny faint'}>
                   {p.rsvp === false

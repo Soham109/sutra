@@ -132,8 +132,9 @@ export function OptionCard({
                   </tr>
                 </thead>
                 <tbody>
-                  {score.per_participant.map((p) => (
-                    <tr key={p.participant_id}>
+                  {score.per_participant.map((p, i) => (
+                    // id is redacted to everyone but the organiser/self — see model.ts
+                    <tr key={p.participant_id ?? `${p.name}-${i}`}>
                       <td>{p.name}</td>
                       <td>{p.time_ok === null ? '—' : p.time_ok ? 'yes' : 'no'}</td>
                       <td>{p.travel_km === null ? '—' : `${p.travel_km.toFixed(1)} km`}</td>

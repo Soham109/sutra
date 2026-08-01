@@ -123,7 +123,7 @@ export default function PlanPage({ params }: { params: Promise<{ id: string }> }
             {plan.participants.map((p) => (
               <div
                 className={`answer-chip${p.rsvp === false ? ' is-out' : p.responded_at ? ' is-in' : ''}`}
-                key={p.participant_id}
+                key={p.participant_id ?? p.name}
               >
                 <Avatar name={p.name} size="sm" />
                 <div>
@@ -136,7 +136,10 @@ export default function PlanPage({ params }: { params: Promise<{ id: string }> }
                         : 'not opened'}
                   </span>
                 </div>
-                {!p.responded_at && (
+                {/* participant_id is only ever present here for the plan's own
+                    organiser — see PlanParticipant. Everyone else genuinely
+                    cannot get this link, so there is nothing to copy. */}
+                {!p.responded_at && p.participant_id && (
                   <button
                     className="chip-copy"
                     title="Copy their link"

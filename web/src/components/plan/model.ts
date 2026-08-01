@@ -23,7 +23,12 @@ export type SignalPayload =
   | { kind: 'constraint'; text: string }
 
 export interface PlanParticipant {
-  participant_id: string
+  /**
+   * Redacted to `null` unless you are the plan's organiser (or this is your
+   * own seat) — the engine no longer broadcasts every participant's id to
+   * anyone who can read the plan. See engine/src/routes-plan.ts's Viewer.
+   */
+  participant_id: string | null
   name: string
   user_id: string | null
   role: 'organizer' | 'guest'
@@ -75,6 +80,7 @@ export interface PlanView {
 }
 
 export interface ParticipantView {
+  /** always your own id — this response is only ever reached via your own link */
   participant_id: string
   name: string
   role: 'organizer' | 'guest'
@@ -99,7 +105,8 @@ export interface OptionScore {
   excluded: string | null
   confidence: number
   per_participant: {
-    participant_id: string
+    /** redacted to `null` for everyone except your own row — see PlanParticipant */
+    participant_id: string | null
     name: string
     time_ok: boolean | null
     travel_km: number | null
