@@ -166,7 +166,7 @@ h3 { font-size: 16px; letter-spacing: -0.012em; }
 .grow { flex: 1; min-width: 0; }
 .stack > * + * { margin-top: var(--gap, 14px); }
 
-.page { padding: 26px 32px 80px; max-width: 1180px; }
+.page { padding: 26px 32px 80px; max-width: 1180px; margin-inline: auto; }
 .page-narrow { max-width: 760px; }
 .page-head { margin-bottom: 22px; }
 .page-head h1 { margin-bottom: 4px; }
@@ -604,7 +604,9 @@ a.list-row:hover { background: var(--surface-2); }
 .top-search .kbd { margin-left: auto; }
 .top-create { border-radius: 999px; }
 .mobile-nav { display: none; }
-.page { max-width: 1320px; padding: clamp(22px, 3vw, 42px) clamp(18px, 3.5vw, 52px) 100px; }
+/* margin-inline: auto is load-bearing — without it a max-width page hugs
+   the left edge of a wide viewport and leaves a dead column on the right. */
+.page { max-width: 1320px; margin-inline: auto; padding: clamp(22px, 3vw, 42px) clamp(18px, 3.5vw, 52px) 100px; }
 
 .home-page { display: flex; flex-direction: column; gap: clamp(46px, 6vw, 78px); }
 .launchpad { min-height: 490px; background: #3228d8; color: #f8f7f3; border-radius: 28px; padding: clamp(28px, 4.8vw, 68px); display: grid; grid-template-columns: .8fr 1.2fr; gap: clamp(38px, 7vw, 100px); align-items: end; overflow: hidden; position: relative; isolation: isolate; }

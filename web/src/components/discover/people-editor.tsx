@@ -77,13 +77,47 @@ export function PeopleEditor({
     (f) => !members.some((m) => m.userId === f.id || m.name.trim().toLowerCase() === f.name.trim().toLowerCase()),
   )
 
+  // One payer, and that payer is you.
+  const solo = members.length === 1
+
   return (
     <Section
       step={2}
       title="The people"
-      lede="Everyone who will be asked. Each of them approves on their own device and pays with their own card — nobody here is collecting money from anybody."
-      aside={<Badge>{members.length} in the group</Badge>}
+      lede={
+        solo
+          ? 'Just you. One mandate on your own card, capped at the price — the same protocol, with a group of one.'
+          : 'Everyone who will be asked. Each of them approves on their own device and pays with their own card — nobody here is collecting money from anybody.'
+      }
+      aside={<Badge tone={solo ? 'brand' : 'plain'}>{solo ? 'just you' : `${members.length} in the group`}</Badge>}
     >
+      {/* Buying something for yourself is a group of one, and the product was
+          quietly refusing to admit that — you had to notice that leaving the
+          list alone happened to work. Now it says so. */}
+      <div className="row" style={{ gap: 8, marginBottom: 12 }}>
+        <button
+          type="button"
+          className={`btn ${solo ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => {
+            if (solo) return
+            const me = members.find((m) => m.userId === meId) ?? members[0]
+            if (me) onMembers([me])
+          }}
+        >
+          Just me
+        </button>
+        <button
+          type="button"
+          className={`btn ${solo ? 'btn-secondary' : 'btn-primary'}`}
+          onClick={() => {
+            if (!solo) return
+            onMembers([...members, { key: uid('m'), name: '', role: 'payer', weight: 1, backstopCap: 0, sponsorFor: '' }])
+          }}
+        >
+          Split with others
+        </button>
+      </div>
+
       <div className="col" style={{ gap: 10 }}>
         {members.map((m) => (
           <div key={m.key} className="well col" style={{ gap: 10 }}>
