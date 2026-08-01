@@ -91,17 +91,86 @@
 }
 .landing > * { position: relative; z-index: 1; }
 
-/* How it works — the plain-language section. Numbers are structural here:
-   these really are four things that happen in order. */
+/* How it works — a scroll-driven sequence. The thread from the logo runs down
+   the left, filling as you go; the panel on the right is sticky and swaps to
+   the moment being described. Text is the caption, the panel is the argument. */
 .l-how { padding-block: clamp(56px, 8vw, 104px); }
-.how-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: clamp(22px, 3vw, 40px); margin-top: clamp(34px, 5vw, 58px); counter-reset: none; }
-.how-steps li { display: flex; gap: 16px; align-items: flex-start; }
-.how-n { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--l-ink); color: var(--l-bg); font-size: 14px; font-weight: 720; font-variant-numeric: tabular-nums; }
-.how-steps h3 { font-size: 17px; font-weight: 700; letter-spacing: -.028em; line-height: 1.25; }
-.how-steps p { margin-top: 9px; color: #55534d; font-size: 14.5px; line-height: 1.6; }
-.how-aside { display: block; margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--l-line); color: #85817a; font-size: 12.5px; }
-.how-foot { max-width: 76ch; margin-top: clamp(34px, 5vw, 54px); padding: 20px 24px; border-radius: 18px; background: var(--l-paper); border: 1px solid var(--l-line); color: #55534d; font-size: 14.5px; line-height: 1.65; }
+.how-scroll { position: relative; margin-top: clamp(34px, 5vw, 62px); display: grid; grid-template-columns: 22px minmax(0, .82fr) minmax(0, 1.18fr); gap: 0 clamp(26px, 4vw, 56px); }
+
+/* The thread */
+.how-track { position: relative; width: 2px; margin-inline: auto; background: var(--l-line); border-radius: 2px; }
+.how-track-fill { position: sticky; top: 45vh; display: block; width: 100%; background: var(--l-orange); border-radius: 2px; transition: height .5s cubic-bezier(.4,0,.2,1); }
+
+.how-list { display: flex; flex-direction: column; }
+.how-list li { min-height: 62vh; display: flex; flex-direction: column; justify-content: center; padding-block: 28px; opacity: .32; transition: opacity .45s ease; }
+.how-list li.is-active { opacity: 1; }
+.how-n { font-family: var(--font-mono, ui-monospace), monospace; font-size: 11px; letter-spacing: .16em; color: var(--l-orange); font-weight: 700; }
+.how-list h3 { margin-top: 12px; font-size: clamp(23px, 2.6vw, 33px); font-weight: 700; letter-spacing: -.04em; line-height: 1.1; }
+.how-list p { margin-top: 14px; max-width: 44ch; color: #55534d; font-size: 15.5px; line-height: 1.62; }
+.how-aside { display: inline-block; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--l-line); color: #85817a; font-size: 12.5px; }
+
+/* The sticky panel */
+.how-stage { position: relative; }
+.how-panel { position: sticky; top: calc(50vh - 190px); height: 380px; border: 1px solid var(--l-line); border-radius: 22px; background: var(--l-paper); box-shadow: 0 24px 60px rgb(17 17 15 / .07); overflow: hidden; }
+.how-scene { position: absolute; inset: 0; padding: clamp(20px, 2.6vw, 30px); opacity: 0; transform: translateY(14px) scale(.985); pointer-events: none; transition: opacity .5s ease, transform .5s cubic-bezier(.22,1,.36,1); }
+.how-scene.is-on { opacity: 1; transform: none; pointer-events: auto; }
+
+/* Scenes */
+.sc { display: flex; flex-direction: column; height: 100%; font-size: 13px; }
+.sc-chip { align-self: flex-start; padding: 5px 11px; border-radius: 999px; background: var(--l-orange-soft); color: var(--l-indigo); font-size: 10.5px; font-weight: 750; letter-spacing: .04em; }
+.sc-typed { margin-top: 16px; font-size: clamp(16px, 1.7vw, 21px); line-height: 1.45; letter-spacing: -.02em; }
+.sc-caret { display: inline-block; width: 2px; height: 1em; margin-left: 3px; vertical-align: -2px; background: var(--l-orange); animation: scBlink 1.1s step-end infinite; }
+@keyframes scBlink { 50% { opacity: 0; } }
+.sc-slots { margin-top: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sc-slots span { display: flex; flex-direction: column-reverse; gap: 3px; padding: 11px; border: 1px solid var(--l-line); border-radius: 12px; background: #fff; color: #85817a; font-size: 10px; }
+.sc-slots b { font-size: 13px; color: var(--l-ink); letter-spacing: -.02em; }
+
+.sc-answers { gap: 10px; }
+.sc-card { display: flex; align-items: center; gap: 12px; padding: 13px 15px; border: 1px solid var(--l-line); border-radius: 14px; background: #fff; animation: scIn .55s cubic-bezier(.22,1,.36,1) backwards; }
+.sc-av { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--l-ink); color: var(--l-bg); font-style: normal; font-weight: 700; font-size: 13px; }
+.sc-card b { display: block; font-size: 13.5px; }
+.sc-card small { color: #85817a; font-size: 11.5px; }
+.sc-card > div { flex: 1; min-width: 0; }
+.sc-tick { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #e2f2ea; color: var(--l-green); font-size: 12px; font-weight: 800; }
+.sc-tick-lg { width: 34px; height: 34px; font-size: 15px; }
+.sc-note { margin-top: auto; padding-top: 12px; color: #85817a; font-size: 11.5px; }
+@keyframes scIn { from { opacity: 0; transform: translateY(12px); } }
+
+.sc-window { padding: 11px 13px; border-radius: 12px; background: var(--l-orange-soft); color: var(--l-indigo); font-size: 12px; }
+.sc-window b { font-weight: 750; }
+.sc-venue { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--l-line); border-radius: 13px; background: #fff; animation: scIn .55s cubic-bezier(.22,1,.36,1) backwards; }
+.sc-venue-top { display: flex; justify-content: space-between; align-items: baseline; }
+.sc-venue-top b { font-size: 14px; letter-spacing: -.02em; }
+.sc-venue-top span { font-size: 14px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.sc-bars { display: flex; flex-direction: column; gap: 3px; margin-top: 9px; }
+.sc-bars i { display: block; height: 4px; border-radius: 2px; background: var(--l-orange); opacity: .85; }
+.sc-bars i:nth-child(2) { opacity: .6; }
+.sc-bars i:nth-child(3) { opacity: .35; }
+.sc-venue small { display: block; margin-top: 7px; color: #85817a; font-size: 11px; }
+
+.sc-thread { position: relative; display: flex; justify-content: space-between; padding: 26px 8px 20px; }
+.sc-line { position: absolute; left: 30px; right: 30px; top: 43px; height: 2px; background: var(--l-green); z-index: 0; }
+.sc-node { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; animation: scIn .5s cubic-bezier(.22,1,.36,1) backwards; }
+.sc-node i { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--l-green); color: #fff; font-style: normal; font-weight: 700; font-size: 13px; box-shadow: 0 0 0 4px var(--l-paper); }
+.sc-node b { font-size: 12px; font-variant-numeric: tabular-nums; }
+.sc-receipt { display: flex; align-items: center; gap: 13px; padding: 15px; border: 1px solid var(--l-line); border-radius: 14px; background: #fff; }
+.sc-receipt b { display: block; font-size: 14px; }
+.sc-receipt small { color: #85817a; font-size: 11.5px; }
+
+.how-foot { max-width: 76ch; margin-top: clamp(40px, 6vw, 64px); padding: 20px 24px; border-radius: 18px; background: var(--l-paper); border: 1px solid var(--l-line); color: #55534d; font-size: 14.5px; line-height: 1.65; }
 .how-foot b { color: var(--l-ink); }
+
+@media (max-width: 900px) {
+  .how-scroll { grid-template-columns: 1fr; }
+  .how-track { display: none; }
+  .how-stage { order: -1; }
+  .how-panel { position: sticky; top: 84px; height: 330px; }
+  .how-list li { min-height: 0; padding-block: 22px; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .how-scene, .sc-card, .sc-venue, .sc-node, .how-track-fill { transition: none !important; animation: none !important; }
+  .sc-caret { animation: none; }
+}
 
 /* Hero — sits higher now that the nav floats over it rather than pushing it
    down, so the headline and the demo both land above the fold. */
