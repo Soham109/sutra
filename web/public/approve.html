@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Approve your share · sutra</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="brand"><b>sutra</b> · group mandate</div>
+  <div id="content"><div class="empty">Loading your share…</div></div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+const { fmt, api, listen, countdown, esc, anonName } = window.gmp
+const memberId = location.pathname.split('/').pop()
+let me = null, group = null
+
+async function boot() {
+  try {
+    me = await api(`/v1/members/${memberId}/open`, { method: 'POST' })
+  } catch (e) {
+    document.getElementById('content').innerHTML =
+      `<div class="empty">This approval link isn't valid.<br>${esc(e.message)}</div>`
+    return
+  }
+  group = await api(`/v1/groups/${me.group_id}`)
+  render()
+  listen(me.group_id, 0, async () => {
+    // POST open (not GET): after a requote the engine mints the fresh
+    // mandate session lazily on open, so the new approval URL appears live.
+    me = await api(`/v1/members/${memberId}/open`, { method: 'POST' })
+    group = await api(`/v1/groups/${me.group_id}`)
+    render()
+  })
+}
+
+function presence() {
+  return `<div class="presence">` + group.members.map(m =>
+    `<span class="chip s-${m.status}"><span class="dot"></span>${esc(m.name)}</span>`
+  ).join('') + `</div>`
+}
+
+function guardrail() {
+  return `<div class="guardrail">Locked to <b>${esc(me.group.merchant.name)}</b> ·
+    capped at <b>${fmt(me.cap_amount, me.group.currency)}</b> · single use ·
+    enforced <b>at the card network</b>, not by this app. Nobody is charged unless the group's policy passes.</div>`
+}
+
+// §21.3 — dual display. Charge currency is always the merchant's.
+function fxLine(minor) {
+  const fx = me.fx
+  const want = localStorage.getItem('gmp_ccy') || ''
+  if (!fx || !want || !fx.rates[want]) return ''
+  const conv = (minor / 100) * fx.rates[want]
+  return `<div class="sub" style="margin:2px 0 0">≈ ${want} ${conv.toFixed(2)}
+    <small>at ${esc(fx.source)} rate, ${new Date(fx.at).toLocaleTimeString()}</small></div>`
+}
+
+function fxPicker() {
+  const fx = me.fx
+  if (!fx) return ''
+  const want = localStorage.getItem('gmp_ccy') || ''
+  const opts = ['', ...Object.keys(fx.rates)]
+  return `<div style="margin-top:8px"><select style="width:auto;font-size:12px;padding:6px 10px"
+    onchange="localStorage.setItem('gmp_ccy', this.value); render()">
+    ${opts.map(c => `<option value="${c}" ${c === want ? 'selected' : ''}>${c || me.group.currency + ' only'}</option>`).join('')}
+  </select></div>`
+}
+
+// §21.1 — sealed priority bids on contested items. Bids allocate slots; they
+// never change the price. Winners pay the merchant price via their mandate.
+function auctionCard() {
+  const a = me.auction
+  if (!a || !a.open || !a.contested_items?.length) return ''
+  return a.contested_items.map(i => `
+    <div class="card" style="border-color:rgba(96,165,250,.45)">
+      <b style="color:var(--info)">⚖ Contested: ${esc(i.name)}</b>
+      <div class="sub" style="margin:6px 0 10px">${i.claimants} of you want ${i.slots} slot${i.slots > 1 ? 's' : ''}.
+        Sealed priority bid — highest priorities win the slots, everyone still pays the same ticket price.
+        All bids are revealed after the window closes.</div>
+      <div style="display:flex;gap:8px">
+        <input id="bid-${esc(i.sku)}" type="number" min="0" step="0.50" placeholder="priority (USD)"
+          value="${i.my_bid != null ? (i.my_bid / 100).toFixed(2) : ''}">
+        <button class="btn-ghost" style="width:auto;margin:0;padding:11px 18px"
+          onclick="placeBid('${esc(i.sku)}')">${i.my_bid != null ? 'Revise' : 'Seal bid'}</button>
+      </div>
+      <div class="countdown" style="margin-top:8px">reveal at ${new Date(a.closes_at).toLocaleTimeString()}</div>
+    </div>`).join('')
+}
+
+async function placeBid(sku) {
+  const el = document.getElementById(`bid-${sku}`)
+  const amount = Math.round(Number(el.value || 0) * 100)
+  try {
+    me = await api(`/v1/members/${memberId}/bid`, { method: 'POST', body: { sku, amount } })
+    render()
+  } catch (e) { alert(e.message) }
+}
+
+async function hold() {
+  me = await api(`/v1/members/${memberId}/hold`, { method: 'POST' })
+  render()
+}
+async function resumeHold() {
+  me = await api(`/v1/members/${memberId}/resume`, { method: 'POST' })
+  render()
+}
+
+function itemsList() {
+  if (!me.my_items?.length) return ''
+  return `<div class="items">` + me.my_items.map(i =>
+    `<div class="row"><span class="n">${esc(i.name)} × ${i.qty}</span><span>${fmt(i.unit_amount * i.qty, me.group.currency)}</span></div>`
+  ).join('') + `</div>`
+}
+
+function render() {
+  const c = document.getElementById('content')
+  const g = me.group
+
+  // Group already terminal — the two possible endings, no dead ends.
+  if (g.terminal) {
+    if (me.status === 'charged') {
+      c.innerHTML = header() + ticket()
+    } else if (g.status === 'committed' || g.status === 'partial') {
+      c.innerHTML = header() +
+        `<div class="banner bad">You were not charged
+          <span class="why">The group completed without your share.</span></div>` + portalNote()
+    } else {
+      c.innerHTML = header() +
+        `<div class="banner bad">GROUP CANCELLED — NOTHING CHARGED
+          <span class="why">Every mandate was cancelled. Verify yours at pay.prava.space.</span></div>` + portalNote()
+    }
+    return
+  }
+
+  if (me.status === 'charging') {
+    c.innerHTML = header() + presence() +
+      `<div class="card" style="text-align:center">
+        <div class="amount">${fmt(me.share_amount, g.currency)}</div>
+        <div class="sub">Charging your share now…</div>
+      </div>`
+    return
+  }
+
+  if (me.status === 'charged') { c.innerHTML = header() + ticket(); return }
+
+  if (me.status === 'approved') {
+    c.innerHTML = header() + presence() +
+      `<div class="card" style="text-align:center">
+        <div style="font-size:40px">${me.on_hold ? '⏸' : '✓'}</div>
+        <div style="font-weight:700;font-size:18px;margin:6px 0">${me.on_hold ? 'Your share is on hold' : "You're in — mandate active"}</div>
+        <div class="sub">Cap ${fmt(me.cap_amount, g.currency)} · waiting on the group's policy:<br>${esc(g.policy_text)}</div>
+        ${fxLine(me.share_amount)}
+        <div class="countdown" id="cd"></div>
+      </div>` + auctionCard() + backstopCard() +
+      (me.on_hold
+        ? `<button class="btn-ghost" onclick="resumeHold()">▶ Resume — count me back in</button>`
+        : `<button class="btn-ghost" onclick="hold()">⏸ Hold my share (pauses the mandate)</button>`) +
+      `<button class="btn-decline" onclick="decline()">Withdraw my approval</button>`
+    countdown(document.getElementById('cd'), g.deadline_at)
+    return
+  }
+
+  if (['declined', 'dropped', 'expired', 'failed'].includes(me.status)) {
+    c.innerHTML = header() +
+      `<div class="banner bad">${me.status === 'declined' ? 'You declined' : 'You are out of this purchase'}
+        <span class="why">You will not be charged. The rest of the group decides without you.</span></div>` + presence()
+    return
+  }
+
+  // invited / viewed / awaiting_approval — the hero state
+  c.innerHTML = header() + presence() +
+    `<div class="card">
+      <div class="sub" style="margin:0">Your share of “${esc(g.title)}”</div>
+      <div class="amount">${fmt(me.share_amount, g.currency)}
+        <small>of ${fmt(g.total, g.currency)} total</small></div>
+      ${fxLine(me.share_amount)}
+      ${itemsList()}
+      ${guardrail()}
+      <div class="countdown" id="cd"></div>
+      ${me.requote_round > 0 ? `<div class="guardrail" style="border-color:var(--info)">The split changed (round ${me.requote_round}) — please re-approve your new share.</div>` : ''}
+      <button class="btn-approve" onclick="approve()" ${me.approval_url ? '' : 'disabled'}>
+        &#128273; Approve ${fmt(me.share_amount, g.currency)} with passkey</button>
+      <button class="btn-decline" onclick="decline()">I'm out — decline</button>
+      ${fxPicker()}
+    </div>` + auctionCard() + backstopCard()
+  countdown(document.getElementById('cd'), g.deadline_at)
+}
+
+function header() {
+  const g = me.group
+  return `<h1>${esc(g.title)}</h1>
+    <div class="sub">${esc(g.merchant.name)} · policy: ${esc(g.policy_text)}</div>`
+}
+
+function ticket() {
+  const g = me.group
+  return `<div class="ticket">
+    <div class="top">
+      <div class="ok-line">✓ Paid ${fmt(me.charged_amount || me.share_amount, g.currency)}</div>
+      <div class="sub" style="margin:4px 0 0">${esc(g.title)} · ${esc(g.merchant.name)}</div>
+    </div>
+    <div class="bottom">Charged on your own card via a single-use, merchant-locked credential.
+      Verify at pay.prava.space — the receipt chain is on the group receipt page.</div>
+  </div>`
+}
+
+function backstopCard() {
+  if (!me.backstop_cap) return ''
+  if (me.backstop_armed) {
+    return `<div class="card"><b style="color:var(--accent)">⛑ Backstop armed</b>
+      <div class="sub" style="margin:6px 0 0">If someone drops, you cover up to ${fmt(me.backstop_cap, me.group.currency)}. Cancelled automatically if unused.</div></div>`
+  }
+  if (!me.backstop_approval_url) return ''
+  return `<div class="card"><b>⛑ Your standing offer</b>
+    <div class="sub" style="margin:6px 0 10px">Separately authorize up to ${fmt(me.backstop_cap, me.group.currency)} to absorb a dropped member's share. Only charged if the group would otherwise fail.</div>
+    <button class="btn-ghost" onclick="location.href=me.backstop_approval_url">Arm backstop (${fmt(me.backstop_cap, me.group.currency)})</button></div>`
+}
+
+async function approve() { location.href = me.approval_url }
+
+async function decline() {
+  const g = me.group
+  const warn = g.policy_text.startsWith('everyone')
+    ? 'Your decline cancels the purchase for the whole group. Nobody gets charged.'
+    : 'The group may still proceed without you. You will not be charged.'
+  if (!confirm(warn)) return
+  me = await api(`/v1/members/${memberId}/decline`, { method: 'POST' })
+  group = await api(`/v1/groups/${me.group_id}`)
+  render()
+}
+
+function portalNote() {
+  return `<div class="card sub" style="margin-top:10px">Don't take our word for it — open your own
+    <a href="https://pay.prava.space" target="_blank">Prava portal</a> and check the mandate yourself.</div>`
+}
+
+boot()
+</script>
+</body>
+</html>

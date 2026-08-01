@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Receipt · sutra</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><b>sutra</b> · signed receipt</div>
+  <div id="content"><div class="empty">Loading receipt…</div></div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+const { fmt, esc } = window.gmp
+const groupId = location.pathname.split('/')[2]
+
+async function boot() {
+  const res = await fetch(`/v1/groups/${groupId}/receipt`)
+  const c = document.getElementById('content')
+  if (!res.ok) {
+    c.innerHTML = `<div class="empty">No receipt yet.<br>The receipt is issued the moment the group reaches a terminal state —<br>committed, partial, aborted, or expired.</div>`
+    return
+  }
+  const r = await res.json()
+  const cur = r.currency
+
+  c.innerHTML = `
+    <h1>${esc(r.title)}</h1>
+    <div class="sub">${esc(r.merchant?.name || '')} · ${r.gmp_version} · issued ${new Date(r.issued_at).toLocaleString()}</div>
+
+    <div class="banner ${['committed','partial'].includes(r.status) ? 'ok' : 'bad'}">
+      ${r.status.toUpperCase()}
+      <span class="why">${esc(r.decision_narrative)}</span>
+    </div>
+
+    <div class="card">
+      <div class="kv"><span class="k">Quoted total</span><span>${fmt(r.totals.quoted, cur)}</span></div>
+      <div class="kv"><span class="k">Charged total</span><span><b>${fmt(r.totals.charged, cur)}</b></span></div>
+      <div class="kv"><span class="k">Cart hash</span><span class="mono hash">${esc(r.cart_hash.slice(0, 24))}…</span></div>
+      <div class="kv"><span class="k">Chain head</span><span class="mono hash">${esc(r.chain_head.slice(0, 24))}…</span></div>
+    </div>
+
+    <div class="card">
+      <b>Consent chain</b>
+      ${r.entries.map((e, i) => `
+        <div style="margin:12px 0;padding:12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)">
+          <div class="kv" style="border:0;padding:2px 0">
+            <span>${e.kind === 'backstop' ? '⛑' : '#' + (i + 1)} <b>${esc(e.name)}</b> <span class="k">(${esc(e.role)})</span></span>
+            <span class="${e.charged_amount > 0 ? 'ok-text' : 'bad-text'}">${esc(e.outcome)}</span>
+          </div>
+          <div class="kv" style="border:0;padding:2px 0"><span class="k">quoted / cap / charged</span>
+            <span>${fmt(e.quoted_share, cur)} / ${fmt(e.cap_amount, cur)} / <b>${fmt(e.charged_amount, cur)}</b></span></div>
+          ${e.mandate_id ? `<div class="kv" style="border:0;padding:2px 0"><span class="k">mandate</span><span class="mono">${esc(e.mandate_id)}</span></div>` : ''}
+          ${e.charge_txn_id ? `<div class="kv" style="border:0;padding:2px 0"><span class="k">txn</span><span class="mono">${esc(e.charge_txn_id)}</span></div>` : ''}
+          <div class="kv" style="border:0;padding:2px 0"><span class="k">hash</span><span class="mono hash">${esc((e.hash || '').slice(0, 20))}… ← ${esc(e.prev_hash === 'GENESIS' ? 'GENESIS' : e.prev_hash.slice(0, 20) + '…')}</span></div>
+        </div>`).join('')}
+    </div>
+
+    <div class="card">
+      <b>Verify this yourself</b>
+      <div class="sub" style="margin:6px 0 10px">Ed25519 public key: <span class="mono hash">${esc(r.public_key)}</span></div>
+      <div class="mono" style="background:var(--bg);padding:12px;border-radius:8px;user-select:all">
+        curl -s ${location.origin}/v1/groups/${groupId}/receipt > receipt.json<br>
+        npm run -w cli gmp -- verify receipt.json
+      </div>
+    </div>`
+}
+
+boot()
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "sutra",
+  "private": true,
+  "version": "0.1.0",
+  "description": "GMP/1 — the Group Mandate Protocol. Multi-principal payment coordination engine built on Prava.",
+  "workspaces": [
+    "engine",
+    "cli",
+    "chaos",
+    "mcp"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w engine",
+    "start": "npm run start -w engine",
+    "test": "npm run test -w engine",
+    "chaos": "npm run chaos -w chaos",
+    "demo": "npm run demo -w cli"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}

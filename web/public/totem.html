@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Totem · sutra</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><b>sutra</b> · group totem</div>
+  <h1>Program the totem</h1>
+  <div class="sub">One NDEF sticker on the table. Tap it, get your approval page. iPhone and Android read it natively — no app.</div>
+
+  <div class="card" style="text-align:center">
+    <img id="qr" style="width:70%;max-width:280px;background:#fff;border-radius:12px" alt="join QR">
+    <div class="mono" id="url" style="margin-top:10px;user-select:all"></div>
+  </div>
+
+  <button class="btn-approve" id="nfcBtn" onclick="writeTag()">📡 Write NFC tag (Chrome on Android)</button>
+  <div class="sub" id="nfcStatus"></div>
+
+  <div class="card sub">
+    <b>Fallbacks, in order:</b> Web NFC write from this page → any NFC-tools app with the URL above →
+    the QR code, which was always primary. The feature degrades to nothing lost.
+  </div>
+</div>
+<script>
+const groupId = location.pathname.split('/')[2]
+const joinUrl = `${location.origin}/j/${groupId}`
+document.getElementById('url').textContent = joinUrl
+document.getElementById('qr').src = `/v1/groups/${groupId}/join-qr.png`
+
+async function writeTag() {
+  const status = document.getElementById('nfcStatus')
+  if (!('NDEFReader' in window)) {
+    status.textContent = 'Web NFC needs Chrome on Android. Use the QR or an NFC-tools app instead.'
+    return
+  }
+  try {
+    status.textContent = 'Hold a blank NDEF tag against the back of the phone…'
+    const ndef = new NDEFReader()
+    await ndef.write({ records: [{ recordType: 'url', data: joinUrl }] })
+    status.textContent = '✓ Totem programmed. Tap it with any phone.'
+  } catch (e) {
+    status.textContent = `NFC write failed: ${e.message}`
+  }
+}
+</script>
+</body>
+</html>

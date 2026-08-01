@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join · sutra</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><b>sutra</b> · tap to join</div>
+  <div id="content"><div class="empty">Loading group…</div></div>
+</div>
+<script src="/app.js"></script>
+<script>
+const { api, esc, fmt } = window.gmp
+const groupId = location.pathname.split('/').pop()
+
+async function boot() {
+  const g = await api(`/v1/groups/${groupId}/joinable`)
+  const c = document.getElementById('content')
+  const open = g.members.filter(m => m.role !== 'observer')
+  c.innerHTML = `
+    <h1>${esc(g.title)}</h1>
+    <div class="sub">You tapped the group totem. Which one are you?</div>
+    ${open.map(m => `
+      <button class="btn-ghost" style="display:flex;justify-content:space-between;align-items:center"
+        onclick="location.href='/a/${m.member_id}'">
+        <span>${esc(m.name)}</span>
+        <span class="sub" style="margin:0">${m.claimable ? 'tap to open' : m.status.replace('_',' ')}</span>
+      </button>`).join('')}
+    <div class="card sub" style="margin-top:18px">One tag, everyone taps, each lands on their own
+      passkey-guarded approval. A stolen tag is useless — approval still needs <b>your</b> passkey.</div>`
+}
+boot()
+</script>
+</body>
+</html>

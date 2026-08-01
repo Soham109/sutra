@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scan to pay your share · sutra</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="wrap wide">
+  <div class="brand"><b>sutra</b> · split with Prava</div>
+  <div id="content"><div class="empty">Loading…</div></div>
+</div>
+<script src="/app.js"></script>
+<script>
+const { api, esc, fmt, listen } = window.gmp
+const groupId = location.pathname.split('/')[2]
+
+async function boot() {
+  const g = await api(`/v1/groups/${groupId}`)
+  render(g)
+  listen(groupId, 0, async () => render(await api(`/v1/groups/${groupId}`)))
+}
+
+function render(g) {
+  const payers = g.members.filter(m => m.role !== 'observer')
+  document.getElementById('content').innerHTML = `
+    <h1>${esc(g.title)}</h1>
+    <div class="sub">${esc(g.merchant.name)} · ${fmt(g.total, g.currency)} total · scan your own code</div>
+    <div class="qr-grid">
+      ${payers.map(m => `
+        <div class="qr-cell">
+          <img src="/v1/members/${m.member_id}/qr.png" alt="QR ${esc(m.name)}">
+          <div class="nm">${esc(m.name)}</div>
+          <div class="sh">${fmt(m.share_amount, g.currency)} · <span class="state s-${m.status}">${esc(m.status.replace('_',' '))}</span></div>
+        </div>`).join('')}
+    </div>
+    <a class="btn btn-ghost" href="/g/${groupId}/board">war room</a>
+    <a class="btn btn-ghost" href="/g/${groupId}/totem">program a totem</a>`
+}
+boot()
+</script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>War room · sutra</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="wrap wide" id="app">
+  <div class="brand"><b>sutra</b> · war room</div>
+  <div id="head"></div>
+  <div id="banner"></div>
+  <div id="cols" class="cols"></div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b>Event log</b>
+      <span class="sub" style="margin:0"><label style="display:inline;margin:0"><input type="checkbox" id="replayToggle" style="width:auto" onchange="toggleReplay()"> replay</label></span>
+    </div>
+    <input type="range" class="scrub" id="scrub" min="0" max="0" value="0" style="display:none" oninput="scrubTo(this.value)">
+    <div class="log" id="log"><div class="empty">
+      One purchase, many principals.<br>
+      Each member approves their own network-enforced mandate.<br>
+      The engine commits everyone, or no one.
+    </div></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+const { fmt, api, listen, esc, anonName } = window.gmp
+const groupId = location.pathname.split('/')[2]
+let group = null
+let events = []
+let replay = false
+
+async function boot() {
+  group = await api(`/v1/groups/${groupId}`)
+  renderHead(); renderCols(); renderBanner()
+  listen(groupId, 0, async (evt) => {
+    events.push(evt)
+    if (!replay) {
+      appendLog(evt)
+      group = await api(`/v1/groups/${groupId}`)
+      renderHead(); renderCols(); renderBanner()
+    }
+    const scrub = document.getElementById('scrub')
+    scrub.max = events.length
+    if (!replay) scrub.value = events.length
+  })
+}
+
+function renderHead() {
+  document.getElementById('head').innerHTML =
+    `<h1>${esc(group.title)}</h1>
+     <div class="sub">${esc(group.merchant.name)} · ${fmt(group.total, group.currency)} ·
+       policy: <b>${esc(group.policy_text)}</b> · straggler: ${esc(group.straggler_policy)}
+       ${group.no_blame ? ' · <span style="color:var(--accent)">no-blame</span>' : ''}</div>`
+}
+
+function renderCols(snapshot) {
+  const members = snapshot || group.members
+  document.getElementById('cols').innerHTML = members.map(m => `
+    <div class="mcol">
+      <h3>${esc(m.name)}</h3>
+      <div class="role">${esc(m.role)}${m.weight > 1 ? ` · w${m.weight}` : ''}</div>
+      <div class="share">${fmt(m.status === 'charged' ? (m.charged_amount || m.share_amount) : m.share_amount, group.currency)}</div>
+      <span class="state s-${m.status}">${m.on_hold ? '⏸ on hold' : esc(m.status.replace('_', ' '))}</span>
+      ${m.backstop_cap ? `<div class="bstag">⛑ backstop ${m.backstop_armed ? 'armed' : 'offered'} · ${fmt(m.backstop_cap, group.currency)}</div>` : ''}
+      ${m.backstop_absorbed ? `<div class="absorb">absorbed ${fmt(m.backstop_absorbed, group.currency)} ➜ group</div>` : ''}
+      ${m.requote_round ? `<div class="bstag" style="color:var(--info)">requote round ${m.requote_round}</div>` : ''}
+    </div>`).join('')
+}
+
+function renderBanner(statusOverride) {
+  const s = statusOverride || group.status
+  const el = document.getElementById('banner')
+  if (s === 'committed') {
+    el.innerHTML = `<div class="banner ok">COMMITTED — EVERY SHARE CHARGED
+      <span class="why">${esc(group.decision_note || '')}</span></div>`
+  } else if (s === 'partial') {
+    el.innerHTML = `<div class="banner ok" style="border-style:dashed">PARTIAL COMMIT
+      <span class="why">${esc(group.decision_note || '')} · straggler policy: ${esc(group.straggler_policy)}</span></div>`
+  } else if (s === 'aborted' || s === 'expired') {
+    el.innerHTML = `<div class="banner bad">${s === 'expired' ? 'EXPIRED' : 'ABORTED'} — NOTHING CHARGED
+      <span class="why">${esc(group.decision_note || '')} · every mandate cancelled</span></div>`
+  } else if (s === 'committing') {
+    el.innerHTML = `<div class="banner" style="border:1px solid var(--line);color:var(--info)">COMMITTING — point of no return crossed</div>`
+  } else {
+    el.innerHTML = ''
+  }
+}
+
+function evLine(evt) {
+  const t = new Date(evt.at).toLocaleTimeString()
+  const p = evt.payload || {}
+  const nm = p.name ? (group.no_blame && evt.type === 'member.declined' ? 'a member' : p.name) : ''
+  const detail = {
+    'group.created': `“${p.title}” · ${fmt(p.total || 0, group.currency)} · ${p.policy || ''}`,
+    'member.invited': `${nm} invited (${p.role}, ${fmt(p.share || 0, group.currency)})`,
+    'member.viewed': `${nm} opened their page`,
+    'member.session_created': `${nm}: Prava mandate session created (cap ${fmt(p.cap || 0, group.currency)})`,
+    'member.approved': `${nm} approved — mandate ${p.mandate_id || ''} active`,
+    'member.declined': `${nm} declined (${p.reason || ''})`,
+    'member.dropped': `${nm} dropped by policy`,
+    'member.requoted': `${nm} requoted to ${fmt(p.new_share || 0, group.currency)} (round ${p.round})`,
+    'member.charging': `${nm}: charging`,
+    'member.charged': `${nm} charged ${fmt(p.amount || 0, group.currency)} (${p.txn_id || ''})`,
+    'member.failed': `${nm} failed: ${p.reason || ''}`,
+    'backstop.armed': `⛑ ${nm} armed backstop up to ${fmt(p.cap || 0, group.currency)}`,
+    'backstop.allocated': `⛑ ${nm} to absorb ${fmt(p.amount || 0, group.currency)} of ${fmt(p.shortfall || 0, group.currency)} shortfall`,
+    'backstop.absorbed': `⛑ ${nm} absorbed ${fmt(p.amount || 0, group.currency)} — group saved`,
+    'backstop.failed': `⛑ backstop charge failed: ${p.reason || ''}`,
+    'charge.attempted': `${nm}: charge attempt ${p.attempt} · ${fmt(p.amount || 0, group.currency)} (${p.source})`,
+    'charge.succeeded': `${nm}: credential minted · txn ${p.txn_id}`,
+    'charge.failed': `${nm}: charge failed (${p.error})`,
+    'charge.settlement_pending': `settlement report pending · txn ${p.txn_id}`,
+    'group.decision': `DECISION: ${p.narrative || ''}`,
+    'group.committing': `committing — first charge is the point of no return`,
+    'group.committed': `COMMITTED`,
+    'group.partial': `PARTIAL`,
+    'group.aborted': `ABORTED — nothing charged (${p.reason || ''})`,
+    'group.expired': `EXPIRED (${p.reason || ''})`,
+    'group.deadline': `deadline hit`,
+    'receipt.issued': `signed receipt issued · chain ${String(p.chain_head || '').slice(0, 16)}…`,
+    'auction.opened': `⚖ sealed-bid window open on ${(p.items || []).map(i => i.name).join(', ')} — closes ${p.closes_at ? new Date(p.closes_at).toLocaleTimeString() : ''}`,
+    'auction.bid': `⚖ ${nm} placed a sealed bid on ${p.sku} (amount hidden until reveal)`,
+    'auction.reveal': `⚖ REVEAL ${p.item}: ${(p.ranking || []).map(r => `${r.name} ${fmt(r.amount, group.currency)}${r.won ? ' ✓' : ' ✗'}`).join(' · ')}`,
+    'auction.lost': `⚖ ${nm} lost the slot on ${p.sku}`,
+    'auction.closed': `⚖ auction settled — cart rewritten to winners`,
+    'member.held': `⏸ ${nm} put their share on hold (mandate paused)`,
+    'member.resumed': `▶ ${nm} resumed`,
+    'cart.adjusted': `cart adjusted: extras of non-locked members removed`,
+    'fx.snapshot': `fx snapshot: ${Object.entries(p.rates || {}).map(([k, v]) => `${k} ${v}`).join(', ')}`,
+    'charge.unknown': `${nm}: charge state unknown — reconciling, never blind-retrying`,
+    'group.halted': `straggler policy halt — no further charges issued`,
+  }[evt.type] || JSON.stringify(p)
+  return `<div class="ev"><span class="t">${t}</span><span class="ty">${evt.type}</span><span class="d">${esc(detail)}</span></div>`
+}
+
+function appendLog(evt) {
+  const log = document.getElementById('log')
+  if (log.querySelector('.empty')) log.innerHTML = ''
+  log.insertAdjacentHTML('beforeend', evLine(evt))
+  log.scrollTop = log.scrollHeight
+}
+
+// -- replay mode: scrub the append-only log (spec §14) ----------------------
+function toggleReplay() {
+  replay = document.getElementById('replayToggle').checked
+  const scrub = document.getElementById('scrub')
+  scrub.style.display = replay ? 'block' : 'none'
+  scrub.max = events.length
+  if (!replay) { scrub.value = events.length; scrubTo(events.length) }
+}
+
+function scrubTo(n) {
+  const upto = events.slice(0, Number(n))
+  const log = document.getElementById('log')
+  log.innerHTML = upto.map(evLine).join('') || '<div class="empty">t = 0 — nothing has happened yet</div>'
+  log.scrollTop = log.scrollHeight
+  renderBanner(bannerAt(upto))
+}
+
+function bannerAt(upto) {
+  for (let i = upto.length - 1; i >= 0; i--) {
+    const t = upto[i].type
+    if (t === 'group.committed') return 'committed'
+    if (t === 'group.partial') return 'partial'
+    if (t === 'group.aborted') return 'aborted'
+    if (t === 'group.expired') return 'expired'
+    if (t === 'group.committing') return 'committing'
+  }
+  return 'collecting'
+}
+
+boot()
+</script>
+</body>
+</html>

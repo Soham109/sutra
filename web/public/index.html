@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sutra · GMP/1</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><b>sutra</b> · GMP/1</div>
+  <h1>Every payment protocol assumes one person is saying yes.</h1>
+  <div class="sub">Groups aren't one person. GMP/1 is the multi-principal layer: N people, N cards,
+    N network-enforced mandates, one atomic-enough commit. No pooled funds. No one fronts the money. Ever.</div>
+
+  <div class="card">
+    <div class="kv"><span class="k">1</span><span>Organizer creates a group with a cart and a commit policy.</span></div>
+    <div class="kv"><span class="k">2</span><span>Each member passkey-approves a mandate on their own card — capped at their share, locked to the merchant, enforced by the card network.</span></div>
+    <div class="kv"><span class="k">3</span><span>When the policy passes, the engine charges everyone in one window. If it can't, it cancels every mandate — nobody was ever charged.</span></div>
+  </div>
+
+  <a class="btn btn-approve" href="/new">Start a group purchase →</a>
+
+  <div class="card sub" style="margin-top:20px">
+    Built on <b>Prava</b> mandates: approval is decoupled from charging, so humans consent on their
+    own schedule and the engine commits in one tight window. The engine never sees a card number and never holds funds.
+  </div>
+</div>
+</body>
+</html>

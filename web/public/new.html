@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New group · sutra</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><b>sutra</b> · organizer</div>
+  <h1>Start a group purchase</h1>
+  <div class="sub">One cart, many cards. Everyone approves their own share — the engine commits everyone or no one.</div>
+
+  <div class="card" id="form">
+    <label>Title</label>
+    <input id="title" value="Ratatat — 4 tickets" />
+
+    <label>Merchant name</label>
+    <input id="merchant" value="Velvet Ticket Co." />
+
+    <label>Items — one per line: <span class="mono">name | unit price | qty</span></label>
+    <textarea id="items">GA ticket | 45.00 | 4</textarea>
+
+    <label>Fees (flat, split pro-rata)</label>
+    <input id="fees" value="6.00" />
+
+    <label>Members — one per line: <span class="mono">name</span> or <span class="mono">name | backstop 15.00</span></label>
+    <textarea id="members">Soham
+Arsh | backstop 15.00
+Dev
+Maya</textarea>
+
+    <label>Commit policy</label>
+    <select id="policy">
+      <option value="all_of">all_of — everyone approves or nobody pays</option>
+      <option value="quorum3">quorum(3) — any three go ahead</option>
+      <option value="deadline">deadline — all_of until T-2min, then quorum(3)</option>
+    </select>
+
+    <label>Decision deadline (minutes)</label>
+    <input id="deadline" value="30" />
+
+    <label style="display:flex;align-items:center;gap:8px;margin-top:14px">
+      <input type="checkbox" id="noblame" style="width:auto"> no-blame mode (declines are anonymous on the board)
+    </label>
+
+    <button class="btn-approve" onclick="create()">Create group & mint links</button>
+    <div class="sub" id="err" style="color:var(--bad)"></div>
+  </div>
+
+  <div id="result"></div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+const { fmt, api, esc } = window.gmp
+
+function parseMoney(s) {
+  const n = Number(String(s).trim())
+  if (!isFinite(n) || n < 0) throw new Error(`bad amount: ${s}`)
+  return Math.round(n * 100)
+}
+
+async function create() {
+  const err = document.getElementById('err')
+  err.textContent = ''
+  try {
+    const items = document.getElementById('items').value.trim().split('\n').filter(Boolean).map(line => {
+      const [name, price, qty] = line.split('|').map(s => s.trim())
+      return { sku: name.toLowerCase().replace(/\W+/g, '-'), name, unit_amount: parseMoney(price), qty: Number(qty || 1), claimants: ['mi_all'] }
+    })
+    const members = document.getElementById('members').value.trim().split('\n').filter(Boolean).map(line => {
+      const [name, extra] = line.split('|').map(s => s.trim())
+      const m = { name, role: 'payer' }
+      if (extra && extra.toLowerCase().startsWith('backstop')) {
+        m.role = 'backstop'
+        m.backstop_cap = parseMoney(extra.replace(/backstop/i, ''))
+      }
+      return m
+    })
+    const feeAmt = parseMoney(document.getElementById('fees').value || '0')
+    const deadlineMin = Number(document.getElementById('deadline').value || 30)
+
+    const policyKind = document.getElementById('policy').value
+    const policy =
+      policyKind === 'all_of' ? { type: 'all_of' } :
+      policyKind === 'quorum3' ? { type: 'quorum', m: Math.min(3, members.length) } :
+      { type: 'deadline',
+        at: new Date(Date.now() + Math.max(1, deadlineMin - 2) * 60000).toISOString(),
+        primary: { type: 'all_of' },
+        fallback: { type: 'quorum', m: Math.min(3, members.length) } }
+
+    const body = {
+      title: document.getElementById('title').value,
+      merchant: { id: 'demo', name: document.getElementById('merchant').value, url: 'https://velvet-ticket.example', country_code_iso2: 'US' },
+      cart: { items, fees: feeAmt ? [{ name: 'fees', amount: feeAmt }] : [], currency: 'USD' },
+      members, policy,
+      no_blame: document.getElementById('noblame').checked,
+      deadline_minutes: deadlineMin,
+    }
+    const res = await api('/v1/groups', {
+      method: 'POST',
+      headers: { authorization: 'Bearer ' + (localStorage.getItem('gmp_token') || 'dev-token') },
+      body,
+    })
+    renderResult(res)
+  } catch (e) {
+    err.textContent = e.message
+  }
+}
+
+function renderResult(res) {
+  document.getElementById('form').style.display = 'none'
+  document.getElementById('result').innerHTML = `
+    <div class="card">
+      <b>Group live.</b>
+      <div class="sub" style="margin:6px 0 0">Phones scan faster than they type — each member scans their own code.</div>
+    </div>
+    <div class="qr-grid">
+      ${res.members.filter(m => m.role !== 'observer').map(m => `
+        <div class="qr-cell">
+          <img src="/v1/members/${m.member_id}/qr.png" alt="QR for ${esc(m.name)}">
+          <div class="nm">${esc(m.name)}</div>
+          <div class="sh">${fmt(m.share_amount)} · <a href="/a/${m.member_id}">open link</a></div>
+        </div>`).join('')}
+    </div>
+    <a class="btn btn-approve" href="/g/${res.group_id}/board">Open the war room →</a>`
+}
+</script>
+</body>
+</html>
