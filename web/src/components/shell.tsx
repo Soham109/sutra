@@ -111,7 +111,7 @@ function Sidebar() {
               </div>
               <div className="tiny faint mono">@{user.handle}</div>
             </div>
-            <button className="btn btn-ghost tiny" onClick={() => void signOut()} title="Sign out">
+            <button className="btn btn-ghost tiny" onClick={() => void signOut()} title="Sign out" aria-label="Sign out">
               ⏻
             </button>
           </div>

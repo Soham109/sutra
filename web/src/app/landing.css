@@ -523,3 +523,19 @@
 .qr { width: 84px; height: 84px; }
 
 .sc-pay .ph-mini { aspect-ratio: 9 / 15; }
+
+/* Reduced motion, applied to everything on this page.
+   The audit found ~15 animations uncovered, including the scroll-driven ones
+   inside @supports (animation-timeline: view()), which the earlier rule could
+   not reach. Somebody with a vestibular disorder should get a still page, not
+   a slightly calmer one. */
+@media (prefers-reduced-motion: reduce) {
+  .landing *,
+  .landing *::before,
+  .landing *::after {
+    animation: none !important;
+    transition: none !important;
+    animation-timeline: auto !important;
+    scroll-behavior: auto !important;
+  }
+}

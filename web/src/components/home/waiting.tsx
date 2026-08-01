@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Avatar, Countdown } from '@/components/ui'
 import { MEMBER_LABEL, money } from '@/lib/format'
 import type { PlanSummary, WaitingItem } from '@/lib/api'
+import { Ring } from './charts'
 
 // Who has not answered, and how the group is doing without them.
 //
@@ -28,6 +29,16 @@ export function Waiting({ groups, plans }: { groups: WaitingItem[]; plans: PlanS
       <div className="waiting-list">
         {groups.map((g) => {
           const anonymous = g.waiting.some((w) => w.name === null)
+          // approved_count and the still-deciding count come straight from the
+          // API; the rest of paying_count (declined, dropped, …) is whatever is
+          // left — a real number, just not one the API names directly.
+          const total = g.paying_count || 1
+          const deciding = g.waiting.length
+          const other = Math.max(0, g.paying_count - g.approved_count - deciding)
+          const progressLabel =
+            other > 0
+              ? `${g.approved_count} approved, ${other} declined, ${deciding} still deciding, out of ${g.paying_count}`
+              : `${g.approved_count} of ${g.paying_count} approved`
           return (
             <Link href={`/app/groups/${g.group_id}`} className="waiting-row" key={g.group_id}>
               <div className="waiting-main">
@@ -38,7 +49,17 @@ export function Waiting({ groups, plans }: { groups: WaitingItem[]; plans: PlanS
                 <div className="waiting-meta">
                   <span className="amount">{money(g.total, g.currency)}</span>
                   <span className="dot-sep" aria-hidden />
-                  <span>
+                  <span className="waiting-progress">
+                    <Ring
+                      size={18}
+                      stroke={3}
+                      trackColor="var(--line-2)"
+                      label={progressLabel}
+                      segments={[
+                        { value: g.approved_count / total, color: 'var(--ok)' },
+                        { value: other / total, color: 'var(--bad)' },
+                      ]}
+                    />
                     {g.approved_count} of {g.paying_count} approved
                   </span>
                   <span className="dot-sep" aria-hidden />
@@ -79,7 +100,16 @@ export function Waiting({ groups, plans }: { groups: WaitingItem[]; plans: PlanS
                 <span className="chip chip-quiet">deciding</span>
               </div>
               <div className="waiting-meta">
-                <span>
+                <span className="waiting-progress">
+                  <Ring
+                    size={18}
+                    stroke={3}
+                    trackColor="var(--line-2)"
+                    label={`${p.responded_count} of ${p.participant_count} answered`}
+                    segments={[
+                      { value: p.participant_count > 0 ? p.responded_count / p.participant_count : 0, color: 'var(--brand)' },
+                    ]}
+                  />
                   {p.responded_count} of {p.participant_count} answered
                 </span>
                 {p.option_count > 0 && (

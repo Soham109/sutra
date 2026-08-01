@@ -16,7 +16,7 @@ describe('what the directory exposes', () => {
   it('never carries an email or a password hash', () => {
     const social = world()
     const u = social.createUser({ handle: 'soham', name: 'Soham', email: 'soham@real.example' })
-    const shown = publicUser(u) as Record<string, unknown>
+    const shown = publicUser(u) as unknown as Record<string, unknown>
 
     expect(shown.id).toBe(u.id)
     expect(shown.handle).toBe('soham')

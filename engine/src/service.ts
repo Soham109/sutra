@@ -77,23 +77,36 @@ export class GroupService {
       if (!names.has(ref)) throw new UserError(`policy references unknown member "${ref}"`)
     }
 
-    // Contested items (§21.1) need explicit claimants — an auction over
-    // "everyone" is meaningless — and more claimants than slots.
-    for (const item of input.cart.items) {
-      if (item.claimants.includes('mi_all')) {
-        item.contested = false
-        continue
-      }
-      if (item.contested || item.claimants.length > item.qty) {
-        item.contested = item.claimants.length > item.qty
-      }
-    }
-    const hasAuction = input.cart.items.some((i) => i.contested)
-
     // Which rail can carry this. A bill photographed in a restaurant has no
     // merchant Prava can charge, and the engine says so rather than inventing
     // one — see rails.ts.
     const rail = railFor({ merchantUrl: input.merchant.url, requested: input.rail })
+
+    // Contested items (§21.1) are for SCARCITY: four people want three tickets,
+    // so a sealed bid decides who gets one and the losers drop out.
+    //
+    // That is catastrophically wrong for a bill. Two friends sharing one plate
+    // of paneer is a line with qty 1 and two claimants — the same shape — and
+    // inferring an auction from it opened a bid window nobody could see, closed
+    // it with zero bids, awarded the whole plate to whoever sorted first, and
+    // DROPPED the other person from the group while re-billing the first for
+    // the entire cheque. On a real bill that was already eaten, "compete for
+    // it" is never what a shared line means.
+    //
+    // So scarcity is only inferred where a slot can genuinely be scarce: a
+    // chargeable cart of things still being bought. A bill, or anything on a
+    // rail that settles at a venue, splits shared lines and never auctions
+    // them. An explicit `contested: true` from the caller is still honoured on
+    // the card rail, because there the caller means it.
+    const canContest = rail === 'prava_mandates' && input.origin !== 'bill'
+    for (const item of input.cart.items) {
+      if (!canContest || item.claimants.includes('mi_all')) {
+        item.contested = false
+        continue
+      }
+      item.contested = item.claimants.length > item.qty
+    }
+    const hasAuction = input.cart.items.some((i) => i.contested)
 
     const { shares } = computeShares(input.cart, input.members)
     const gid = newGroupId()

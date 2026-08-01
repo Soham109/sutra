@@ -6,6 +6,10 @@ import { Composer } from '@/components/home/composer'
 import { ExposureMeter } from '@/components/home/exposure'
 import { NeedsYou } from '@/components/home/needs-you'
 import { Waiting } from '@/components/home/waiting'
+import { StatRow } from '@/components/home/stat-row'
+import { ReliabilityPanel } from '@/components/home/reliability'
+import { SettlementHistory } from '@/components/home/settlement-history'
+import { commonCurrency } from '@/components/home/charts'
 import { Shell } from '@/components/shell'
 import { ErrorNote, Skeleton } from '@/components/ui'
 import { money, relativeTime } from '@/lib/format'
@@ -63,6 +67,7 @@ export default function HomePage() {
 
         {data === null && !error && (
           <div className="home-loading">
+            <Skeleton h={86} />
             <Skeleton h={190} />
             <Skeleton h={120} />
             <Skeleton h={90} />
@@ -72,6 +77,8 @@ export default function HomePage() {
         {data && (
           <>
             <NeedsYou approvals={data.needs_you} plans={data.plans_needing_you} />
+
+            <StatRow data={data} />
 
             <Composer />
 
@@ -92,21 +99,22 @@ export default function HomePage() {
               </section>
             )}
 
-            {data.recent.length > 0 && (
-              <section className="settled">
-                <div className="section-head">
-                  <h2>Settled</h2>
-                  <Link href="/app/receipts" className="text-button">
-                    All receipts ↗
-                  </Link>
-                </div>
+            <section className="settled">
+              <div className="section-head">
+                <h2>Settled</h2>
+                <Link href="/app/receipts" className="text-button">
+                  All receipts ↗
+                </Link>
+              </div>
+              <SettlementHistory recent={data.recent} />
+              {data.recent.length > 0 && (
                 <div className="settled-list">
                   {data.recent.map((r) => (
                     <Link href={`/app/receipts/${r.group_id}`} className="settled-row" key={r.group_id}>
                       <span className={`settled-mark settled-${r.status}`} aria-hidden />
                       <span className="settled-title">{r.title}</span>
                       <span className="settled-rail tiny faint">
-                        {r.rail === 'at_venue' ? 'paid at venue' : 'card mandates'}
+                        {r.rail === 'at_venue' ? 'paid at venue' : 'charged to your card'}
                       </span>
                       <span className="settled-amount amount">
                         {money(r.your_amount, r.currency)}
@@ -115,60 +123,19 @@ export default function HomePage() {
                     </Link>
                   ))}
                 </div>
-              </section>
-            )}
+              )}
+            </section>
 
-            <RhythmStrip data={data} />
+            <ReliabilityPanel
+              reliability={data.reliability}
+              settledCurrency={commonCurrency([
+                ...data.exposure.map((e) => e.currency),
+                ...data.recent.map((x) => x.currency),
+              ])}
+            />
           </>
         )}
       </div>
     </Shell>
-  )
-}
-
-/**
- * Your own record, computed from the event log rather than assigned. Kept to a
- * single quiet line: it is evidence you can point at, not a score to chase.
- */
-function RhythmStrip({ data }: { data: Dashboard }) {
-  const r = data.reliability
-  if (r.groups === 0) return null
-  const rate = r.approval_rate === null ? null : Math.round(r.approval_rate * 100)
-  const median =
-    r.median_latency_s === null
-      ? null
-      : r.median_latency_s < 90
-        ? `${r.median_latency_s}s`
-        : `${Math.round(r.median_latency_s / 60)}m`
-
-  return (
-    <section className="rhythm">
-      <span className="eyebrow">Your record</span>
-      <p>
-        <b>{r.groups}</b> {r.groups === 1 ? 'group' : 'groups'}
-        {rate !== null && (
-          <>
-            {' · '}
-            you approve <b>{rate}%</b> of the time
-          </>
-        )}
-        {median !== null && (
-          <>
-            {' · '}
-            usually within <b>{median}</b>
-          </>
-        )}
-        {r.backstopped_total_minor > 0 && (
-          <>
-            {' · '}
-            you’ve covered <b>{money(r.backstopped_total_minor, 'USD')}</b> for friends
-          </>
-        )}
-      </p>
-      <p className="tiny faint">
-        Recomputed from the event log every time you look. Private to you, and nobody can edit it —
-        only earn it.
-      </p>
-    </section>
   )
 }

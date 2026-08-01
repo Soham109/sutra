@@ -1067,3 +1067,103 @@ a.list-row:hover { background: var(--surface-2); }
 .section-chev { color: var(--ink-3); font-size: 15px; transition: transform .2s ease; }
 .section-fold[open] > summary .section-chev { transform: rotate(180deg); }
 .section-fold[open] > summary .section-current { display: none; }
+
+/* ==========================================================================
+   Dashboard data visualisation
+   -------------------------------------------------------------------------
+   Hand-rolled SVG/CSS, same rule as the exposure meter above: no chart
+   library, colour spent only where it means something (approved/declined
+   reuse the reserved green/red; everything else is a single neutral hue).
+   ========================================================================== */
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Stat row: the four facts a person wants before reading anything else. */
+.stat-row { display: flex; flex-direction: column; gap: 12px; }
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.stat-tile { padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-1); display: flex; flex-direction: column; gap: 7px; }
+.stat-label { font-size: 12px; color: var(--ink-2); font-weight: 550; }
+.stat-value { font-family: var(--font-mono); font-size: clamp(19px, 4.5vw, 26px); font-weight: 560; letter-spacing: -.03em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat-row-empty { padding: 18px 20px; border: 1px dashed var(--line-2); border-radius: var(--r-lg); background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; }
+.stat-row-empty p { color: var(--ink-2); font-size: 13.5px; line-height: 1.6; max-width: 62ch; }
+
+@media (max-width: 600px) {
+  .stat-tiles { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Waiting-row progress ring: a tiny inline donut beside the existing count,
+   so the shape reads at a glance without losing the number it explains. */
+.waiting-progress { display: inline-flex; align-items: center; gap: 6px; }
+.waiting-progress svg { flex: none; }
+
+/* Settlement history: what you actually paid, one bar per group. */
+.settle-chart { display: flex; flex-direction: column; gap: 20px; margin-bottom: 16px; }
+.settle-chart-empty { padding: 20px; border: 1px dashed var(--line-2); border-radius: var(--r-lg); background: var(--surface-2); color: var(--ink-2); font-size: 13px; line-height: 1.6; margin-bottom: 16px; }
+.settle-bars { display: flex; flex-direction: column; gap: 8px; }
+.settle-currency-label { display: block; }
+.settle-bar-row { display: flex; align-items: flex-end; gap: 4px; padding: 14px 8px 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.settle-bar-col { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; min-width: 0; padding-bottom: 12px; }
+.settle-bar-value { font-size: 11px; white-space: nowrap; }
+.settle-bar-plot { display: flex; align-items: flex-end; justify-content: center; height: 108px; width: 100%; }
+.settle-bar { position: relative; width: 22px; max-width: 60%; border-radius: 4px 4px 0 0; background: var(--brand); min-height: 3px; }
+.settle-bar-mark { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px var(--surface); }
+.settle-bar-label { max-width: 74px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+.settle-bar-time { white-space: nowrap; }
+
+/* Your record: the approval donut and the time-to-decide meter. */
+.record { padding-top: 4px; display: flex; flex-direction: column; gap: 14px; }
+.record-note { color: var(--ink-2); font-size: 12.5px; max-width: 60ch; margin-top: -6px; }
+.record-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.record-card { padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.record-card-empty { color: var(--ink-2); background: var(--surface-2); border-style: dashed; border-color: var(--line-2); }
+.record-card-empty p { font-size: 13px; line-height: 1.55; max-width: 42ch; }
+
+.record-donut { position: relative; width: 104px; height: 104px; align-self: center; }
+.record-donut-figure { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.record-donut-value { font-family: var(--font-mono); font-size: 22px; font-weight: 620; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.record-donut-caption { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+
+.record-legend { display: flex; justify-content: center; gap: 24px; margin-top: 2px; }
+.record-legend dt { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+.record-legend dd { margin-top: 3px; font-family: var(--font-mono); font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: center; }
+
+.record-latency-headline { font-size: 14px; color: var(--ink-2); }
+.record-latency-headline b { color: var(--ink); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.latency-meter { margin-top: 6px; }
+.latency-track { position: relative; height: 8px; border-radius: 4px; background: var(--surface-3); }
+.latency-fill { position: absolute; inset: 0 auto 0 0; height: 100%; border-radius: 4px; background: var(--brand); width: 0; transition: width .5s cubic-bezier(.22,1,.36,1); }
+.latency-marker { position: absolute; top: 50%; width: 10px; height: 10px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 2px var(--surface); transform: translate(-50%, -50%); }
+.latency-ticks { position: relative; height: 16px; margin-top: 6px; }
+.latency-tick { position: absolute; transform: translateX(-50%); font-size: 10px; color: var(--ink-3); white-space: nowrap; }
+
+.record-backstop { color: var(--ink-2); font-size: 13px; }
+.record-backstop b { color: var(--ink); font-weight: 640; }
+
+@media (prefers-reduced-motion: reduce) {
+  .latency-fill { transition: none; }
+}
+
+@media (max-width: 600px) {
+  .settle-bar-label { max-width: 52px; }
+  .settle-bar-plot { height: 88px; }
+  .record-legend { gap: 16px; }
+}
+
+/* 360px — the narrow phone the demo actually runs on -----------------------
+   Found by audit: .bill-grid held a 300px minimum column and .needs-grid a
+   292px one, so on a 360px screen (which has ~328px of usable width after
+   padding) both overflowed horizontally. The demo is four physical phones, so
+   a horizontal scrollbar on the split screen is not cosmetic. */
+@media (max-width: 400px) {
+  .bill-grid { grid-template-columns: 1fr; }
+  .needs-grid { grid-template-columns: 1fr; }
+  .confirm-grid { grid-template-columns: 1fr; }
+  .opt-factors { grid-template-columns: 1fr; }
+  .bill-people { grid-template-columns: 1fr; }
+  /* Long merchant names and titles wrap instead of being clipped to nothing. */
+  .need-merchant, .settled-title, .waiting-title { white-space: normal; overflow-wrap: anywhere; }
+  /* A receipt table cannot shrink below its content; let it scroll on its own
+     rather than pushing the page sideways. */
+  .bill-table { display: block; overflow-x: auto; }
+}
