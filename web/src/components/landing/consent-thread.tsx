@@ -1,217 +1,187 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Avatar } from '@/components/ui'
-import { money } from '@/lib/format'
+import { CART, CAST, inr } from './demo-cart'
 
 /**
- * A self-running replay of one GMP/1 group, in two variants. Both runs use the
- * same cart and the same four people as the rest of the page, so the numbers a
- * visitor sees here are the numbers they see in every other section.
+ * One group booking, told the way you would tell it to a friend.
+ *
+ * Deliberately plain: no policy expressions, no mandates, no verdicts. The
+ * protocol underneath is exactly the same one the engine runs — this just
+ * says it in words a person buying cinema tickets already uses.
+ *
+ * The replay starts from the first step when it scrolls into view, holds each
+ * step long enough to actually read, and can be stepped through by hand.
  */
 
-type NodeState = 'idle' | 'deciding' | 'approved' | 'declined' | 'absorbing' | 'charged' | 'void'
-type SegState = 'empty' | 'filled' | 'broken' | 'healed'
-type Verdict = 'pending' | 'commit' | 'abort'
-type ScenarioId = 'quorum' | 'all_of'
+type Who = 'waiting' | 'deciding' | 'yes' | 'no' | 'covering' | 'paid' | 'released'
+type Outcome = 'booked' | 'off'
+type StoryId = 'cover' | 'everyone'
 
-interface Member {
-  name: string
-  first: string
-  color: string
-}
-
-interface Frame {
+interface Step {
+  /** How long this step holds when it is playing itself. */
   ms: number
-  nodes: NodeState[]
-  segs: SegState[]
+  who: Who[]
   amounts: number[]
-  tally: number
-  verdict: Verdict
-  caption: string
-  /** The absorbed share, animated along the thread from backstop to dropped node. */
+  say: string
+  /** The share sliding from Ada across to the gap Cleo left. */
   token?: boolean
-  /** Index of the member whose share a backstop is covering. */
+  /** Index of the person whose share someone else is covering. */
   covered?: number
-  flash?: 'commit' | 'abort'
-  result?: { kind: 'commit' | 'abort'; head: string; detail: string }
+  result?: { kind: Outcome; head: string; detail: string }
 }
 
-interface Scenario {
-  label: string
-  expr: string
-  need: string
-  frames: Frame[]
+interface Story {
+  /** What the group agreed before anyone was asked — in plain words. */
+  rule: string
+  tab: string
+  steps: Step[]
 }
 
-const SHARE = 6700
-const DOUBLE = 13400
-const BASE = [SHARE, SHARE, SHARE, SHARE]
+const S = CART.share
+const BASE = [S, S, S, S]
 
-// Deliberately off the ok/bad hues: green and red carry state on this page.
-const MEMBERS: Member[] = [
-  { name: 'Ada Okonkwo', first: 'Ada', color: '#2E2AD8' },
-  { name: 'Ben Farrow', first: 'Ben', color: '#0F6C8C' },
-  { name: 'Cleo Marsh', first: 'Cleo', color: '#7A2E8E' },
-  { name: 'Dev Raman', first: 'Dev', color: '#8A6D0B' },
-]
-
-const LABEL: Record<NodeState, string> = {
-  idle: 'invited',
-  deciding: 'deciding',
-  approved: 'approved',
-  absorbing: 'backstop',
-  declined: 'declined',
-  charged: 'paid',
-  void: 'cancelled',
+const STATE_LABEL: Record<Who, string> = {
+  waiting: 'Not yet',
+  deciding: 'Deciding',
+  yes: 'Approved',
+  covering: 'Covering Cleo',
+  no: 'Said no',
+  paid: 'Paid',
+  released: 'Released',
 }
 
-const TONE: Record<NodeState, string> = {
-  idle: 'badge',
-  deciding: 'badge badge-warn',
-  approved: 'badge badge-brand',
-  absorbing: 'badge badge-brand',
-  declined: 'badge badge-bad',
-  charged: 'badge badge-ok',
-  void: 'badge badge-bad',
+const STATE_TONE: Record<Who, string> = {
+  waiting: 'cs-tag',
+  deciding: 'cs-tag cs-tag-wait',
+  yes: 'cs-tag cs-tag-yes',
+  covering: 'cs-tag cs-tag-yes',
+  no: 'cs-tag cs-tag-no',
+  paid: 'cs-tag cs-tag-paid',
+  released: 'cs-tag cs-tag-no',
 }
 
-const VERDICT: Record<Verdict, string> = {
-  pending: 'waiting',
-  commit: 'commit',
-  abort: 'abort',
-}
-
-const QUORUM: Frame[] = [
+const COVER: Step[] = [
   {
-    ms: 1100, nodes: ['idle', 'idle', 'idle', 'idle'], segs: ['empty', 'empty', 'empty'],
-    amounts: BASE, tally: 0, verdict: 'pending',
-    caption: 'Four mandates issued, one per person. Nothing has been charged, and no money is sitting in a pool anywhere.',
+    ms: 4200, who: ['waiting', 'waiting', 'waiting', 'waiting'], amounts: BASE,
+    say: `Ada picked four seats for Friday. Everyone gets sent their own ${inr(S)} to approve. Nothing has been charged yet.`,
   },
   {
-    ms: 800, nodes: ['deciding', 'idle', 'idle', 'idle'], segs: ['empty', 'empty', 'empty'],
-    amounts: BASE, tally: 0, verdict: 'pending',
-    caption: 'Ada opens hers. Her passkey, her phone, her card.',
+    ms: 2800, who: ['deciding', 'waiting', 'waiting', 'waiting'], amounts: BASE,
+    say: 'Ada opens hers first. Her phone, her card, her Face ID.',
   },
   {
-    ms: 950, nodes: ['approved', 'idle', 'idle', 'idle'], segs: ['filled', 'empty', 'empty'],
-    amounts: BASE, tally: 1, verdict: 'pending',
-    caption: 'Ada approved $67.00 — capped at her share, locked to sablewood.co, single use.',
+    ms: 4200, who: ['yes', 'waiting', 'waiting', 'waiting'], amounts: BASE,
+    say: `Ada approves ${inr(S)}. It is held on her own card, locked to ${CART.merchant}, and cannot be charged for a rupee more than her share.`,
   },
   {
-    ms: 950, nodes: ['approved', 'approved', 'idle', 'idle'], segs: ['filled', 'filled', 'empty'],
-    amounts: BASE, tally: 2, verdict: 'pending',
-    caption: 'Ben approved $67.00 on his own card. Ada is not fronting it for him.',
+    ms: 3600, who: ['yes', 'yes', 'waiting', 'waiting'], amounts: BASE,
+    say: `Ben approves his ${inr(S)} on his own card. Ada is not paying for him and will not be chasing him later.`,
   },
   {
-    ms: 700, nodes: ['approved', 'approved', 'deciding', 'idle'], segs: ['filled', 'filled', 'empty'],
-    amounts: BASE, tally: 2, verdict: 'pending',
-    caption: 'Cleo is deciding.',
+    ms: 2400, who: ['yes', 'yes', 'deciding', 'waiting'], amounts: BASE,
+    say: 'Cleo opens hers.',
   },
   {
-    ms: 1250, nodes: ['approved', 'approved', 'declined', 'idle'], segs: ['filled', 'broken', 'empty'],
-    amounts: BASE, tally: 2, verdict: 'pending',
-    caption: 'Cleo declined. Her mandate is cancelled where it stands and she owes the group nothing.',
+    ms: 4400, who: ['yes', 'yes', 'no', 'waiting'], amounts: BASE,
+    say: 'Cleo cannot make it, so she says no. She is not charged, and she does not owe anybody anything.',
   },
   {
-    ms: 1000, nodes: ['approved', 'approved', 'declined', 'approved'], segs: ['filled', 'broken', 'filled'],
-    amounts: BASE, tally: 3, verdict: 'pending',
-    caption: 'Dev approved $67.00.',
+    ms: 2800, who: ['yes', 'yes', 'no', 'yes'], amounts: BASE,
+    say: `Dev approves his ${inr(S)}.`,
   },
   {
-    ms: 1150, nodes: ['approved', 'approved', 'declined', 'approved'], segs: ['filled', 'broken', 'filled'],
-    amounts: BASE, tally: 3, verdict: 'commit',
-    caption: 'quorum(3) is satisfied — but the cart is still $67.00 short of $268.00.',
+    ms: 4800, who: ['yes', 'yes', 'no', 'yes'], amounts: BASE, covered: 2,
+    say: `Three of the four are in, which is all this group asked for. But the seats still cost ${inr(CART.total)}, and ${inr(S)} of that is missing.`,
   },
   {
-    ms: 1500, nodes: ['absorbing', 'approved', 'declined', 'approved'], segs: ['filled', 'healed', 'filled'],
-    amounts: BASE, tally: 3, verdict: 'commit', token: true, covered: 2,
-    caption: 'Ada armed a backstop up to $75.00 before approvals opened. The engine raises her own mandate to close the gap.',
+    ms: 5200, who: ['covering', 'yes', 'no', 'yes'], amounts: BASE, token: true, covered: 2,
+    say: `Ada had offered to cover up to ${inr(CART.coverCap)} if somebody dropped — agreed before anyone was asked. ${inr(S)} of that is used now.`,
   },
   {
-    ms: 1200, nodes: ['absorbing', 'approved', 'declined', 'approved'], segs: ['filled', 'healed', 'filled'],
-    amounts: [DOUBLE, SHARE, SHARE, SHARE], tally: 3, verdict: 'commit', covered: 2,
-    caption: 'Ada’s mandate now reads $134.00, inside a cap she already consented to. Nobody was asked for anything new.',
+    ms: 4200, who: ['covering', 'yes', 'no', 'yes'], amounts: [CART.covered, S, S, S], covered: 2,
+    say: `Ada's share reads ${inr(CART.covered)}, still inside the limit she set herself. Nobody was asked for more money, and nobody had to negotiate.`,
   },
   {
-    ms: 900, nodes: ['charged', 'charged', 'declined', 'charged'], segs: ['healed', 'healed', 'healed'],
-    amounts: [DOUBLE, SHARE, SHARE, SHARE], tally: 3, verdict: 'commit', covered: 2, flash: 'commit',
-    result: { kind: 'commit', head: 'Committed', detail: '3 cards · $268.00 · one window' },
-    caption: 'Three single-use credentials, exercised inside one window.',
+    ms: 4000, who: ['paid', 'paid', 'released', 'paid'], amounts: [CART.covered, S, S, S], covered: 2,
+    result: { kind: 'booked', head: 'Booked', detail: `3 cards · ${inr(CART.total)} · one go` },
+    say: 'All three cards are charged in the same moment. The cinema is paid once, in full.',
   },
   {
-    ms: 2600, nodes: ['charged', 'charged', 'declined', 'charged'], segs: ['healed', 'healed', 'healed'],
-    amounts: [DOUBLE, SHARE, SHARE, SHARE], tally: 3, verdict: 'commit', covered: 2,
-    result: { kind: 'commit', head: 'Committed', detail: '3 cards · $268.00 · one window' },
-    caption: 'The merchant was paid once, in full, by three different cards. No one is owed anything afterwards.',
+    ms: 6500, who: ['paid', 'paid', 'released', 'paid'], amounts: [CART.covered, S, S, S], covered: 2,
+    result: { kind: 'booked', head: 'Booked', detail: `3 cards · ${inr(CART.total)} · one go` },
+    say: 'Everyone paid the cinema straight from their own card. Nobody fronted the money, so nobody has to be paid back.',
   },
 ]
 
-const ALL_OF: Frame[] = [
+const EVERYONE: Step[] = [
   {
-    ms: 1100, nodes: ['idle', 'idle', 'idle', 'idle'], segs: ['empty', 'empty', 'empty'],
-    amounts: BASE, tally: 0, verdict: 'pending',
-    caption: 'Same cart, same four people. This group chose all_of and nobody armed a backstop.',
+    ms: 4600, who: ['waiting', 'waiting', 'waiting', 'waiting'], amounts: BASE,
+    say: 'Same four seats, same four people. This time the group asked for something stricter: everyone is in, or the booking does not happen.',
   },
   {
-    ms: 950, nodes: ['approved', 'idle', 'idle', 'idle'], segs: ['filled', 'empty', 'empty'],
-    amounts: BASE, tally: 1, verdict: 'pending',
-    caption: 'Ada approved $67.00.',
+    ms: 2800, who: ['yes', 'waiting', 'waiting', 'waiting'], amounts: BASE,
+    say: `Ada approves ${inr(S)}.`,
   },
   {
-    ms: 900, nodes: ['approved', 'approved', 'idle', 'idle'], segs: ['filled', 'filled', 'empty'],
-    amounts: BASE, tally: 2, verdict: 'pending',
-    caption: 'Ben approved $67.00.',
+    ms: 2800, who: ['yes', 'yes', 'waiting', 'waiting'], amounts: BASE,
+    say: `Ben approves ${inr(S)}.`,
   },
   {
-    ms: 900, nodes: ['approved', 'approved', 'approved', 'idle'], segs: ['filled', 'filled', 'filled'],
-    amounts: BASE, tally: 3, verdict: 'pending',
-    caption: 'Cleo approved $67.00. One to go.',
+    ms: 3200, who: ['yes', 'yes', 'yes', 'waiting'], amounts: BASE,
+    say: `Cleo approves ${inr(S)}. One to go.`,
   },
   {
-    ms: 750, nodes: ['approved', 'approved', 'approved', 'deciding'], segs: ['filled', 'filled', 'filled'],
-    amounts: BASE, tally: 3, verdict: 'pending',
-    caption: 'Dev is deciding.',
+    ms: 2400, who: ['yes', 'yes', 'yes', 'deciding'], amounts: BASE,
+    say: 'Dev opens his.',
   },
   {
-    ms: 1200, nodes: ['approved', 'approved', 'approved', 'declined'], segs: ['filled', 'filled', 'broken'],
-    amounts: BASE, tally: 3, verdict: 'pending',
-    caption: 'Dev declined.',
+    ms: 3000, who: ['yes', 'yes', 'yes', 'no'], amounts: BASE,
+    say: 'Dev says no.',
   },
   {
-    ms: 1150, nodes: ['approved', 'approved', 'approved', 'declined'], segs: ['filled', 'filled', 'broken'],
-    amounts: BASE, tally: 3, verdict: 'abort',
-    caption: 'all_of can no longer be satisfied. The engine stops here — it will not charge the three who said yes.',
+    ms: 5200, who: ['yes', 'yes', 'yes', 'no'], amounts: BASE,
+    say: 'That is the whole booking gone. This group needed all four, so sutra stops right here — it will not charge the three who said yes.',
   },
   {
-    ms: 1000, nodes: ['void', 'void', 'void', 'void'], segs: ['empty', 'empty', 'empty'],
-    amounts: BASE, tally: 3, verdict: 'abort', flash: 'abort',
-    result: { kind: 'abort', head: 'Nothing charged', detail: '4 mandates cancelled · $0.00 moved' },
-    caption: 'Every mandate cancelled, at once.',
+    ms: 4000, who: ['released', 'released', 'released', 'released'], amounts: BASE,
+    result: { kind: 'off', head: 'Called off', detail: '4 holds released · ₹0 moved' },
+    say: 'Every hold is released at once.',
   },
   {
-    ms: 2800, nodes: ['void', 'void', 'void', 'void'], segs: ['empty', 'empty', 'empty'],
-    amounts: BASE, tally: 3, verdict: 'abort',
-    result: { kind: 'abort', head: 'Nothing charged', detail: '4 mandates cancelled · $0.00 moved' },
-    caption: 'No partial charge, no pending hold that clears on Thursday, nothing to refund. In the old version of this evening, Ada would already have paid $268.00 and be chasing $201.00 of it.',
+    ms: 7000, who: ['released', 'released', 'released', 'released'], amounts: BASE,
+    result: { kind: 'off', head: 'Called off', detail: '4 holds released · ₹0 moved' },
+    say: `No half-booking, no charge sitting there that clears on Thursday, nothing to refund. Booked the old way, Ada would already have paid ${inr(CART.total)} and be spending the week asking for ${inr(CART.total - S)} of it back.`,
   },
 ]
 
-const SCENARIOS: Record<ScenarioId, Scenario> = {
-  quorum: { label: 'quorum(3) + backstop', expr: 'quorum(3)', need: 'needs 3', frames: QUORUM },
-  all_of: { label: 'all_of → abort', expr: 'all_of', need: 'needs 4', frames: ALL_OF },
+const STORIES: Record<StoryId, Story> = {
+  cover: {
+    tab: 'If someone drops out',
+    rule: 'Three of us is enough — and Ada will cover one share if someone drops',
+    steps: COVER,
+  },
+  everyone: {
+    tab: 'Everyone, or nobody',
+    rule: 'All four of us, or we do not book it',
+    steps: EVERYONE,
+  },
 }
 
 export function ConsentThreadDemo() {
-  const [id, setId] = useState<ScenarioId>('quorum')
+  const [id, setId] = useState<StoryId>('cover')
   const [step, setStep] = useState(0)
-  const [playing, setPlaying] = useState(true)
+  const [playing, setPlaying] = useState(false)
   const [reduced, setReduced] = useState(false)
+  const rootRef = useRef<HTMLElement>(null)
+  const seenRef = useRef(false)
 
-  const scenario = SCENARIOS[id]
-  const frames = scenario.frames
-  const i = Math.min(step, frames.length - 1)
-  const f = frames[i]
+  const story = STORIES[id]
+  const steps = story.steps
+  const i = Math.min(step, steps.length - 1)
+  const f = steps[i]
+  const last = i === steps.length - 1
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -221,107 +191,157 @@ export function ConsentThreadDemo() {
     return () => mq.removeEventListener('change', sync)
   }, [])
 
-  // Someone who asked for less motion gets the settled outcome, not a slideshow of it.
+  // Someone who asked for less motion gets the settled outcome, not a slideshow.
   useEffect(() => {
-    setStep(reduced ? frames.length - 1 : 0)
-  }, [reduced, frames])
+    if (reduced) setStep(steps.length - 1)
+  }, [reduced, steps])
+
+  // Start from the beginning the first time it is actually on screen, so the
+  // story is never joined halfway through.
+  useEffect(() => {
+    const node = rootRef.current
+    if (!node || reduced) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !seenRef.current) {
+          seenRef.current = true
+          setStep(0)
+          setPlaying(true)
+        }
+      },
+      { threshold: 0.35 },
+    )
+    io.observe(node)
+    return () => io.disconnect()
+  }, [reduced])
 
   useEffect(() => {
-    if (reduced || !playing) return
-    const t = window.setTimeout(() => setStep((v) => (v + 1) % frames.length), f.ms)
+    if (reduced || !playing || last) return
+    const t = window.setTimeout(() => setStep((v) => v + 1), f.ms)
     return () => window.clearTimeout(t)
-  }, [i, f.ms, playing, reduced, frames])
+  }, [i, f.ms, playing, reduced, last])
+
+  const go = useCallback(
+    (next: number) => {
+      setPlaying(false)
+      setStep(Math.max(0, Math.min(steps.length - 1, next)))
+    },
+    [steps.length],
+  )
+
+  const pickStory = (next: StoryId) => {
+    setId(next)
+    setStep(0)
+    setPlaying(!reduced)
+  }
+
+  // Derived from the shares themselves rather than a headcount, so the bar and
+  // the number beside it can never disagree — Ada covering two shares counts
+  // as two shares' worth of money.
+  const PAYING: Who[] = ['yes', 'covering', 'paid']
+  const covered = f.who.reduce((sum, w, idx) => (PAYING.includes(w) ? sum + f.amounts[idx] : sum), 0)
+  const pct = Math.round((covered / CART.total) * 100)
 
   return (
-    <section className="l-demo" aria-label="Worked example of a sutra group checkout">
+    <figure className="cs" ref={rootRef} aria-label="How one group booking plays out">
       <p className="l-sr">
-        A replay of one group buy: four people split a $268.00 cart into $67.00 shares. Under{' '}
-        {scenario.expr}, {id === 'quorum'
-          ? 'Cleo declines, Ada’s backstop absorbs her $67.00 share, and three cards are charged $268.00 in one window.'
-          : 'Dev declines, the policy fails, all four mandates are cancelled and no card is charged.'}
+        Four friends split a {inr(CART.total)} cinema booking into {inr(S)} shares.{' '}
+        {id === 'cover'
+          ? `Cleo says no, Ada covers Cleo's share from a limit she agreed in advance, and three cards are charged ${inr(CART.total)} together.`
+          : 'Dev says no, the group had asked for all four, so every hold is released and no card is charged.'}
       </p>
 
-      <div className="l-demo-head">
-        <span className="badge badge-brand">GMP/1</span>
-        <span className="mono tiny faint">grp_8f3c21 · sablewood.co</span>
-        <span className="l-demo-total">
-          <span className="tiny faint">cart</span>
-          <span className="amount">{money(26800)}</span>
+      <header className="cs-top">
+        <span className="cs-poster" aria-hidden>
+          ◒
+        </span>
+        <div className="cs-what">
+          <strong>{CART.title}</strong>
+          <span>{CART.detail}</span>
+        </div>
+        <div className="cs-total">
+          <span>{CART.when}</span>
+          <b>{inr(CART.total)}</b>
+        </div>
+      </header>
+
+      <div className="cs-rule">
+        <span className="cs-rule-k">What the group agreed</span>
+        <strong>{story.rule}</strong>
+      </div>
+
+      <ol className="cs-people">
+        {CAST.map((m, mi) => {
+          const state = f.who[mi]
+          return (
+            <li className="cs-person" data-s={state} key={m.name}>
+              <span className="cs-face">
+                <Avatar name={m.name} color={m.color} />
+              </span>
+              <span className="cs-name">{m.first}</span>
+              <span key={f.amounts[mi]} className="cs-amt">
+                {inr(f.amounts[mi])}
+              </span>
+              <span className={STATE_TONE[state]}>{STATE_LABEL[state]}</span>
+              {f.covered === mi && state === 'no' && <span className="cs-note">Ada is covering this</span>}
+            </li>
+          )
+        })}
+        {f.token && <span key={`token-${i}`} className="cs-token">{inr(S)}</span>}
+      </ol>
+
+      <div className="cs-money">
+        <div className="cs-bar">
+          <span style={{ width: `${pct}%` }} data-k={f.result?.kind ?? 'live'} />
+        </div>
+        <span className="cs-money-t">
+          {f.result?.kind === 'off' ? `${inr(0)} charged` : `${inr(covered)} of ${inr(CART.total)} covered`}
         </span>
       </div>
 
-      <div className="l-demo-body">
-        <div className="l-thread" aria-hidden>
-          <div className="l-track" />
-          {f.segs.map((s, si) => (
-            <div key={si} className="l-seg" data-s={s} style={{ left: `${12.5 + si * 25}%` }} />
-          ))}
-          {f.token && <span key={`token-${i}`} className="l-token">+{money(SHARE)}</span>}
-          {f.flash && <span key={`flash-${i}`} className="l-flash" data-k={f.flash} />}
-
-          {MEMBERS.map((m, mi) => {
-            const state = f.nodes[mi]
-            return (
-              <div className="l-node" data-s={state} key={m.name}>
-                <div className="l-ring">
-                  <Avatar name={m.name} color={m.color} />
-                </div>
-                <span className="l-node-name">{m.first}</span>
-                <span key={f.amounts[mi]} className="l-node-amt amount l-bump">
-                  {money(f.amounts[mi])}
-                </span>
-                <span className={TONE[state]}>{LABEL[state]}</span>
-                {f.covered === mi && <span className="l-node-note">covered by Ada</span>}
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="l-caption">
-          {f.result && (
-            <div className="l-verdict" data-k={f.result.kind} key={f.result.head}>
-              <b>{f.result.head}</b>
-              <span className="mono tiny">{f.result.detail}</span>
-            </div>
-          )}
-          <p>{f.caption}</p>
-        </div>
+      <div className="cs-say">
+        {f.result && (
+          <div className="cs-result" data-k={f.result.kind} key={f.result.head}>
+            <b>{f.result.head}</b>
+            <span>{f.result.detail}</span>
+          </div>
+        )}
+        <p key={i}>{f.say}</p>
       </div>
 
-      <div className="l-policybar">
-        <span className="faint">policy</span>
-        <code className="l-expr">{scenario.expr}</code>
-        <span className="l-arrow">·</span>
-        <span>{f.tally} of 4 approved, {scenario.need}</span>
-        <span className="l-arrow">→</span>
-        <span className="l-vd" data-k={f.verdict}>{VERDICT[f.verdict]}</span>
-      </div>
+      {!reduced && (
+        <nav className="cs-nav" aria-label="Step through the story">
+          <button type="button" className="cs-btn" onClick={() => go(i - 1)} disabled={i === 0} aria-label="Previous step">
+            ←
+          </button>
+          <button
+            type="button"
+            className="cs-btn cs-btn-play"
+            onClick={() => (last ? (setStep(0), setPlaying(true)) : setPlaying((v) => !v))}
+          >
+            {last ? '↻ Watch again' : playing ? '❙❙ Pause' : '▶ Play'}
+          </button>
+          <button type="button" className="cs-btn" onClick={() => go(i + 1)} disabled={last} aria-label="Next step">
+            →
+          </button>
+          <ol className="cs-dots" aria-hidden>
+            {steps.map((_, si) => (
+              <li key={si} data-on={si <= i} />
+            ))}
+          </ol>
+          <span className="cs-count">
+            {i + 1} / {steps.length}
+          </span>
+        </nav>
+      )}
 
-      <div className="l-controls">
-        <div className="l-switch" role="group" aria-label="Choose which run to watch">
-          {(Object.keys(SCENARIOS) as ScenarioId[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={id === key}
-              onClick={() => {
-                setId(key)
-                setStep(0)
-              }}
-            >
-              {SCENARIOS[key].label}
-            </button>
-          ))}
-        </div>
-        <div className="l-controls-end">
-          {!reduced && (
-            <button type="button" className="btn btn-secondary" onClick={() => setPlaying((v) => !v)}>
-              {playing ? '❙❙ Pause' : '▶ Play'}
-            </button>
-          )}
-          <span className="tiny faint">{reduced ? 'Final state' : 'Replaying'}</span>
-        </div>
+      <div className="cs-tabs" role="group" aria-label="Choose which version to watch">
+        {(Object.keys(STORIES) as StoryId[]).map((key) => (
+          <button key={key} type="button" aria-pressed={id === key} onClick={() => pickStory(key)}>
+            {STORIES[key].tab}
+          </button>
+        ))}
       </div>
-    </section>
+    </figure>
   )
 }

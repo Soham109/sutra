@@ -78,7 +78,9 @@
 .l-orbit-float { position: absolute; z-index: 3; border-radius: 18px; padding: 15px 18px; display: grid; gap: 1px; min-width: 130px; }
 .l-orbit-float b { font-size: 18px; }
 .l-orbit-float span { font-size: 11px; color: #77746d; }
-.l-orbit-a { right: -1%; top: 18%; transform: rotate(5deg); }
+/* Sits beside the title, deliberately below the header row — any higher and it
+   covers the cart total in the card behind it. */
+.l-orbit-a { right: -1%; top: 23%; transform: rotate(5deg); }
 .l-orbit-b { left: 0; bottom: 19%; transform: rotate(-5deg); grid-template-columns: auto 1fr; align-items: center; column-gap: 7px; }
 .l-orbit-b span:last-child { grid-column: 2; }
 .l-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #0b8e70; box-shadow: 0 0 0 5px #e2f4ef; grid-row: 1 / 3; }
@@ -89,10 +91,36 @@
 .l-index { font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em; color: #8a877e; margin-bottom: 20px; }
 .landing .l-h2 { font-size: clamp(39px, 5.2vw, 72px); line-height: .99; letter-spacing: -.057em; font-weight: 560; }
 .landing .l-lede { color: #65635c; }
-.landing .l-demo { margin-top: 0; border-radius: 28px; border-color: #dcd9d0; box-shadow: 0 28px 90px rgb(38 34 26 / .09); }
-.landing .l-demo-head { padding: 14px 20px; background: #f1efe9; }
-.landing .l-demo-body { padding: clamp(25px, 4vw, 48px) clamp(14px, 3vw, 38px) 14px; }
-.landing .l-controls { padding: 14px 20px 18px; }
+/* The landing page hardcodes its own light palette, so the replay pins the
+   light tokens too. Without this the card follows the visitor's OS theme and
+   ends up as a dark panel dropped into a light page — with any text that
+   inherits `.landing`'s ink turning invisible against it. */
+.landing .cs {
+  --surface: #ffffff;
+  --surface-2: #f4f2ed;
+  --surface-3: #e9e7e0;
+  --ink: #121210;
+  --ink-2: #5d5b55;
+  --ink-3: #89867e;
+  --line: #e3e0d8;
+  --line-2: #cecbc1;
+  --brand: #ff5c35;
+  --brand-ink: #c63817;
+  --brand-soft: #fff0ea;
+  --brand-line: #ffc4b5;
+  --ok: #12734f;
+  --ok-soft: #e3f3ea;
+  --ok-line: #a9d8c1;
+  --warn: #96580a;
+  --warn-soft: #fbf1e1;
+  --warn-line: #e6cfa4;
+  --bad: #a4231f;
+  --bad-soft: #fbeae8;
+  --bad-line: #edc0bc;
+  color: var(--ink);
+  border-color: #dcd9d0;
+  box-shadow: 0 28px 90px rgb(38 34 26 / .09);
+}
 
 .l-use-band { background: #ff5c35; color: #15120f; }
 .landing .l-section { padding-block: clamp(82px, 10vw, 150px); }
@@ -161,7 +189,7 @@
   .l-hero-orbit::before { width: 380px; height: 380px; }
   .l-hero-orbit::after { width: 270px; height: 270px; }
   .l-orbit-main { width: 88%; padding: 22px; }
-  .l-orbit-a { right: -2%; top: 12%; }
+  .l-orbit-a { right: -2%; top: 26%; }
   .l-orbit-b { left: -1%; bottom: 10%; }
   .l-use-grid { grid-template-columns: 1fr; }
   .l-use { min-height: 230px; }
@@ -320,277 +348,319 @@
 .l-hero-guard { margin-top: 22px; max-width: 56ch; }
 
 /* ==========================================================================
-   THE LIVE CONSENT THREAD — the signature element
-   One line, four people, three segments. A segment is indigo only when real
-   money can move across it and dashed-red when a promise broke, which is the
-   same ink language the before/after diagrams use further down the page.
+   THE BOOKING, TOLD PLAINLY — the signature element
+   Four people, one cinema booking, in the words somebody buying tickets
+   already uses. Colour carries the state: the brand accent is approved and
+   held, green is actually charged, red is a share that is not happening. It
+   is the same ink language the before/after diagrams use further down.
    ========================================================================== */
 
-.l-demo {
-  margin-top: clamp(34px, 4.5vw, 58px);
+.cs {
+  margin: clamp(34px, 4.5vw, 58px) 0 0;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: 28px;
   box-shadow: var(--shadow-2);
   overflow: hidden;
 }
-.l-demo-head {
+
+/* --- what is being bought ------------------------------------------------- */
+
+.cs-top {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 11px 16px;
+  gap: 14px;
+  padding: 18px clamp(16px, 3vw, 26px);
   border-bottom: 1px solid var(--line);
   background: var(--surface-2);
 }
-.l-demo-total { margin-left: auto; display: flex; align-items: baseline; gap: 7px; }
-.l-demo-body { padding: 24px 16px 8px; }
+.cs-poster {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 21px;
+}
+.cs-what { display: grid; gap: 2px; min-width: 0; }
+.cs-what strong { font-size: 17px; letter-spacing: -0.025em; }
+.cs-what span { font-size: 13px; color: var(--ink-2); }
+.cs-total { margin-left: auto; text-align: right; display: grid; gap: 2px; }
+.cs-total span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-3);
+}
+.cs-total b { font-size: 21px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 
-.l-thread {
-  --l-ringc: 25px;
-  position: relative;
+/* --- the rule, as a sentence rather than an expression -------------------- */
+
+.cs-rule {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 12px;
+  padding: 13px clamp(16px, 3vw, 26px);
+  border-bottom: 1px solid var(--line);
+  background: var(--brand-soft);
 }
-.l-thread .avatar { --size: 42px; }
+.cs-rule-k {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--brand-ink);
+  opacity: 0.7;
+}
+.cs-rule strong { font-size: 14.5px; font-weight: 600; color: var(--brand-ink); }
 
-.l-track,
-.l-seg {
-  position: absolute;
-  top: var(--l-ringc);
-  height: 2px;
-  border-radius: 2px;
-}
-.l-track { left: 12.5%; right: 12.5%; background: var(--line-2); }
-.l-seg { width: 25%; transform-origin: left center; }
-.l-seg[data-s='empty'] { background: transparent; }
-.l-seg[data-s='filled'],
-.l-seg[data-s='healed'] {
-  background: var(--brand);
-  animation: l-draw 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.l-seg[data-s='broken'] {
-  background: repeating-linear-gradient(90deg, var(--bad) 0 5px, transparent 5px 10px);
-  animation: l-fade 0.3s ease both;
-}
-@keyframes l-draw { from { transform: scaleX(0); } }
-@keyframes l-fade { from { opacity: 0; } }
+/* --- the four people ------------------------------------------------------ */
 
-.l-node {
+.cs-people {
   position: relative;
-  z-index: 1;
-  flex: 1 1 0;
-  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: clamp(22px, 3.5vw, 34px) clamp(12px, 2.5vw, 22px);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.cs-person {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  text-align: center;
-}
-.l-ring {
-  position: relative;
-  padding: 3px;
-  border-radius: var(--r-full);
+  gap: 7px;
+  padding: 16px 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
   background: var(--surface);
-  border: 2px solid var(--line-2);
-  transition: border-color 0.28s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  text-align: center;
+  transition: border-color 0.35s ease, background 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.l-ring::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: var(--r-full);
-  border: 2px solid var(--brand);
-  opacity: 0;
-  pointer-events: none;
+.cs-person .avatar { --size: 46px; transition: filter 0.35s ease, opacity 0.35s ease; }
+.cs-name { font-size: 14px; font-weight: 600; }
+.cs-amt {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  animation: cs-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.l-node[data-s='deciding'] .l-ring { border-color: var(--warn); }
-.l-node[data-s='approved'] .l-ring,
-.l-node[data-s='absorbing'] .l-ring { border-color: var(--brand); }
-.l-node[data-s='approved'] .l-ring::after { animation: l-pulse 0.7s ease-out; }
-.l-node[data-s='charged'] .l-ring { border-color: var(--ok); transform: scale(1.06); }
-.l-node[data-s='charged'] .l-ring::after { border-color: var(--ok); animation: l-pulse 0.7s ease-out; }
-.l-node[data-s='declined'] .l-ring,
-.l-node[data-s='void'] .l-ring { border-color: var(--bad-line); }
-.l-node[data-s='declined'] .avatar,
-.l-node[data-s='void'] .avatar { filter: grayscale(1); opacity: 0.42; }
-@keyframes l-pulse {
-  from { opacity: 0.85; transform: scale(1); }
-  to { opacity: 0; transform: scale(1.55); }
-}
+@keyframes cs-pop { from { opacity: 0; transform: translateY(5px); } }
 
-.l-node-name { font-size: 13px; font-weight: 550; }
-.l-node-amt { font-size: 12.5px; color: var(--ink-2); }
-.l-node[data-s='absorbing'] .l-node-amt,
-.l-node[data-s='charged'] .l-node-amt { color: var(--ink); font-weight: 600; }
-.l-node[data-s='declined'] .l-node-amt,
-.l-node[data-s='void'] .l-node-amt {
+.cs-person[data-s='deciding'] { border-color: var(--warn-line); background: var(--warn-soft); }
+.cs-person[data-s='yes'],
+.cs-person[data-s='covering'] { border-color: var(--brand-line); background: var(--brand-soft); }
+.cs-person[data-s='paid'] {
+  border-color: var(--ok-line);
+  background: var(--ok-soft);
+  transform: translateY(-3px);
+}
+.cs-person[data-s='no'],
+.cs-person[data-s='released'] { border-color: var(--bad-line); }
+.cs-person[data-s='no'] .avatar,
+.cs-person[data-s='released'] .avatar { filter: grayscale(1); opacity: 0.4; }
+.cs-person[data-s='no'] .cs-amt,
+.cs-person[data-s='released'] .cs-amt {
   color: var(--bad);
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
 }
-.l-node-note {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--brand);
-  animation: l-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.l-bump { animation: l-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
-@keyframes l-rise { from { opacity: 0; transform: translateY(4px); } }
+.cs-person[data-s='covering'] .cs-amt,
+.cs-person[data-s='paid'] .cs-amt { color: var(--ink); font-weight: 700; }
 
-/* The absorbed share, riding the thread from the backstop to the dropped node. */
-.l-token {
+.cs-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line);
+  background: var(--surface-3);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.cs-tag-wait { background: var(--warn-soft); color: var(--warn); border-color: var(--warn-line); }
+.cs-tag-yes { background: var(--brand-soft); color: var(--brand-ink); border-color: var(--brand-line); }
+.cs-tag-no { background: var(--bad-soft); color: var(--bad); border-color: var(--bad-line); }
+.cs-tag-paid { background: var(--ok-soft); color: var(--ok); border-color: var(--ok-line); }
+.cs-note { font-size: 10.5px; font-weight: 600; color: var(--brand-ink); }
+
+/* The covered share, sliding from Ada across to the gap Cleo left. */
+.cs-token {
   position: absolute;
-  top: calc(var(--l-ringc) - 8px);
+  top: 30px;
   left: 12.5%;
-  z-index: 2;
-  padding: 2px 8px;
+  z-index: 3;
+  padding: 4px 11px;
   border-radius: var(--r-full);
   background: var(--brand);
   color: #fff;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transform: translateX(-50%);
-  animation: l-travel 1.25s cubic-bezier(0.5, 0, 0.2, 1) forwards;
+  box-shadow: 0 6px 20px rgb(255 92 53 / 0.4);
+  animation: cs-travel 1.5s cubic-bezier(0.5, 0, 0.2, 1) forwards;
 }
-[data-theme='dark'] .l-token { color: #14122e; }
-@keyframes l-travel {
+@keyframes cs-travel {
   0% { left: 12.5%; opacity: 0; transform: translateX(-50%) scale(0.7); }
-  16% { opacity: 1; transform: translateX(-50%) scale(1); }
-  84% { opacity: 1; transform: translateX(-50%) scale(1); }
+  15% { opacity: 1; transform: translateX(-50%) scale(1); }
+  85% { opacity: 1; transform: translateX(-50%) scale(1); }
   100% { left: 62.5%; opacity: 0; transform: translateX(-50%) scale(0.9); }
 }
 
-.l-flash {
-  position: absolute;
-  inset: -10px -6px;
-  z-index: 3;
-  border-radius: var(--r);
-  pointer-events: none;
+/* --- how much of the booking is covered ---------------------------------- */
+
+.cs-money {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 clamp(16px, 3vw, 26px) 20px;
 }
-.l-flash[data-k='commit'] {
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ok) 22%, transparent), transparent);
-  animation: l-sweep 0.8s ease-out forwards;
+.cs-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--line-2);
+  overflow: hidden;
 }
-.l-flash[data-k='abort'] {
-  background: color-mix(in srgb, var(--bad) 14%, transparent);
-  animation: l-blink 0.6s ease-out forwards;
+.cs-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1), background 0.4s ease;
 }
-@keyframes l-sweep {
-  from { transform: translateX(-65%); opacity: 0; }
-  25% { opacity: 1; }
-  to { transform: translateX(65%); opacity: 0; }
-}
-@keyframes l-blink {
-  0% { opacity: 0; }
-  35% { opacity: 1; }
-  to { opacity: 0; }
+.cs-bar span[data-k='booked'] { background: var(--ok); }
+.cs-bar span[data-k='off'] { background: var(--bad); }
+.cs-money-t {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.l-caption {
-  margin-top: 22px;
-  /* Reserved so the verdict banner lands without shoving the page around. */
-  min-height: 102px;
+/* --- the sentence --------------------------------------------------------- */
+
+.cs-say {
+  /* Reserved so the outcome banner lands without shoving the page around. */
+  min-height: 132px;
+  padding: 0 clamp(16px, 3vw, 26px) 22px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
 }
-.l-caption p {
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--ink-2);
-  max-width: 64ch;
+.cs-say p {
+  font-size: clamp(15px, 1.35vw, 17.5px);
+  line-height: 1.55;
+  color: var(--ink);
+  max-width: 62ch;
+  animation: cs-say-in 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.l-verdict {
-  display: flex;
+@keyframes cs-say-in { from { opacity: 0; transform: translateY(6px); } }
+.cs-result {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   flex-wrap: wrap;
-  padding: 9px 13px;
-  border-radius: var(--r);
+  padding: 9px 15px;
+  border-radius: var(--r-full);
   border: 1px solid var(--line);
-  animation: l-land 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: cs-say-in 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.l-verdict[data-k='commit'] { background: var(--ok-soft); border-color: var(--ok-line); color: var(--ok); }
-.l-verdict[data-k='abort'] { background: var(--bad-soft); border-color: var(--bad-line); color: var(--bad); }
-.l-verdict b {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-@keyframes l-land { from { opacity: 0; transform: translateY(6px); } }
+.cs-result b { font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
+.cs-result span { font-size: 12px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.cs-result[data-k='booked'] { background: var(--ok-soft); border-color: var(--ok-line); color: var(--ok); }
+.cs-result[data-k='off'] { background: var(--bad-soft); border-color: var(--bad-line); color: var(--bad); }
 
-.l-policybar,
-.l-controls {
+/* --- stepping through it -------------------------------------------------- */
+
+.cs-nav {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   flex-wrap: wrap;
-  padding: 12px 16px;
+  padding: 13px clamp(16px, 3vw, 26px);
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.cs-btn {
+  min-width: 38px;
+  height: 34px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+}
+.cs-btn:hover:not(:disabled) { background: var(--surface-3); border-color: var(--ink-3); }
+.cs-btn:disabled { opacity: 0.35; cursor: default; }
+.cs-btn-play { min-width: 124px; }
+.cs-dots { display: flex; gap: 5px; list-style: none; margin: 0 0 0 6px; padding: 0; }
+.cs-dots li {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line-2);
+  transition: background 0.3s ease;
+}
+.cs-dots li[data-on='true'] { background: var(--brand); }
+.cs-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* --- the two versions of the evening -------------------------------------- */
+
+.cs-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 13px clamp(16px, 3vw, 26px) 16px;
   border-top: 1px solid var(--line);
 }
-.l-policybar {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  color: var(--ink-2);
-}
-.l-expr {
-  font-family: var(--font-mono);
-  font-weight: 600;
-  color: var(--brand-ink);
-  background: var(--brand-soft);
-  border: 1px solid var(--brand-line);
-  border-radius: var(--r-sm);
-  padding: 3px 8px;
-}
-.l-arrow { color: var(--ink-3); }
-.l-vd { font-weight: 600; }
-.l-vd[data-k='pending'] { color: var(--ink-3); }
-.l-vd[data-k='commit'] { color: var(--ok); }
-.l-vd[data-k='abort'] { color: var(--bad); }
-
-.l-controls { background: var(--surface-2); }
-.l-switch {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  background: var(--surface);
+.cs-tabs button {
+  padding: 9px 16px;
+  border-radius: var(--r-full);
   border: 1px solid var(--line-2);
-  border-radius: var(--r-sm);
-}
-.l-switch button {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-.l-switch button:hover { color: var(--ink); }
-.l-switch button[aria-pressed='true'] {
-  background: var(--brand-soft);
-  color: var(--brand-ink);
+  background: var(--surface);
+  font-size: 13.5px;
   font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
-.l-controls-end { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.cs-tabs button:hover { color: var(--ink); border-color: var(--ink-3); }
+.cs-tabs button[aria-pressed='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
+}
 
-@media (max-width: 560px) {
-  .l-thread { --l-ringc: 21px; }
-  .l-thread .avatar { --size: 34px; }
-  .l-node .badge { display: none; }
-  .l-node-name { font-size: 12px; }
-  .l-node-amt { font-size: 11px; }
-  .l-demo-body { padding: 20px 8px 6px; }
-  .l-caption { min-height: 138px; }
-  .l-switch button { padding: 5px 7px; font-size: 11px; }
+@media (max-width: 720px) {
+  .cs-people { grid-template-columns: repeat(2, 1fr); }
+  .cs-token { display: none; }
+  .cs-say { min-height: 170px; }
+}
+@media (max-width: 480px) {
+  .cs-top { flex-wrap: wrap; }
+  .cs-total { margin-left: 0; width: 100%; text-align: left; }
+  .cs-count { display: none; }
+  .cs-btn-play { min-width: 104px; }
+  .cs-tabs button { flex: 1 1 auto; }
 }
 
 /* --- the fronting problem: two topologies --------------------------------- */
