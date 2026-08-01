@@ -18,78 +18,59 @@ first place — from a sentence, a link, or a photographed bill.
 
 ---
 
-## 2. Current state
+## 2. Current state — BOTH HALVES ARE DEPLOYED AND TALKING
 
-### Live
 | What | Where | Status |
 |---|---|---|
 | Frontend (Next.js) | https://sutra-gmp.vercel.app | **live, public** |
+| Engine (Fastify) | https://engine-production-e6fa.up.railway.app | **live**, `/health` 200 |
 | Vercel project | `soham-aggarwals-projects/sutra` | linked to GitHub `Soham109/sutra` |
-| Engine | — | **NOT DEPLOYED — this is the top blocker** |
+| Railway project | `sutra-engine` / service `engine` | volume at `/data`, 1 replica |
 
-`sutra.vercel.app` is taken by another Vercel account (global namespace). `sutra-gmp.vercel.app`
-is ours. Vercel SSO protection has been **disabled** so judges can open it without a login.
+Verified: `/api/v1/places/status` through the Vercel proxy returns 200, and the full
+`e2e/plan-flow.ts` runs against the production engine (real geocode → real venues → ranked → group).
 
-### The blocker, stated plainly
-`next.config.ts` rewrites `/api/*` → `ENGINE_URL`, which still defaults to `http://localhost:4100`.
-So **`/api/*` 404s in production and the app is a shell**: pages render, no data loads.
+`sutra.vercel.app` is taken by another Vercel account (global namespace). Vercel SSO protection is
+**disabled** so judges can open it without a login. Pushing to `main` auto-deploys the frontend.
 
-**The engine cannot run on Vercel.** It uses a `node:sqlite` *file* database, a 1.5-second
-`setInterval` poller that is the only way passkey approvals are ever detected, long-lived SSE
-connections, and an in-process `EventHub`. Serverless functions are stateless and short-lived;
-approvals would silently never land. It needs a persistent host.
+### Deploy invariants — do not break these
+- **`numReplicas: 1`.** Load-bearing, not a cost choice: the poller, the in-process `EventHub` and a
+  single-file SQLite database all assume exactly one process. Two replicas double-poll and split the
+  SSE fan-out.
+- **Volume mounted at `/data`, `DB_PATH=/data/gmp.db`.** Without it every redeploy wipes all groups
+  and receipts. (Watch out: Git Bash mangles `/data/gmp.db` into a Windows path via MSYS path
+  conversion — set that variable from PowerShell, or with `MSYS_NO_PATHCONV=1`.)
+- **`ENGINE_SIGNING_SEED` is fixed.** Without it the engine mints a new Ed25519 key on every restart
+  and receipts signed before a redeploy stop verifying.
+- **The engine cannot run on Vercel.** File-backed SQLite, a 1.5s poller that is the only way
+  approvals are ever detected, long-lived SSE, in-process `EventHub`. Serverless kills all four.
 
-**Decision already made with the human: Railway.** `railway.json` is written and ready.
+Redeploy commands:
+```bash
+npx @railway/cli up --ci          # engine (from repo root, project already linked)
+npx vercel --prod --yes           # frontend
+npx vercel alias set <deployment-url> sutra-gmp.vercel.app
+```
 
 ---
 
 ## 3. Next steps, in order
 
-### 3.1 Deploy the engine (blocks almost everything else)
-Needs a human for the browser login.
+### 3.1 Prava sandbox key — the single highest-value thing left
+`PRAVA_API_KEY` is empty and `PRAVA_ENV=mock`. "End-to-end functionality, nothing mocked" is the #1
+judging criterion. Get `sk_test_*` from dashboard.prava.space, then on Railway:
+`PRAVA_ENV=sandbox`, `PRAVA_API_KEY=sk_test_…`. Everything is already written against the real API
+shapes and switches over with no code change.
 
-```bash
-npx @railway/cli login          # human, opens a browser
-npx @railway/cli init           # create the project
-npx @railway/cli up             # deploy; railway.json is already configured
-npx @railway/cli domain         # get the public HTTPS URL
-```
+**Prava production access** (they emailed a Tally form): *not needed, and do not submit yet.* Their
+own instruction is "only submit once you have your sandbox functioning end to end", and access is
+revoked after judging anyway. Sandbox is the demo of record.
 
-Then set variables **on Railway**:
-```
-PRAVA_ENV=mock                  # or sandbox once a key exists
-PRAVA_API_KEY=                  # sk_test_* when available
-APP_BASE_URL=https://sutra-gmp.vercel.app   # decided: approval links open the Next.js page
-ENGINE_API_TOKEN=<something better than dev-token>
-ENGINE_SIGNING_SEED=<32 bytes hex>          # else receipts get a new key every restart
-WEBHOOK_SECRET=<random>
-DB_PATH=/data/gmp.db            # MUST be on a mounted volume, else the DB dies on redeploy
-```
+### 3.2 NANDA prize work (see §5 — the human's stated priority)
 
-**Attach a Railway volume mounted at `/data`.** Without it every deploy wipes all groups and
-receipts.
-
-**Keep `numReplicas: 1`.** This is load-bearing, not a cost choice: the poller, the in-process
-`EventHub` and a single-file SQLite database all assume exactly one process. Two replicas would
-double-poll and split the SSE fan-out.
-
-Then set variables **on Vercel** and redeploy:
-```bash
-npx vercel env add ENGINE_URL production        # https://<railway-host>
-npx vercel env add NEXT_PUBLIC_ENGINE_TOKEN production
-npx vercel --prod --yes
-```
-
-Verify: `curl https://sutra-gmp.vercel.app/api/v1/me` should stop 404ing, and
-`curl https://<railway-host>/health` should return `{"ok":true,...}`.
-
-### 3.2 NANDA prize work (see §5 — this is the human's priority)
-
-### 3.3 Keys
-`PRAVA_API_KEY` and `OPENAI_API_KEY` are both empty in `.env`. Everything is written against the
-real API shapes and switches over the moment they land. "End-to-end functionality, nothing mocked"
-is the #1 judging criterion, so a `sk_test_*` key is the single highest-value thing the humans can
-supply.
+### 3.3 `OPENAI_API_KEY`
+Optional everywhere. It upgrades intent extraction and enables server-side receipt-photo reading.
+The deterministic paths are the floor, not a stub, and work with no key at all.
 
 ---
 
@@ -264,6 +245,21 @@ cli/src/nanda.ts             nanda check / skill-submit / index-register
   Three real bugs caught only by live runs: bare amounts defaulting to USD, JPY minor-unit rescale,
   and an OSM venue landing on the card rail.
 - **2026-08-01** — Frontend deployed to Vercel, SSO protection disabled, aliased
-  `sutra-gmp.vercel.app`. Engine still needs a host. `railway.json` and `/health` prepared.
+  `sutra-gmp.vercel.app`. Engine deployed to Railway with a `/data` volume; both halves verified
+  talking through the `/api/*` proxy, and `e2e/plan-flow.ts` runs green against production.
+- **2026-08-01** — Two bugs found only by running against the deployed engine: options were being
+  scored against a **stale** common time window frozen at whatever the first responder said, and a
+  rate-limited Overpass call would **wipe a working board to zero** because `clearOptions` ran
+  before the search result was known. Both fixed; options now carry only a time their source really
+  knows, and an empty refresh preserves the previous board.
+- **2026-08-01** — Photo bill capture, with OCR **in the browser** (tesseract.js, dynamically
+  imported, no key, nothing uploaded) feeding the same deterministic parser. Finding the right
+  page-segmentation mode was not cosmetic: modes 3/4/11/12 read a receipt as two columns and tear
+  `2587.50` into `2587.` plus an orphaned `50`, after which the parser reconciles 2587.00 against a
+  printed 2587.00 and reports — truthfully — that the maths checks out, on numbers that are all
+  wrong. Mode 6 scored 8/8 exact amounts against 0/8 for every other mode. Because a different
+  receipt could still fracture, `engine/src/bill/integrity.ts` detects the signature server-side,
+  the UI refuses to show a green tick over it, and `POST /v1/bill/split` **rejects** it unless the
+  caller passes `force`. Regression test uses the verbatim broken OCR output.
 
-### Next agent: start at §3.1
+### Next agent: start at §3.1 (Prava sandbox key), then §5 (NANDA)

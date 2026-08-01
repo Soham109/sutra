@@ -971,6 +971,16 @@ a.list-row:hover { background: var(--surface-2); }
 .confirm-ask { color: var(--ink-2); font-size: 13px; line-height: 1.6; }
 .confirm-ask b { color: var(--ink); }
 
+/* Photographing a bill ----------------------------------------------------- */
+.capture { display: flex; flex-direction: column; gap: 11px; }
+.capture-preview { width: 100%; max-height: 230px; object-fit: cover; border-radius: var(--r); border: 1px solid var(--line); }
+.capture-actions { display: flex; flex-direction: column; gap: 8px; }
+.capture-progress { display: flex; flex-direction: column; gap: 6px; }
+.capture-bar { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.capture-bar span { display: block; height: 100%; background: var(--brand); border-radius: 3px; transition: width .25s ease; }
+.capture-error { color: var(--warn); font-size: 12.5px; line-height: 1.55; }
+.capture-note { color: var(--ink-3); font-size: 11.5px; line-height: 1.55; }
+
 /* New split / discovery --------------------------------------------------- */
 .discover-page { max-width: 1240px; }
 .discover-head { margin: clamp(20px, 4vw, 54px) 0 34px; max-width: 900px; }

@@ -4,7 +4,7 @@ import type { Rail } from '../rails.js'
 import type { GroupService } from '../service.js'
 import { UserError } from '../service.js'
 import type { Social } from '../social.js'
-import { boundingRadiusM, centroid } from './geo.js'
+import { boundingRadiusM, centroid, haversineKm } from './geo.js'
 import { rankOptions, type RankParticipant } from './rank.js'
 import { bestCommonWindows } from './time.js'
 import { optionId as newOptionId, participantId as newParticipantId, planId as newPlanId, PlanStore } from './store.js'
@@ -152,13 +152,45 @@ export class PlanService {
       ...summarySignal(parsed),
     })
 
-    // A new signal changes the ranking, and may change which options are worth
-    // fetching at all (a location signal moves the search centre).
-    if (parsed.kind === 'location' || parsed.kind === 'availability' || parsed.kind === 'rsvp') {
-      if (plan.status === 'gathering' && this.readyForOptions(plan.id)) {
+    // Ranking is recomputed on every read, so most signals need nothing here.
+    // A LOCATION is different: it moves the centroid the venue search runs
+    // around, so the board itself is stale until we search again — and that has
+    // to keep working after the first batch exists, or the third person to
+    // answer never influences where the group looks.
+    //
+    // But Overpass is a donated public service and a burst of answers would
+    // otherwise fire one query per person within seconds. So we only re-search
+    // when the group's centre of gravity has actually MOVED enough to change
+    // the answer. A second person round the corner from the first does not.
+    if (parsed.kind === 'location' && !PLAN_TERMINAL.has(plan.status) && this.readyForOptions(plan.id)) {
+      if (this.searchCentreMoved(plan.id)) {
         await this.generateOptions(plan.id).catch(() => undefined)
       }
     }
+  }
+
+  /** How far the centroid may drift before the shortlist is worth redoing. */
+  private static readonly RESEARCH_THRESHOLD_KM = 1.5
+
+  /**
+   * True when the current group centroid is far enough from the one the board
+   * was last built around to plausibly change which venues come back.
+   */
+  private searchCentreMoved(planId: string): boolean {
+    const options = this.d.store.options(planId)
+    if (options.length === 0) return true // nothing to preserve; always try
+
+    const slots = SlotsSchema.parse(JSON.parse(this.mustPlan(planId).slots_json))
+    const anchor = this.searchAnchor(planId, slots)
+    if (!anchor.place) return false
+
+    // The board's own centre of gravity, from the venues actually on it.
+    const placed = options
+      .map((o) => (o.place_json ? (JSON.parse(o.place_json) as Place) : null))
+      .filter((p): p is Place => !!p)
+    if (placed.length === 0) return true
+
+    return haversineKm(centroid(placed), anchor.place) > PlanService.RESEARCH_THRESHOLD_KM
   }
 
   /** Enough signal to be worth spending someone's rate limit on. */
@@ -261,15 +293,34 @@ export class PlanService {
       }
     }
 
-    // A concrete time the whole group can make is itself an option attribute:
-    // stamp the best common window onto candidates that carry no time of their
-    // own, so time_fit scores something real rather than shrugging.
-    const slot = this.bestSlot(planId)
-    const stamped = found.map((o) => (o.when || !slot ? o : { ...o, when: slot }))
+    // An option keeps ONLY a time its source actually knows — a real showtime,
+    // a booking window. We used to stamp the group's best common window onto
+    // timeless venues so time_fit had something concrete to score. That was
+    // wrong twice over: it dressed a restaurant up as though it had a fixed
+    // sitting, and it froze that guess at whatever the first responder happened
+    // to say, because options are not regenerated on every later answer.
+    //
+    // The ranker already handles a timeless option properly — it falls back to
+    // the CURRENT best common window and says so in its `why`. Recomputed on
+    // every read it is always right; a stamp is only right for an instant.
+
+    // An empty result must NEVER destroy a working board. Overpass is a shared
+    // free service: it rate-limits, it times out, it sheds load. Clearing first
+    // and inserting second means one bad minute wipes everyone's options and
+    // the group is left staring at nothing. Keep what we had and say why the
+    // refresh came back empty.
+    const existing = this.d.store.options(planId)
+    if (found.length === 0 && existing.length > 0) {
+      this.d.store.appendEvent(planId, null, 'options.refresh_empty', {
+        kept: existing.length,
+        note: note || 'the venue search came back empty',
+      })
+      return existing
+    }
 
     this.d.store.clearOptions(planId)
     const rows: PlanOptionRow[] = []
-    for (const o of stamped.slice(0, MAX_OPTIONS)) {
+    for (const o of found.slice(0, MAX_OPTIONS)) {
       const parsedOption = OptionInputSchema.parse(o)
       const row: PlanOptionRow = {
         id: newOptionId(),
@@ -339,11 +390,6 @@ export class PlanService {
       }),
       { minDurationMs: 60 * 60 * 1000, limit: 3 },
     )
-  }
-
-  private bestSlot(planId: string) {
-    const best = this.commonWindows(planId)[0]
-    return best?.window ?? null
   }
 
   /**

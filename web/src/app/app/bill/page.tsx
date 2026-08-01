@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Shell } from '@/components/shell'
+import { BillCapture } from '@/components/bill/capture'
 import { ErrorNote } from '@/components/ui'
 import { money, toMinor } from '@/lib/format'
 import { api } from '@/lib/api'
@@ -35,6 +36,8 @@ interface ParsedBill {
   }
   warnings: string[]
   unparsed_lines: string[]
+  /** set when the OCR may have torn the decimals into a separate column */
+  integrity?: { suspect: boolean; orphan_lines: number; warning: string }
 }
 
 export default function BillPage() {
@@ -46,6 +49,8 @@ export default function BillPage() {
   const [venue, setVenue] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  /** set when the text came out of a photo rather than a keyboard */
+  const [ocr, setOcr] = useState<{ confidence: number; source: 'ocr' } | null>(null)
 
   // The composer on the dashboard hands the receipt over through session
   // storage rather than the URL — a receipt is too long, and too personal, to
@@ -119,7 +124,7 @@ export default function BillPage() {
     return out
   })()
 
-  const create = async () => {
+  const create = async (force = false) => {
     if (!bill || named.length === 0) return
     setBusy(true)
     setError('')
@@ -130,6 +135,7 @@ export default function BillPage() {
         text,
         members: named.map((n) => ({ name: n })),
         claimants: bill.items.map((_, i) => claimantsOf(i)),
+        force,
       })
       router.push(`/app/groups/${res.group_id}`)
     } catch (e) {
@@ -161,8 +167,31 @@ export default function BillPage() {
 
         <div className="bill-grid">
           <section className="bill-input">
+            <BillCapture
+              busy={busy}
+              onText={(draft, meta) => {
+                setText(draft)
+                setOcr(meta)
+                // Parse straight away: the reconciliation check is the fastest
+                // way to find out whether the photo was read well enough.
+                void parse(draft)
+              }}
+            />
+
+            <div className="answer-or" aria-hidden>
+              <span>or type it</span>
+            </div>
+
             <label className="field">
-              <span className="field-label">The receipt</span>
+              <span className="field-label">
+                The receipt
+                {ocr && (
+                  <span className="tiny faint">
+                    {' '}
+                    — read from your photo at {ocr.confidence}% confidence. Fix anything wrong.
+                  </span>
+                )}
+              </span>
               <textarea
                 className="input bill-text"
                 rows={14}
@@ -187,10 +216,30 @@ export default function BillPage() {
               </div>
             ) : (
               <>
-                <div className={`bill-check${rec?.balanced ? ' is-ok' : ' is-off'}`}>
-                  <strong>{rec?.balanced ? 'The maths checks out' : 'The maths does not close'}</strong>
-                  <p>{rec?.note}</p>
-                  {!rec?.balanced && rec && (
+                {/* A balanced reconciliation is not a green light when the
+                    decimals may have been torn off — both sides lose their
+                    cents together and the sum agrees with itself. */}
+                <div
+                  className={`bill-check${
+                    bill.integrity?.suspect ? ' is-off' : rec?.balanced ? ' is-ok' : ' is-off'
+                  }`}
+                >
+                  <strong>
+                    {bill.integrity?.suspect
+                      ? 'These numbers add up, but they may still be wrong'
+                      : rec?.balanced
+                        ? 'The maths checks out'
+                        : 'The maths does not close'}
+                  </strong>
+                  <p>{bill.integrity?.suspect ? bill.integrity.warning : rec?.note}</p>
+                  {bill.integrity?.suspect && rec && (
+                    <p className="tiny">
+                      Read as {money(rec.computed_total, bill.currency)} and it matches the printed
+                      total — but if the cents were lost, every line is short by the same trick.
+                      Compare a couple of amounts with the paper before you send this.
+                    </p>
+                  )}
+                  {!rec?.balanced && rec && !bill.integrity?.suspect && (
                     <p className="tiny">
                       Lines add to {money(rec.computed_total, bill.currency)}
                       {rec.printed_total !== null && <> but the receipt says {money(rec.printed_total, bill.currency)}</>}
@@ -312,6 +361,16 @@ export default function BillPage() {
                 >
                   Send everyone their share
                 </button>
+
+                {bill.integrity?.suspect && (
+                  <button
+                    className="btn btn-ghost btn-block"
+                    disabled={busy || named.length === 0}
+                    onClick={() => void create(true)}
+                  >
+                    I’ve checked these against the paper — send anyway
+                  </button>
+                )}
               </>
             )}
           </section>

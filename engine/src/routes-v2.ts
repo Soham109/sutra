@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { Catalog } from './catalog/index.js'
 import { billToCart, parseBill } from './bill/index.js'
 import { inferBillCurrency } from './bill/currency.js'
+import { checkOcrIntegrity } from './bill/integrity.js'
 import type { PlanStore } from './plan/store.js'
 import { capabilityOf } from './rails.js'
 import { UserError, type GroupService } from './service.js'
@@ -351,7 +352,11 @@ export function registerProductRoutes(
     if (guess?.basis === 'tax_regime' && guess.why) {
       parsed.warnings = [...parsed.warnings, guess.why]
     }
-    return parsed
+    // A balanced reconciliation is not proof of a correct read when the OCR
+    // tore the decimals off into their own column — see bill/integrity.ts.
+    const integrity = checkOcrIntegrity(parsed)
+    if (integrity.suspect) parsed.warnings = [integrity.warning, ...parsed.warnings]
+    return { ...parsed, integrity }
   })
 
   /** A parsed bill plus who claimed what → a real group on the at_venue rail. */
@@ -372,6 +377,8 @@ export function registerProductRoutes(
         policy: z.unknown().optional(),
         deadline_minutes: z.number().int().positive().default(180),
         no_blame: z.boolean().default(false),
+        /** proceed despite a suspected fractured-decimal OCR read */
+        force: z.boolean().default(false),
       })
       .parse(req.body)
 
@@ -379,6 +386,15 @@ export function registerProductRoutes(
       { text: body.text, image_base64: body.image_base64 },
       { currency: inferBillCurrency(body.text ?? '').currency ?? undefined },
     )
+    // Refuse outright rather than warn: past this point people are asked to
+    // agree to an exact number, and a fractured decimal read produces amounts
+    // that are individually wrong while adding up perfectly. `force` exists so
+    // a human who has checked the figures against the paper can still proceed.
+    const integrity = checkOcrIntegrity(bill)
+    if (integrity.suspect && !body.force) {
+      throw new UserError(`${integrity.warning} Correct the lines and try again.`)
+    }
+
     const cart = billToCart(bill, { claimantsByItemIndex: body.claimants })
 
     const { group, members } = service.createGroup({
