@@ -693,17 +693,31 @@ a.list-row:hover { background: var(--surface-2); }
 .discover-head h1 { font-size: clamp(44px, 6vw, 82px); line-height: .91; letter-spacing: -.062em; font-weight: 570; }
 .discover-head h1 span { color: var(--brand); font-weight: 720; letter-spacing: -.072em; }
 .discover-head p { margin-top: 25px; max-width: 64ch; font-size: 16px; }
-.discover-moments { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 14px; }
-.discover-moments button { background: transparent; border: 1px solid var(--line); border-radius: 13px; min-height: 78px; padding: 12px; text-align: left; color: var(--ink-2); font-size: 11px; cursor: pointer; transition: .16s ease; }
-.discover-moments button span { display: block; color: var(--brand); font-size: 18px; margin-bottom: 7px; }
-.discover-moments button:hover { color: var(--ink); background: var(--surface); border-color: var(--line-2); transform: translateY(-2px); }
 .discover-search { border-radius: 18px; padding: 14px; box-shadow: 0 16px 50px rgb(28 25 19 / .06); }
 .discover-search .input-lg { border: 0; box-shadow: none; font-size: 15px; }
 .discover-search .btn-lg { border-radius: 11px; }
 
-@media (max-width: 900px) { .discover-moments { grid-template-columns: repeat(3, 1fr); } }
+/* The quick-start row sits directly under the search card it feeds, rather
+   than floating disconnected above it — every button here either focuses
+   that input with a specific hint, or (for "Dinner", which has no page to
+   read) skips straight to a blank draft. */
+.discover-moments { margin-bottom: 22px; }
+.discover-moments-label { margin-bottom: 8px; }
+.discover-moments-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.discover-moments-grid button { background: transparent; border: 1px solid var(--line); border-radius: 13px; min-height: 78px; padding: 12px; text-align: left; color: var(--ink-2); font-size: 11px; cursor: pointer; transition: .16s ease; }
+.discover-moments-grid button span { display: block; color: var(--brand); font-size: 18px; margin-bottom: 7px; }
+.discover-moments-grid button:hover { color: var(--ink); background: var(--surface); border-color: var(--line-2); transform: translateY(-2px); }
+
+.discover-note { border-top: 1px solid var(--line); padding-top: 14px; }
+.discover-note summary { cursor: pointer; font-size: 13px; font-weight: 550; color: var(--ink-2); list-style: none; }
+.discover-note summary::-webkit-details-marker { display: none; }
+.discover-note summary::before { content: '+'; display: inline-block; width: 14px; color: var(--ink-3); }
+.discover-note[open] summary::before { content: '−'; }
+.discover-note summary:hover { color: var(--ink); }
+
+@media (max-width: 900px) { .discover-moments-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 560px) {
-  .discover-moments { grid-template-columns: repeat(2, 1fr); }
+  .discover-moments-grid { grid-template-columns: repeat(2, 1fr); }
   .discover-head h1 { font-size: 48px; }
   .discover-search .row:first-child { align-items: stretch; }
   .discover-search .row:first-child .btn { width: 100%; }

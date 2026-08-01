@@ -395,7 +395,7 @@ export function Builder({
           </div>
           <div className="grow col" style={{ gap: 8, minWidth: 200 }}>
             <div className="row wrap" style={{ gap: 8 }}>
-              <span className="mono tiny faint">{product.merchant.domain}</span>
+              {product.merchant.domain && <span className="mono tiny faint">{product.merchant.domain}</span>}
               {product.brand && <Badge>{product.brand}</Badge>}
               {!product.in_stock && <Badge tone="warn">out of stock</Badge>}
               {strategy && <Badge>read via {strategy}</Badge>}
@@ -411,9 +411,11 @@ export function Builder({
               />
             </label>
             <div className="row wrap" style={{ gap: 12 }}>
-              <a className="btn btn-ghost" href={product.product_url} target="_blank" rel="noreferrer noopener">
-                View on {product.merchant.domain} ↗
-              </a>
+              {product.product_url && (
+                <a className="btn btn-ghost" href={product.product_url} target="_blank" rel="noreferrer noopener">
+                  View on {product.merchant.domain} ↗
+                </a>
+              )}
               <button type="button" className="btn btn-ghost" onClick={onBack}>
                 ← Choose something else
               </button>

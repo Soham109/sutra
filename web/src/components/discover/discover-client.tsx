@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { api, type Product, type ProductDetail, type SearchResponse } from '@/lib/api'
 import { Badge, Empty, ErrorNote, Money, Skeleton } from '@/components/ui'
 import { Builder } from './builder'
-import { DiscoverIntro } from './empty-state'
+import { HowThisWorksNote } from './empty-state'
 import { ProductCard, ProductCardSkeleton, ResultsGrid } from './product-card'
 import { ProductImage } from './product-image'
 import { SourceErrors, SourceStrip, UnavailableSources, type SourceHealth } from './sources'
@@ -52,6 +52,70 @@ function blankDetail(raw: string): ProductDetail {
   }
 }
 
+/** A split with nothing to read from any page — a restaurant bill, a shared
+ *  cab, anything without a product URL. No merchant, no link, just a name and
+ *  a total the organizer types in themselves. */
+function manualDetail(label: string): ProductDetail {
+  return {
+    id: 'manual',
+    title: '',
+    price: { amount_minor: 0, currency: 'USD' },
+    unit_label: 'each',
+    merchant: { name: label, url: '', country_code_iso2: 'US', domain: '' },
+    product_url: '',
+    in_stock: true,
+    source: 'url',
+    variants: [],
+    images: [],
+    fine_print: [],
+  }
+}
+
+type Moment =
+  | { icon: string; label: string; kind: 'paste'; placeholder: string; hint: string }
+  | { icon: string; label: string; kind: 'manual'; hint: string }
+
+/**
+ * Every one of these used to run a literal-text search for its own label —
+ * "Movie tickets" searched for the string "Movie tickets" against a catalog
+ * of three activewear stores, and returned nothing. Search only reaches a
+ * handful of demo storefronts; pasting a link reads almost any single
+ * product page directly. So each of these now routes to whichever of those
+ * two things actually works for that kind of purchase, instead of pretending
+ * search covers categories it does not.
+ */
+const MOMENTS: Moment[] = [
+  {
+    icon: '◒', label: 'Movie tickets', kind: 'paste',
+    placeholder: 'Paste the tickets page — your BookMyShow or Fandango link',
+    hint: 'Sutra reads the showtime, seats and price straight off that page.',
+  },
+  {
+    icon: '✦', label: 'Flights', kind: 'paste',
+    placeholder: 'Paste the fare page from the airline or booking site',
+    hint: 'Paste the exact fare everyone would book, not a screenshot of it.',
+  },
+  {
+    icon: '⌂', label: 'A place to stay', kind: 'paste',
+    placeholder: 'Paste the listing — Airbnb, Booking.com, the hotel’s own page',
+    hint: 'One link, and the nightly rate splits however the group decides.',
+  },
+  {
+    icon: '♫', label: 'Concert tickets', kind: 'paste',
+    placeholder: 'Paste the tickets page for the show',
+    hint: 'Same idea as movie tickets — the exact listing, not a search page.',
+  },
+  {
+    icon: '⌁', label: 'Dinner', kind: 'manual',
+    hint: 'A shared bill has no page to read — type the total and split it.',
+  },
+  {
+    icon: '◇', label: 'Group gift', kind: 'paste',
+    placeholder: 'Paste the product page for the gift',
+    hint: 'Works like any other item — paste the page, set who is chipping in.',
+  },
+]
+
 export function DiscoverClient() {
   const router = useRouter()
   const params = useSearchParams()
@@ -61,6 +125,7 @@ export function DiscoverClient() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done'>('idle')
   const [results, setResults] = useState<SearchResponse | null>(null)
   const [resolved, setResolved] = useState<Resolved | null>(null)
+  const [hint, setHint] = useState<{ placeholder: string; text: string } | null>(null)
   const [error, setError] = useState('')
   const [errorUrl, setErrorUrl] = useState('')
   const [picking, setPicking] = useState('')
@@ -162,6 +227,7 @@ export function DiscoverClient() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
+    setHint(null)
     const text = q.trim()
     if (!text) return
     if (looksLikeUrl(text)) {
@@ -175,6 +241,29 @@ export function DiscoverClient() {
       )
       void runSearch(text, store)
     }
+  }
+
+  /** Nothing to read from any page — skip straight to a blank, editable draft. */
+  const startManual = (label: string) => {
+    setHint(null)
+    setResolved({
+      product: manualDetail(label),
+      strategy: 'entered by hand',
+      warnings: [`There is no page to read for “${label}” — the name, the total and who owes what are all yours to set.`],
+      partial: true,
+    })
+    setMode('build')
+    router.replace('/app/discover?step=build', { scroll: false })
+  }
+
+  const pickMoment = (m: Moment) => {
+    if (m.kind === 'manual') {
+      startManual(m.label)
+      return
+    }
+    setQ('')
+    setHint({ placeholder: m.placeholder, text: m.hint })
+    searchInput.current?.focus()
   }
 
   /** A search hit only carries the summary — read the real page before building. */
@@ -240,30 +329,23 @@ export function DiscoverClient() {
         <span className="eyebrow">New split</span>
         <h1>Bring the thing.<br /><span>We’ll shape the split.</span></h1>
         <p className="muted">
-          Start broad with a plan or paste the exact merchant page. You stay in control of every item, person, fee and rule before an invite leaves the app.
+          Paste the exact page you want the group to buy, and sutra reads the price, the variants, the stock — you
+          stay in control of every item, person, fee and rule before an invite leaves the app.
         </p>
       </div>
 
-      <div className="discover-moments" aria-label="Start from a common group purchase">
-        {[
-          ['◒', 'Movie tickets'], ['✦', 'Flights'], ['⌂', 'A place to stay'],
-          ['♫', 'Concert tickets'], ['⌁', 'Dinner'], ['◇', 'Group gift'],
-        ].map(([icon, label]) => (
-          <button key={label} type="button" onClick={() => { setQ(label); void runSearch(label, store) }}>
-            <span>{icon}</span>{label}
-          </button>
-        ))}
-      </div>
-
-      <form onSubmit={submit} className="card card-pad discover-search" style={{ marginBottom: 18 }}>
+      <form onSubmit={submit} className="card card-pad discover-search" style={{ marginBottom: 14 }}>
         <div className="row wrap" style={{ gap: 10 }}>
           <div className="grow" style={{ minWidth: 200 }}>
             <input
               ref={searchInput}
               className="input input-lg"
               value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search, or paste a link from any store"
+              onChange={(e) => {
+                setQ(e.target.value)
+                if (hint) setHint(null)
+              }}
+              placeholder={hint?.placeholder ?? 'Paste a product link — or search a few catalogues'}
               aria-label="Search for a product, or paste a product link"
               autoComplete="off"
               spellCheck={false}
@@ -276,15 +358,17 @@ export function DiscoverClient() {
 
         <div className="row-between wrap" style={{ gap: 10, marginTop: 10 }}>
           <p className="tiny faint" style={{ maxWidth: '60ch', lineHeight: 1.6 }}>
-            {isUrl ? (
+            {hint ? (
+              hint.text
+            ) : isUrl ? (
               <>
                 That looks like a link — sutra will open the page and read the merchant’s own product data: price,
                 currency, variants, stock.
               </>
             ) : (
               <>
-                Words search the catalogues below. A pasted address is read directly from the merchant’s page,
-                which is how a store nobody integrated with still works.
+                Words search a small demo catalogue below. A pasted link is read directly from the merchant’s page,
+                which works on almost any store — including the ones nobody here integrated with.
               </>
             )}
           </p>
@@ -311,6 +395,19 @@ export function DiscoverClient() {
           </p>
         )}
       </form>
+
+      {!loading && !results && !resolved && (
+        <div className="discover-moments" aria-label="Common ways to start">
+          <p className="tiny faint discover-moments-label">Or start from what you’re actually splitting</p>
+          <div className="discover-moments-grid">
+            {MOMENTS.map((m) => (
+              <button key={m.label} type="button" onClick={() => pickMoment(m)}>
+                <span>{m.icon}</span>{m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div style={{ marginBottom: 18 }}>
@@ -391,12 +488,20 @@ export function DiscoverClient() {
             </div>
             <div className="grow col" style={{ gap: 8, minWidth: 200 }}>
               <div className="row wrap" style={{ gap: 8 }}>
-                <Badge tone="brand">read from the link</Badge>
-                {resolved.strategy && <Badge>{resolved.strategy}</Badge>}
+                {resolved.partial ? (
+                  <Badge tone="warn">{resolved.strategy === 'entered by hand' ? 'entered by hand' : 'from search, not the page'}</Badge>
+                ) : (
+                  <>
+                    <Badge tone="brand">read from the link</Badge>
+                    {resolved.strategy && <Badge>{resolved.strategy}</Badge>}
+                  </>
+                )}
                 {!resolved.product.in_stock && <Badge tone="warn">out of stock</Badge>}
               </div>
               <h2 style={{ fontSize: 19 }}>{resolved.product.title || 'Untitled item'}</h2>
-              <span className="mono tiny faint">{resolved.product.merchant.domain}</span>
+              {resolved.product.merchant.domain && (
+                <span className="mono tiny faint">{resolved.product.merchant.domain}</span>
+              )}
               {resolved.product.description && (
                 <p className="small muted" style={{ maxWidth: '68ch' }}>
                   {resolved.product.description.slice(0, 240)}
@@ -426,14 +531,16 @@ export function DiscoverClient() {
                 <button type="button" className="btn btn-primary btn-lg" onClick={startBuild}>
                   Build the group →
                 </button>
-                <a
-                  className="btn btn-ghost"
-                  href={resolved.product.product_url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                >
-                  Check the page ↗
-                </a>
+                {resolved.product.product_url && (
+                  <a
+                    className="btn btn-ghost"
+                    href={resolved.product.product_url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    Check the page ↗
+                  </a>
+                )}
               </div>
             </div>
           </div>
@@ -502,18 +609,10 @@ export function DiscoverClient() {
       )}
 
       {!loading && !results && !resolved && !error && (
-        <>
-          <DiscoverIntro
-            onSearch={(text) => {
-              setQ(text)
-              router.replace(`/app/discover?q=${encodeURIComponent(text)}`, { scroll: false })
-              void runSearch(text, store)
-            }}
-            onSampleUrl={() => searchInput.current?.focus()}
-            onFocusStore={() => storeInput.current?.focus()}
-          />
+        <div style={{ marginTop: 8 }}>
+          <HowThisWorksNote />
           {health.length > 0 && (
-            <div className="col" style={{ gap: 8, marginTop: 14 }}>
+            <div className="col" style={{ gap: 8, marginTop: 12 }}>
               <div className="row wrap" style={{ gap: 8 }}>
                 {health
                   .filter((s) => s.available)
@@ -527,7 +626,7 @@ export function DiscoverClient() {
               <UnavailableSources health={health} />
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )
