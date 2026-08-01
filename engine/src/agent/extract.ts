@@ -20,6 +20,13 @@ export interface Extraction {
   slots: Slots
   /** names mentioned as participants, best effort */
   people: string[]
+  /**
+   * The plan is explicitly just for the person asking. "Dinner alone", "a cafe
+   * by myself" — there is no group to poll, so the whole consent phase is
+   * skipped and we go straight to finding places. Demanding they invite
+   * somebody would be the app arguing with a sentence it just read correctly.
+   */
+  solo: boolean
   /** which signals this plan should ask each person for */
   ask: ('rsvp' | 'availability' | 'location' | 'budget' | 'constraint')[]
   source: 'openai' | 'deterministic'
@@ -110,14 +117,20 @@ export function extractDeterministic(text: string, now = new Date()): Extraction
     notes: whereLabel ? `search near: ${whereLabel}` : undefined,
   })
 
-  const ask: Extraction['ask'] = ['rsvp']
-  if (!when.exact) ask.push('availability')
-  if (kind === 'venue') ask.push('location')
-  ask.push('budget')
+  // "alone", "by myself", "solo", "just me" — and only when no other person was
+  // named, since "dinner with Arsh, just the two of us" is not a solo plan.
+  const solo = people.length === 0 && /\b(alone|by myself|on my own|solo|just me|myself)\b/i.test(text)
+
+  // A solo plan has nobody to poll. The only thing still worth asking is where
+  // to search from, and even that is skipped when the sentence named a place.
+  const ask: Extraction['ask'] = solo
+    ? (whereLabel ? [] : ['location'])
+    : ['rsvp', ...(when.exact ? [] : ['availability' as const]), ...(kind === 'venue' ? ['location' as const] : []), 'budget']
 
   return {
     title: titleOf(text),
     kind,
+    solo,
     slots,
     people,
     ask,
@@ -391,12 +404,18 @@ export async function extractWithOpenAI(
     ? [...new Set((parsed.people as string[]).filter((p) => typeof p === 'string' && p.trim()))]
     : base.people
 
+  // Solo stays a deterministic read: it is a plain keyword test on the original
+  // sentence, and a model that decided to "helpfully" invite somebody would be
+  // overriding an explicit instruction rather than interpreting one.
+  const solo = base.solo && people.length === 0
+
   return {
     title: ((parsed.title as string) || base.title).slice(0, 70),
     kind: ((parsed.kind as PlanKind) || base.kind),
     slots,
     people,
-    ask: base.ask,
+    solo,
+    ask: solo ? base.ask : base.ask,
     source: 'openai',
     uncertainties: Array.isArray(parsed.uncertainties)
       ? (parsed.uncertainties as string[]).slice(0, 5)

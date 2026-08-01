@@ -285,6 +285,7 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
         slots,
         people: read.people,
         ask: read.ask,
+        solo: read.solo,
       },
       extractor: read.source,
       uncertainties: [...read.uncertainties, geocodeNote].filter(Boolean),

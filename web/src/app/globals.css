@@ -1043,3 +1043,6 @@ a.list-row:hover { background: var(--surface-2); }
   .discover-search .row:first-child { align-items: stretch; }
   .discover-search .row:first-child .btn { width: 100%; }
 }
+
+/* A plan the person made for themselves. No group, no poll, no dead button. */
+.solo-note { margin: 6px 0 10px; padding: 10px 13px; border-radius: var(--r); background: var(--surface-2); color: var(--ink-2); font-size: 12.5px; line-height: 1.6; }

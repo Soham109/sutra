@@ -29,6 +29,8 @@ interface Understood {
     }
     people: string[]
     ask: string[]
+    /** the sentence said "alone" — there is nobody to poll */
+    solo?: boolean
   }
   extractor: 'openai' | 'deterministic'
   uncertainties: string[]
@@ -128,15 +130,27 @@ function NewPlanInner() {
             </ul>
           )}
 
+          {/* "Dinner alone in some good cafe" is a complete instruction. Asking
+              who else is coming — and disabling the button until you name
+              somebody — is the app arguing with a sentence it just read
+              correctly. Adding people stays possible; it is no longer required. */}
           <section className="field">
-            <span className="field-label">Who to ask</span>
+            <span className="field-label">
+              {read.understood.solo ? 'Just you' : 'Who to ask'}
+            </span>
+            {read.understood.solo && people.every((p) => !p.trim()) ? (
+              <p className="solo-note">
+                You said this one is just for you, so there is nobody to poll — I’ll go straight to
+                finding places. Add a name below if you change your mind.
+              </p>
+            ) : null}
             <div className="bill-people">
               {people.map((p, i) => (
                 <input
                   key={i}
                   className="input"
                   value={p}
-                  placeholder={`Person ${i + 1}`}
+                  placeholder={read.understood.solo && i === 0 ? 'Add somebody (optional)' : `Person ${i + 1}`}
                   onChange={(e) => {
                     const next = [...people]
                     next[i] = e.target.value
@@ -153,16 +167,26 @@ function NewPlanInner() {
           </section>
 
           <p className="confirm-ask">
-            We’ll ask everyone for: <b>{read.understood.ask.join(', ')}</b> — then rank real places
-            against the answers.
+            {read.understood.ask.length === 0 ? (
+              <>Nothing to ask anybody — straight to real places near you.</>
+            ) : (
+              <>
+                We’ll ask everyone for: <b>{read.understood.ask.join(', ')}</b> — then rank real
+                places against the answers.
+              </>
+            )}
           </p>
 
-          <button
-            className="btn btn-primary btn-lg"
-            disabled={busy || people.every((p) => !p.trim())}
-            onClick={() => void create()}
-          >
-            {busy ? 'Setting it up…' : 'Ask the group'}
+          {/* Never dead. A solo plan needs nobody; a group plan with no names
+              yet still creates the plan and gives you links to share. */}
+          <button className="btn btn-primary btn-lg" disabled={busy} onClick={() => void create()}>
+            {busy
+              ? 'Setting it up…'
+              : people.some((p) => p.trim())
+                ? 'Ask the group'
+                : read.understood.solo
+                  ? 'Find me somewhere'
+                  : 'Create it and get the links'}
           </button>
         </>
       )}
