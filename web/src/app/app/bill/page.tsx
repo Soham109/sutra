@@ -1,0 +1,322 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Shell } from '@/components/shell'
+import { ErrorNote } from '@/components/ui'
+import { money, toMinor } from '@/lib/format'
+import { api } from '@/lib/api'
+
+// Split a real bill.
+//
+// The parse is deterministic and it reconciles against the printed total, so
+// the group can argue with the receipt instead of with us. When the arithmetic
+// does not close, the page says so loudly and shows exactly which lines it
+// could not read — a splitter that quietly drops a line is worse than no
+// splitter at all.
+//
+// There is no merchant here that Prava can charge, and the page never pretends
+// otherwise: this produces an agreement and a signed record, not a payment.
+
+interface ParsedBill {
+  items: { name: string; qty: number; unit_amount: number; line_amount: number; confidence: number; source_line: string }[]
+  fees: { name: string; amount: number; kind: string }[]
+  currency: string
+  subtotal: number | null
+  total: number | null
+  reconciliation: {
+    items_sum: number
+    fees_sum: number
+    computed_total: number
+    printed_total: number | null
+    delta: number
+    balanced: boolean
+    note: string
+  }
+  warnings: string[]
+  unparsed_lines: string[]
+}
+
+export default function BillPage() {
+  const router = useRouter()
+  const [text, setText] = useState('')
+  const [bill, setBill] = useState<ParsedBill | null>(null)
+  const [people, setPeople] = useState<string[]>(['Me', ''])
+  const [claims, setClaims] = useState<Record<number, Set<string>>>({})
+  const [venue, setVenue] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  // The composer on the dashboard hands the receipt over through session
+  // storage rather than the URL — a receipt is too long, and too personal, to
+  // put in a link that ends up in history.
+  useEffect(() => {
+    const handoff = sessionStorage.getItem('sutra:bill')
+    if (handoff) {
+      setText(handoff)
+      sessionStorage.removeItem('sutra:bill')
+      void parse(handoff)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const parse = async (raw?: string) => {
+    const body = (raw ?? text).trim()
+    if (!body) return
+    setBusy(true)
+    setError('')
+    try {
+      const res = await api.post<ParsedBill>('/v1/bill/parse', { text: body })
+      setBill(res)
+      // Default: everything shared by everyone, which is what most tables mean.
+      setClaims({})
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const named = people.map((p) => p.trim()).filter(Boolean)
+
+  const toggle = (itemIdx: number, person: string) =>
+    setClaims((prev) => {
+      const next = { ...prev }
+      const set = new Set(next[itemIdx] ?? named)
+      if (set.has(person)) set.delete(person)
+      else set.add(person)
+      next[itemIdx] = set
+      return next
+    })
+
+  const claimantsOf = (i: number): string[] => [...(claims[i] ?? new Set(named))]
+
+  const perPerson = (() => {
+    if (!bill) return new Map<string, number>()
+    const out = new Map<string, number>(named.map((n) => [n, 0]))
+    let assigned = 0
+    bill.items.forEach((item, i) => {
+      const who = claimantsOf(i).filter((n) => named.includes(n))
+      if (who.length === 0) return
+      // Largest remainder, mirroring the engine so the preview cannot disagree
+      // with the number people are asked to accept.
+      const base = Math.floor(item.line_amount / who.length)
+      let rem = item.line_amount - base * who.length
+      who.forEach((n) => {
+        const extra = rem > 0 ? 1 : 0
+        rem -= extra
+        out.set(n, (out.get(n) ?? 0) + base + extra)
+      })
+      assigned += item.line_amount
+    })
+    // Fees ride pro-rata on what each person already owes.
+    const fees = bill.fees.reduce((s, f) => s + f.amount, 0)
+    if (fees !== 0 && assigned > 0) {
+      for (const n of named) {
+        out.set(n, (out.get(n) ?? 0) + Math.round(((out.get(n) ?? 0) / assigned) * fees))
+      }
+    }
+    return out
+  })()
+
+  const create = async () => {
+    if (!bill || named.length === 0) return
+    setBusy(true)
+    setError('')
+    try {
+      const res = await api.post<{ group_id: string }>('/v1/bill/split', {
+        title: venue.trim() ? `${venue.trim()} — the bill` : 'Split the bill',
+        venue: venue.trim() || 'The table',
+        text,
+        members: named.map((n) => ({ name: n })),
+        claimants: bill.items.map((_, i) => claimantsOf(i)),
+      })
+      router.push(`/app/groups/${res.group_id}`)
+    } catch (e) {
+      setError((e as Error).message)
+      setBusy(false)
+    }
+  }
+
+  const rec = bill?.reconciliation
+
+  return (
+    <Shell crumbs={<span className="here">Split a bill</span>}>
+      <div className="page bill-page">
+        <header className="page-head">
+          <span className="eyebrow">Split a bill</span>
+          <h1>
+            The bill just landed.
+            <br />
+            <span>Nobody has to front it.</span>
+          </h1>
+          <p className="muted">
+            Paste or type what the receipt says. Every line is itemised, the maths is checked
+            against the printed total, and everyone agrees their exact number before the card
+            machine reaches the table.
+          </p>
+        </header>
+
+        {error && <ErrorNote>{error}</ErrorNote>}
+
+        <div className="bill-grid">
+          <section className="bill-input">
+            <label className="field">
+              <span className="field-label">The receipt</span>
+              <textarea
+                className="input bill-text"
+                rows={14}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={'2x Margherita          24.00\nPaneer Tikka             380\nCoke ................... 3.50\nService charge            45\nTotal                 452.50'}
+              />
+            </label>
+            <button className="btn btn-primary btn-block" disabled={busy || !text.trim()} onClick={() => void parse()}>
+              {busy ? 'Reading…' : bill ? 'Read it again' : 'Read the bill'}
+            </button>
+          </section>
+
+          <section className="bill-out">
+            {!bill ? (
+              <div className="empty">
+                <h3>Nothing read yet</h3>
+                <p>
+                  Paste the lines exactly as printed — quantities, dot leaders, tax lines and all.
+                  Anything that can’t be read is listed rather than dropped.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className={`bill-check${rec?.balanced ? ' is-ok' : ' is-off'}`}>
+                  <strong>{rec?.balanced ? 'The maths checks out' : 'The maths does not close'}</strong>
+                  <p>{rec?.note}</p>
+                  {!rec?.balanced && rec && (
+                    <p className="tiny">
+                      Lines add to {money(rec.computed_total, bill.currency)}
+                      {rec.printed_total !== null && <> but the receipt says {money(rec.printed_total, bill.currency)}</>}
+                      . Fix the text above rather than letting anyone agree to a wrong number.
+                    </p>
+                  )}
+                </div>
+
+                {bill.warnings.length > 0 && (
+                  <ul className="bill-warnings">
+                    {bill.warnings.map((w, i) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="field">
+                  <span className="field-label">Who’s at the table</span>
+                  <div className="bill-people">
+                    {people.map((p, i) => (
+                      <input
+                        key={i}
+                        className="input"
+                        value={p}
+                        placeholder={`Person ${i + 1}`}
+                        onChange={(e) => {
+                          const next = [...people]
+                          next[i] = e.target.value
+                          if (i === people.length - 1 && e.target.value.trim()) next.push('')
+                          setPeople(next)
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <table className="bill-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th className="num">Amount</th>
+                      <th>Who had it</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bill.items.map((item, i) => {
+                      const who = claimantsOf(i)
+                      return (
+                        <tr key={i}>
+                          <td>
+                            {item.name}
+                            {item.qty > 1 && <span className="tiny faint"> ×{item.qty}</span>}
+                          </td>
+                          <td className="num amount">{money(item.line_amount, bill.currency)}</td>
+                          <td>
+                            <div className="bill-claims">
+                              {named.map((n) => (
+                                <button
+                                  type="button"
+                                  key={n}
+                                  className={`bill-claim${who.includes(n) ? ' is-on' : ''}`}
+                                  onClick={() => toggle(i, n)}
+                                  aria-pressed={who.includes(n)}
+                                >
+                                  {n}
+                                </button>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {bill.fees.map((f, i) => (
+                      <tr key={`f${i}`} className="bill-fee">
+                        <td>{f.name}</td>
+                        <td className="num amount">{money(f.amount, bill.currency)}</td>
+                        <td className="tiny faint">shared in proportion</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {bill.unparsed_lines.length > 0 && (
+                  <details className="bill-unparsed">
+                    <summary>{bill.unparsed_lines.length} lines were not used</summary>
+                    <pre>{bill.unparsed_lines.join('\n')}</pre>
+                  </details>
+                )}
+
+                <div className="bill-totals">
+                  {named.map((n) => (
+                    <div className="bill-total-row" key={n}>
+                      <span>{n}</span>
+                      <span className="amount">{money(perPerson.get(n) ?? 0, bill.currency)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <label className="field">
+                  <span className="field-label">Where were you</span>
+                  <input
+                    className="input"
+                    value={venue}
+                    onChange={(e) => setVenue(e.target.value)}
+                    placeholder="Toit, Indiranagar"
+                  />
+                </label>
+
+                <p className="bill-disclosure">
+                  No card is charged through sutra on a bill split. Everyone agrees their exact
+                  amount here, then pays the venue directly on their own card. What you get is the
+                  arithmetic, the agreement, and a signed record of who owed what.
+                </p>
+
+                <button
+                  className="btn btn-primary btn-lg btn-block"
+                  disabled={busy || named.length === 0}
+                  onClick={() => void create()}
+                >
+                  Send everyone their share
+                </button>
+              </>
+            )}
+          </section>
+        </div>
+      </div>
+    </Shell>
+  )
+}

@@ -199,6 +199,31 @@ export default function ApprovalPage() {
 
   function buildDock(): React.ReactNode {
     if (phase === 'deciding' && !closed) {
+      // On the at_venue rail there is no mandate to mint and no passkey page to
+      // send anyone to. The button says what actually happens, and never
+      // borrows the card rail's language.
+      if (v.action === 'accept') {
+        return (
+          <div className="col" style={{ gap: 8 }}>
+            <button
+              className="btn btn-primary btn-block btn-xl"
+              disabled={live.busy === 'accept'}
+              onClick={() => void live.run('accept')}
+            >
+              {live.busy === 'accept'
+                ? 'Recording…'
+                : `That's right — I owe ${money(v.share_amount, cur)}`}
+            </button>
+            <p className="tiny faint" style={{ textAlign: 'center' }}>
+              No card is charged here. You pay {v.group.merchant.name} directly.
+            </p>
+            <button className="btn btn-ghost btn-block" onClick={() => setDeclineOpen(true)}>
+              That&apos;s not right — I&apos;m out
+            </button>
+          </div>
+        )
+      }
+
       const ready = Boolean(v.approval_url)
       return (
         <div className="col" style={{ gap: 8 }}>

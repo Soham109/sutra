@@ -32,6 +32,18 @@ export interface MemberView {
   charged_amount: number
   auction: { open: boolean; closes_at: string; contested_items: ContestedItem[] } | null
   fx: Fx | null
+  /** Which rail carries this split, and therefore what this page may promise. */
+  rail: 'prava_mandates' | 'at_venue'
+  rail_capability: {
+    rail: string
+    label: string
+    charges: boolean
+    mandates: boolean
+    settled_verb: string
+    disclosure: string
+  }
+  /** 'approve' opens Prava's passkey ceremony; 'accept' is the at_venue rail. */
+  action: 'approve' | 'accept'
   group: {
     title: string
     status: GroupStatus
@@ -42,6 +54,7 @@ export interface MemberView {
     deadline_at: string
     no_blame: boolean
     terminal: boolean
+    rail: 'prava_mandates' | 'at_venue'
   }
   my_items: CartItem[]
 }
@@ -87,7 +100,10 @@ export type Phase =
   | 'observer'
 
 export function phaseOf(v: MemberView): Phase {
-  if (v.status === 'charged') return 'charged'
+  // `settled` is the at_venue rail's terminal state. It shares this screen with
+  // `charged` because the member's obligation is equally done — but every
+  // string on that screen is chosen off the rail, never off this phase.
+  if (v.status === 'charged' || v.status === 'settled') return 'charged'
   if (v.status === 'charging') return 'charging'
   if (v.group.terminal) {
     return v.group.status === 'committed' || v.group.status === 'partial' ? 'left-behind' : 'aborted'

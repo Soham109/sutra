@@ -9,7 +9,8 @@ import { useSession } from './session'
 const NAV = [
   { section: null, items: [
     { href: '/app', label: 'Today', icon: 'home' },
-    { href: '/app/discover', label: 'New split', icon: 'search' },
+    { href: '/app/discover', label: 'Find something', icon: 'search' },
+    { href: '/app/bill', label: 'Split a bill', icon: 'receipt' },
     { href: '/app/groups', label: 'Activity', icon: 'thread' },
   ] },
   { section: 'People', items: [
@@ -124,9 +125,9 @@ function MobileNav() {
   const path = usePathname()
   const items = [
     { href: '/app', label: 'Today', icon: 'home' },
-    { href: '/app/discover', label: 'New', icon: 'search' },
+    { href: '/app/discover', label: 'Find', icon: 'search' },
+    { href: '/app/bill', label: 'Bill', icon: 'receipt' },
     { href: '/app/groups', label: 'Activity', icon: 'thread' },
-    { href: '/app/people', label: 'People', icon: 'people' },
   ]
   return (
     <nav className="mobile-nav" aria-label="Mobile navigation">

@@ -7,6 +7,7 @@ import { allocateAuction, type SealedBid } from './protocol/auction.js'
 import { capFor, computeShares } from './protocol/money.js'
 import { evaluatePolicy, referencedMembers, type Participant } from './protocol/policy.js'
 import { groupId as newGroupId, memberId as newMemberId } from './ids.js'
+import { capabilityOf, railFor } from './rails.js'
 import {
   canonicalJson,
   cartTotal,
@@ -21,6 +22,7 @@ import {
   type MemberRow,
   type Minor,
   type Policy,
+  isSettled,
 } from './types.js'
 
 export interface ServiceConfig {
@@ -88,6 +90,11 @@ export class GroupService {
     }
     const hasAuction = input.cart.items.some((i) => i.contested)
 
+    // Which rail can carry this. A bill photographed in a restaurant has no
+    // merchant Prava can charge, and the engine says so rather than inventing
+    // one — see rails.ts.
+    const rail = railFor({ merchantUrl: input.merchant.url, requested: input.rail })
+
     const { shares } = computeShares(input.cart, input.members)
     const gid = newGroupId()
     const deadline = new Date(this.now().getTime() + input.deadline_minutes * 60_000)
@@ -116,6 +123,8 @@ export class GroupService {
       product_json: input.product ? JSON.stringify(input.product) : null,
       auction_close_at: auctionClose ? auctionClose.toISOString() : null,
       fx_json: null,
+      rail,
+      origin: input.origin ?? null,
     })
 
     // §21.3 — display-currency snapshot, best-effort and non-blocking. The
@@ -194,6 +203,23 @@ export class GroupService {
     if (GROUP_TERMINAL.has(g.status) || g.status === 'committing') return m
     if (!PAYING_ROLES.has(m.role)) return m
 
+    // On the at_venue rail there is no merchant to scope a mandate to, so
+    // there is nothing to mint. The member's consent is an explicit
+    // acknowledgement of their exact amount (acceptShare) and nothing more —
+    // no approval URL, because there is no card ceremony to send them to.
+    if (!capabilityOf(g.rail).mandates) {
+      if (m.status === 'viewed' && m.share_amount > 0) {
+        const fresh = this.mustMember(memberId)
+        if (this.db.casMember(fresh.id, fresh.version, { status: 'awaiting_approval' })) {
+          this.hub.emit(g.id, m.id, 'member.awaiting_acceptance', {
+            name: m.display_name,
+            amount: m.share_amount,
+          })
+        }
+      }
+      return this.mustMember(memberId)
+    }
+
     const merchant = JSON.parse(g.merchant_json) as { name: string; url: string; country_code_iso2: string }
     const cart = JSON.parse(g.cart_json) as Cart
 
@@ -266,6 +292,31 @@ export class GroupService {
     }
   }
 
+  /**
+   * at_venue rail: the member reads their exact amount and accepts it. This is
+   * the whole of their consent on this rail — deliberately a different act from
+   * a passkey mandate, and recorded as such so the receipt can never blur them.
+   */
+  async acceptShare(memberId: string): Promise<void> {
+    const m = this.mustMember(memberId)
+    const g = this.mustGroup(m.group_id)
+    if (capabilityOf(g.rail).mandates) {
+      throw new UserError('this split is paid by card mandate — approve on Prava instead')
+    }
+    if (g.status !== 'collecting') throw new UserError('this split is no longer collecting')
+    if (m.status === 'approved') return
+    if (!['viewed', 'awaiting_approval', 'invited'].includes(m.status)) {
+      throw new UserError(`cannot accept from ${m.status}`)
+    }
+    if (this.db.casMember(m.id, m.version, { status: 'approved' })) {
+      this.hub.emit(g.id, m.id, 'member.accepted', {
+        name: m.display_name,
+        amount: m.share_amount,
+      })
+      await this.decide(g.id)
+    }
+  }
+
   /** Poller found this member's backstop mandate active — the offer is armed. */
   backstopArmed(memberId: string, mandateId: string): void {
     const m = this.mustMember(memberId)
@@ -289,11 +340,20 @@ export class GroupService {
     }
   }
 
+  /**
+   * Kill every standing authorization this member holds.
+   *
+   * Session revocation and mandate cancellation are both attempted, not one or
+   * the other: cancel is only documented from active/paused, so a mandate still
+   * pending needs the session revoked, while an already-active mandate needs
+   * the explicit cancel. Prava does not document what revoking a session does
+   * to its pending mandate, so we never rely on the side effect.
+   */
   private async cleanupMemberAuthorizations(m: MemberRow): Promise<void> {
+    if (m.prava_session_id) await swallow(this.prava.revokeSession(m.prava_session_id))
     if (m.prava_mandate_id) await swallow(this.prava.cancelMandate(m.prava_mandate_id))
-    else if (m.prava_session_id) await swallow(this.prava.revokeSession(m.prava_session_id))
+    if (m.backstop_session_id) await swallow(this.prava.revokeSession(m.backstop_session_id))
     if (m.backstop_mandate_id) await swallow(this.prava.cancelMandate(m.backstop_mandate_id))
-    else if (m.backstop_session_id) await swallow(this.prava.revokeSession(m.backstop_session_id))
   }
 
   // -------------------------------------------------------------------------
@@ -502,6 +562,16 @@ export class GroupService {
     const g = this.mustGroup(groupId)
     if (g.status !== 'committing' || !g.locked_json) return
     const plan = JSON.parse(g.locked_json) as ChargePlanEntry[]
+
+    // On a rail that does not charge, committing means the allocation is final
+    // and everyone has agreed their number. No card is touched, so there is no
+    // saga to run — and the receipt will say `settled_at_venue`, never
+    // `charged`.
+    if (!capabilityOf(g.rail).charges) {
+      await this.settleAtVenue(g, plan)
+      return
+    }
+
     let halted = false
 
     for (const entry of plan) {
@@ -548,6 +618,32 @@ export class GroupService {
     const fresh = this.mustGroup(g.id)
     if (fresh.status === 'committing' && this.db.casGroup(fresh.id, fresh.version, { status })) {
       this.hub.emit(g.id, null, `group.${status}`, {})
+      this.issueReceipt(this.mustGroup(g.id))
+    }
+  }
+
+  /**
+   * at_venue commit. Locks each member's obligation at the agreed amount and
+   * closes the group. `settled` is a distinct status from `charged` on purpose:
+   * every surface, and the signed receipt, must be able to tell a judge which
+   * of the two actually happened.
+   */
+  private async settleAtVenue(g: GroupRow, plan: ChargePlanEntry[]): Promise<void> {
+    for (const entry of plan) {
+      if (entry.source !== 'share') continue
+      const m = this.mustMember(entry.member_id)
+      if (isSettled(m.status)) continue
+      if (this.db.casMember(m.id, m.version, { status: 'settled', charged_amount: 0 })) {
+        this.hub.emit(g.id, m.id, 'member.settled', {
+          name: m.display_name,
+          owed: entry.amount,
+          rail: g.rail,
+        })
+      }
+    }
+    const fresh = this.mustGroup(g.id)
+    if (fresh.status === 'committing' && this.db.casGroup(fresh.id, fresh.version, { status: 'committed' })) {
+      this.hub.emit(g.id, null, 'group.committed', { rail: g.rail, charged: false })
       this.issueReceipt(this.mustGroup(g.id))
     }
   }
@@ -631,18 +727,62 @@ export class GroupService {
   }
 
   /**
-   * Charge with unknown-state reconciliation (§10.10): a thrown transport
-   * error is retried with the SAME reference — Prava dedupes on
-   * (mandate, reference), so this can never double-charge.
+   * Charge with unknown-state reconciliation (§10.10).
+   *
+   * Three distinct outcomes, and conflating any two of them is how a group
+   * gets double-charged or wedged:
+   *
+   *  - A 4xx error envelope is Prava's definitive answer (wrong merchant,
+   *    mandate not active, validation). No charge exists. Fail immediately;
+   *    retrying a refusal only burns the commit window.
+   *  - A transport failure leaves the charge genuinely in doubt. Before
+   *    retrying we ASK: the mandate carries its own charges[], each stamped
+   *    with the reference we sent. If ours is there, the charge landed and
+   *    must never be reissued — we adopt its transaction id and move on.
+   *  - Only when the retries are spent AND reconciliation finds nothing do we
+   *    return unknown, which halts this member rather than guessing.
+   *
+   * Note that Prava clears the idempotency key of a FAILED charge, so
+   * reference-replay protects the in-flight case, not the post-failure retry.
+   * That is precisely why a failure must be classified, never retried blindly.
    */
   private async chargeWithReconciliation(mandateId: string, amount: Minor, reference: string) {
     let lastError: unknown
+
     for (let i = 0; i < 5; i++) {
       try {
         return await this.prava.chargeMandate(mandateId, toDecimalString(amount), reference)
       } catch (e) {
         lastError = e
+        if ((e as { terminal?: boolean }).terminal) {
+          return {
+            status: 'failed' as const,
+            transactionId: null,
+            errorCode: (e as { code?: string }).code ?? 'CHARGE_REFUSED',
+            errorMessage: (e as Error).message,
+            terminal: true,
+          }
+        }
+        // The response may have been lost after Prava already booked it.
+        const landed = await this.findChargeByReference(mandateId, reference)
+        if (landed) {
+          return {
+            status: 'awaiting_result' as const,
+            transactionId: landed.transactionId,
+            deduplicated: true,
+          }
+        }
         await sleep(Math.min(200 * 2 ** i, 2000))
+      }
+    }
+
+    // One last reconciliation before declaring the state unknown.
+    const landed = await this.findChargeByReference(mandateId, reference)
+    if (landed) {
+      return {
+        status: 'awaiting_result' as const,
+        transactionId: landed.transactionId,
+        deduplicated: true,
       }
     }
     return {
@@ -653,6 +793,17 @@ export class GroupService {
     }
   }
 
+  /** Did a charge carrying our idempotency reference already land? */
+  private async findChargeByReference(mandateId: string, reference: string) {
+    try {
+      const charges = await this.prava.getMandateCharges(mandateId)
+      return charges.find((c) => c.reference === reference && c.status !== 'failed') ?? null
+    } catch {
+      // Reconciliation is best-effort; failing it just means we stay unsure.
+      return null
+    }
+  }
+
   private async settle(
     g: GroupRow,
     member: MemberRow,
@@ -660,18 +811,32 @@ export class GroupService {
     mandateId: string,
     txnId: string,
   ): Promise<void> {
-    // Settlement report failure is retried, never re-charged (§10.9).
-    let reported = false
-    for (let i = 0; i < 5 && !reported; i++) {
+    // Settlement report failure is retried, never re-charged (§10.9). A 200 is
+    // not enough: the report can come back status "failed" or with the network
+    // saying visaConfirmation FAILURE, and treating either as settled would
+    // put a lie in the receipt.
+    let settled = false
+    let lastReport: string | null = null
+    for (let i = 0; i < 5 && !settled; i++) {
       try {
-        await this.prava.reportCharge(mandateId, txnId, 'APPROVED', toDecimalString(entry.amount))
-        reported = true
-      } catch {
+        const outcome = await this.prava.reportCharge(
+          mandateId, txnId, 'APPROVED', toDecimalString(entry.amount),
+        )
+        settled = outcome.settled
+        lastReport = `${outcome.status}/${outcome.visaConfirmation ?? 'n/a'}`
+        if (!settled) await sleep(Math.min(200 * 2 ** i, 2000))
+      } catch (e) {
+        lastReport = (e as Error).message
         await sleep(Math.min(200 * 2 ** i, 2000))
       }
     }
-    if (!reported) {
-      this.hub.emit(g.id, member.id, 'charge.settlement_pending', { txn_id: txnId })
+    if (!settled) {
+      // The charge stands; only its settlement report is outstanding. The
+      // receipt says exactly that rather than claiming a clean close.
+      this.hub.emit(g.id, member.id, 'charge.settlement_pending', {
+        txn_id: txnId,
+        last_report: lastReport,
+      })
     }
 
     const fresh = this.mustMember(member.id)
@@ -966,9 +1131,11 @@ export class GroupService {
 
   private issueReceipt(g: GroupRow): void {
     const members = this.db.membersOf(g.id).filter((m) => PAYING_ROLES.has(m.role))
+    const rail = capabilityOf(g.rail)
     const bare: Omit<ReceiptEntry, 'prev_hash' | 'hash'>[] = []
 
     for (const m of members) {
+      const done = isSettled(m.status)
       bare.push({
         kind: 'consent',
         member_id: m.id,
@@ -977,10 +1144,15 @@ export class GroupService {
         cart_hash: g.cart_hash,
         cap_amount: m.cap_amount,
         quoted_share: m.share_amount,
+        // charged_amount is reserved for money this engine actually moved.
         charged_amount: m.status === 'charged' ? m.charged_amount : 0,
+        owed_amount: done ? m.share_amount : 0,
         mandate_id: m.prava_mandate_id,
         charge_txn_id: m.prava_charge_txn_id,
-        outcome: m.status === 'charged' ? 'charged' : `not_charged:${m.status}`,
+        outcome:
+          m.status === 'charged' ? 'charged'
+          : m.status === 'settled' ? 'settled_at_venue'
+          : `not_charged:${m.status}`,
       })
       if (m.backstop_absorbed > 0) {
         bare.push({
@@ -992,6 +1164,7 @@ export class GroupService {
           cap_amount: m.backstop_cap,
           quoted_share: 0,
           charged_amount: m.backstop_absorbed,
+          owed_amount: m.backstop_absorbed,
           mandate_id: m.backstop_mandate_id,
           charge_txn_id: null,
           outcome: 'absorbed',
@@ -1010,9 +1183,12 @@ export class GroupService {
       policy: JSON.parse(g.policy_json),
       decision_narrative: g.decision_note ?? '',
       status: g.status,
+      rail: g.rail,
+      settlement_disclosure: rail.disclosure,
       totals: {
         quoted: cartTotal(JSON.parse(g.cart_json) as Cart),
         charged: entries.reduce((s, e) => s + e.charged_amount, 0),
+        owed: entries.reduce((s, e) => s + e.owed_amount, 0),
       },
       entries,
       chain_head: head,

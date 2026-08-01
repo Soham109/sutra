@@ -38,6 +38,8 @@ export class Db {
         product_json TEXT,
         auction_close_at TEXT,
         fx_json TEXT,
+        rail TEXT NOT NULL DEFAULT 'prava_mandates',
+        origin TEXT,
         version INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
       );
@@ -100,6 +102,18 @@ export class Db {
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
       );
     `)
+
+    // Columns added after the first release. CREATE TABLE above covers fresh
+    // databases; these keep an existing data/gmp.db working across an upgrade.
+    this.addColumn('groups', 'rail', `TEXT NOT NULL DEFAULT 'prava_mandates'`)
+    this.addColumn('groups', 'origin', 'TEXT')
+  }
+
+  /** Idempotent ALTER — SQLite has no ADD COLUMN IF NOT EXISTS. */
+  addColumn(table: string, column: string, definition: string): void {
+    const cols = this.sql.prepare(`PRAGMA table_info(${table})`).all() as unknown as { name: string }[]
+    if (cols.some((c) => c.name === column)) return
+    this.sql.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
   }
 
   // ---- groups -------------------------------------------------------------
@@ -109,14 +123,14 @@ export class Db {
       .prepare(
         `INSERT INTO groups (id, title, merchant_json, cart_json, cart_hash, currency, policy_json,
           tolerance_bps, straggler_policy, no_blame, deadline_at, status, decision_note, webhook_url,
-          locked_json, created_by, circle_id, product_json, auction_close_at, fx_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          locked_json, created_by, circle_id, product_json, auction_close_at, fx_json, rail, origin)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         g.id, g.title, g.merchant_json, g.cart_json, g.cart_hash, g.currency, g.policy_json,
         g.tolerance_bps, g.straggler_policy, g.no_blame, g.deadline_at, g.status,
         g.decision_note, g.webhook_url, g.locked_json, g.created_by, g.circle_id,
-        g.product_json, g.auction_close_at, g.fx_json,
+        g.product_json, g.auction_close_at, g.fx_json, g.rail, g.origin,
       )
   }
 

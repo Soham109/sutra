@@ -12,3 +12,6 @@ next-env.d.ts
 *.db-shm
 data/
 .DS_Store
+
+.vercel
+.env*

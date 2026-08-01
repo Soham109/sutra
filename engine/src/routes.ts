@@ -4,6 +4,7 @@ import { z } from 'zod'
 import QRCode from 'qrcode'
 import { CreateGroupSchema, GROUP_TERMINAL, type Cart, type EventRow, type GroupRow, type MemberRow } from './types.js'
 import { UserError, type GroupService } from './service.js'
+import { capabilityOf } from './rails.js'
 import type { Poller } from './poller.js'
 import { MockPrava } from './prava/mock.js'
 import { describePolicy, cartTotal, type Policy } from './types.js'
@@ -144,6 +145,18 @@ export function registerRoutes(
     return memberView(service, service.mustMember(id))
   })
 
+  /**
+   * at_venue rail only: the member reads their exact amount and accepts it.
+   * Deliberately a different verb and a different endpoint from a mandate
+   * approval — on this rail no card is charged, and the API must not let the
+   * two acts be confused for one another.
+   */
+  app.post('/v1/members/:id/accept', async (req) => {
+    const { id } = req.params as { id: string }
+    await service.acceptShare(id)
+    return memberView(service, service.mustMember(id))
+  })
+
   app.post('/v1/members/:id/bid', async (req) => {
     const { id } = req.params as { id: string }
     const body = z.object({ sku: z.string(), amount: z.number().int().nonnegative() }).parse(req.body)
@@ -279,6 +292,9 @@ export function groupView(service: GroupService, g: GroupRow) {
     tolerance_bps: g.tolerance_bps,
     straggler_policy: g.straggler_policy,
     no_blame: !!g.no_blame,
+    rail: g.rail,
+    rail_capability: capabilityOf(g.rail),
+    origin: g.origin,
     // The organizer is the one person no-blame mode does not hide declines
     // from — the surfaces need this to make that call.
     created_by: g.created_by,
@@ -343,6 +359,13 @@ export function memberView(service: GroupService, m: MemberRow) {
         }
       : null,
     fx: g.fx_json ? JSON.parse(g.fx_json) : null,
+    // Which rail carries this, and the sentence the member must see BEFORE
+    // they commit to anything. On at_venue there is no card ceremony and no
+    // charge, and the approval page has to say so in its own words rather than
+    // inheriting the mandate rail's language.
+    rail: g.rail,
+    rail_capability: capabilityOf(g.rail),
+    action: capabilityOf(g.rail).mandates ? 'approve' : 'accept',
     group: {
       title: g.title,
       status: g.status,
@@ -353,6 +376,7 @@ export function memberView(service: GroupService, m: MemberRow) {
       deadline_at: g.deadline_at,
       no_blame: !!g.no_blame,
       terminal: GROUP_TERMINAL.has(g.status),
+      rail: g.rail,
     },
     my_items: items,
   }

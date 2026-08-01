@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "gmp": "tsx src/gmp.ts",
-    "demo": "tsx src/gmp.ts demo commit"
+    "demo": "tsx src/gmp.ts demo commit",
+    "nanda": "tsx src/nanda.ts"
   },
   "dependencies": {
     "@sutra/engine": "*"

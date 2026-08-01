@@ -17,11 +17,17 @@
     "build": "npm run build -w web",
     "start": "npm run start -w engine",
     "test": "npm run test -w engine",
+    "test:widget": "node --test widget/detect.test.mjs",
+    "build:widget": "node widget/build-bookmarklet.mjs",
     "chaos": "npm run chaos -w chaos",
-    "demo": "npm run demo -w cli"
+    "demo": "npm run demo -w cli",
+    "e2e:plan": "tsx e2e/plan-flow.ts",
+    "e2e:product": "tsx e2e/product-flow.ts",
+    "e2e:sandbox": "tsx e2e/sandbox-smoke.ts"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "linkedom": "^0.18.11"
   },
   "engines": {
     "node": ">=22.5"

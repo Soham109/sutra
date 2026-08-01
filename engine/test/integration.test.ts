@@ -9,6 +9,13 @@ import { CreateGroupSchema } from '../src/types.js'
 
 process.env.GMP_NO_FX = '1'
 
+/**
+ * Mandate states from which money could still leave a card: active charges
+ * now, paused resumes to active, pending can still be passkey-approved. The
+ * abort invariant is that none of these survive.
+ */
+const CHARGEABLE = new Set(['active', 'paused', 'pending'])
+
 interface World {
   db: Db
   mock: MockPrava
@@ -149,7 +156,11 @@ describe('run three — the clean abort', () => {
 
     const prava = world.mock.debugState()
     expect(prava.charges).toHaveLength(0)
-    expect(prava.mandates.every((m) => m.status === 'cancelled')).toBe(true)
+    // The guarantee is not that every mandate reads 'cancelled' — Prava only
+    // allows cancel from active/paused, so an unapproved mandate dies with its
+    // session instead. What must hold is that nothing chargeable survives the
+    // abort: no mandate is active, pending or resumable.
+    expect(prava.mandates.every((m) => !CHARGEABLE.has(m.status))).toBe(true)
 
     const receipt = JSON.parse(world.db.getReceipt(group.id)!) as Receipt
     expect(verifyReceipt(receipt).ok).toBe(true)
@@ -176,7 +187,7 @@ describe('run three — the clean abort', () => {
     await openAndApprove(world, members[0]!.id)
     await world.service.cancelGroup(group.id)
     expect(world.service.mustGroup(group.id).status).toBe('aborted')
-    expect(world.mock.debugState().mandates.every((m) => m.status === 'cancelled')).toBe(true)
+    expect(world.mock.debugState().mandates.every((m) => !CHARGEABLE.has(m.status))).toBe(true)
   })
 })
 

@@ -78,11 +78,15 @@ export const MEMBER_LABEL: Record<MemberStatus, string> = {
   dropped: 'Dropped',
   charging: 'Charging',
   charged: 'Paid',
+  // at_venue rail: they agreed their amount and pay the venue directly. Never
+  // labelled "Paid" — no card was charged through us, and the copy must not
+  // let a reader assume otherwise.
+  settled: 'Owed at venue',
   failed: 'Failed',
 }
 
 export function memberTone(s: MemberStatus): 'ok' | 'bad' | 'warn' | 'brand' | 'plain' {
-  if (s === 'charged') return 'ok'
+  if (s === 'charged' || s === 'settled') return 'ok'
   if (s === 'approved') return 'brand'
   if (s === 'charging') return 'brand'
   if (s === 'awaiting_approval' || s === 'viewed') return 'warn'

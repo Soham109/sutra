@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { RailSchema } from './rails.js'
 
 // ---------------------------------------------------------------------------
 // Money. Integer minor units everywhere inside the engine. Decimal strings
@@ -104,11 +105,19 @@ export type MemberStatus =
   | 'dropped'
   | 'charging'
   | 'charged'
+  /** at_venue rail only: they agreed their amount and owe the venue directly.
+   *  Deliberately NOT 'charged' — no card was charged through this engine. */
+  | 'settled'
   | 'failed'
 
 export const MEMBER_TERMINAL: ReadonlySet<MemberStatus> = new Set([
-  'declined', 'expired', 'dropped', 'charged', 'failed',
+  'declined', 'expired', 'dropped', 'charged', 'settled', 'failed',
 ])
+
+/** A member whose obligation is discharged, on whichever rail carried it. */
+export function isSettled(status: MemberStatus): boolean {
+  return status === 'charged' || status === 'settled'
+}
 
 export type GroupStatus =
   | 'draft'
@@ -164,6 +173,15 @@ export const CreateGroupSchema = z.object({
   auction_window_seconds: z.number().int().positive().max(3600).default(60),
   /** ISO 4217 codes to snapshot for per-member display currency (§21.3) */
   display_currencies: z.array(z.string().length(3)).default(['INR', 'EUR', 'GBP']),
+  /**
+   * Settlement rail. Omitted means "infer from whether a real merchant exists"
+   * — see rails.ts. A bill from a restaurant has no chargeable merchant and
+   * lands on at_venue, where the engine allocates and records but never claims
+   * to have charged anybody.
+   */
+  rail: RailSchema.optional(),
+  /** Free-text provenance for the cart: 'bill', 'widget', 'plan', 'agent'… */
+  origin: z.string().max(40).optional(),
 })
 export type CreateGroupInput = z.infer<typeof CreateGroupSchema>
 
@@ -219,6 +237,10 @@ export interface GroupRow {
   auction_close_at: string | null
   /** FX rate snapshot for display currencies: {base, rates, at, source} */
   fx_json: string | null
+  /** 'prava_mandates' | 'at_venue' — see rails.ts */
+  rail: string
+  /** where this cart came from: 'bill' | 'widget' | 'plan' | 'agent' | 'api' */
+  origin: string | null
   version: number
   created_at: string
 }

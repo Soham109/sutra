@@ -1,0 +1,56 @@
+{
+  "_comment": "Verbatim HTML captured with curl from live pages. Not edited, not minified, not cherry-picked — including the ones the detector does badly on. Re-capture with widget/fixtures/refetch.sh.",
+  "captured_at": "2026-08-01",
+  "fixtures": [
+    {
+      "file": "shopify-allbirds-product.html",
+      "url": "https://www.allbirds.com/products/mens-allbirds-flip-flop-anthracite",
+      "why": "Shopify storefront, JSON-LD ProductGroup+Product+Offer, og:price:amount, cdn.shopify.com assets"
+    },
+    {
+      "file": "shopify-india-product.html",
+      "url": "https://www.bombayshavingcompany.com/products/air-trimmer",
+      "why": "Shopify in INR. JSON-LD is Organization-only, so the price has to come from og:price:amount=\"2,999\" — comma grouping in a machine-readable field"
+    },
+    {
+      "file": "eventbrite-tour.html",
+      "url": "https://www.eventbrite.com/e/chelsea-market-high-line-hudson-yards-food-history-tour-tickets-1993686741713",
+      "why": "The ticket case. JSON-LD MusicEvent + AggregateOffer + startDate + location. Also puts a street address in twitter:data1, which a naive meta reader would price."
+    },
+    {
+      "file": "ikea-product.html",
+      "url": "https://www.ikea.com/us/en/p/billy-bookcase-blue-40594928/",
+      "why": "Big retailer, clean JSON-LD Product+Offer, plus a BreadcrumbList and a 3DModel block to walk past"
+    },
+    {
+      "file": "nike-product.html",
+      "url": "https://www.nike.com/t/air-force-1-07-mens-shoes-jBrhbr/CW2288-111",
+      "why": "Next.js SPA. JSON-LD ProductGroup with hasVariant — the price lives one level down from the node that carries the name"
+    },
+    {
+      "file": "cardekho.html",
+      "url": "https://www.cardekho.com/tata/nexon",
+      "why": "Indian lakh grouping in the DOM (₹8,31,777) and a JSON-LD graph with Car/ProductGroup/AggregateOffer/FAQPage/BreadcrumbList all mixed together"
+    },
+    {
+      "file": "bandcamp.html",
+      "url": "https://music.monstercat.com/album/monstercat-uncaged-vol-1",
+      "why": "MusicAlbum + albumRelease[].offers — the price is nested under a key most extractors do not recurse into"
+    },
+    {
+      "file": "craigslist.html",
+      "url": "https://www.craigslist.org/search/area/newyork?cat=sss&query=bicycle",
+      "why": "A search results page carrying 309 separate Product nodes and no indication which one the page is about. Tests that we pick one, say so, and drop the confidence for it."
+    },
+    {
+      "file": "berkeley-coa.html",
+      "url": "https://financialaid.berkeley.edu/how-aid-works/student-budgets-cost-of-attendance/",
+      "why": "No product markup at all. A real page with real 'Total Cost of Attendance' table rows — the DOM-total heuristic with nothing to lean on"
+    },
+    {
+      "file": "wikipedia-negative.html",
+      "url": "https://en.wikipedia.org/wiki/Movie_theater",
+      "why": "Negative control. Prose full of dollar figures and the word 'total'. Must NOT return a confident total."
+    }
+  ]
+}

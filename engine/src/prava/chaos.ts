@@ -5,6 +5,7 @@
 import type {
   ChargeOutcome,
   CreateMandateSessionInput,
+  MandateCharge,
   MandateSession,
   MandateSummary,
   PravaAdapter,
@@ -65,6 +66,15 @@ export class ChaosPrava implements PravaAdapter {
   }
   getMandate(mandateId: string): Promise<MandateSummary | null> {
     return this.wrap(() => this.inner.getMandate(mandateId))
+  }
+  /**
+   * Faulted like everything else. Reconciliation is exactly the call the engine
+   * makes when it is already unsure, so a chaos run must be free to break it —
+   * the invariant is that a failed reconciliation leaves the state unknown,
+   * never that it silently reads as "no charge landed".
+   */
+  getMandateCharges(mandateId: string): Promise<MandateCharge[]> {
+    return this.wrap(() => this.inner.getMandateCharges(mandateId))
   }
   chargeMandate(mandateId: string, amount: string, reference: string): Promise<ChargeOutcome> {
     return this.wrap(() => this.inner.chargeMandate(mandateId, amount, reference))

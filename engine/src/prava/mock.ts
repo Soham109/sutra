@@ -6,6 +6,7 @@ import { randomBytes } from 'node:crypto'
 import type {
   ChargeOutcome,
   CreateMandateSessionInput,
+  MandateCharge,
   MandateSession,
   MandateSummary,
   PravaAdapter,
@@ -30,6 +31,19 @@ interface MockCharge {
   amount: string
   reference: string
   status: 'awaiting_result' | 'completed' | 'failed'
+  createdAt: string
+}
+
+/** Mirrors PravaHttpError's shape so the engine's terminal-error check works. */
+export class MockPravaError extends Error {
+  readonly terminal = true
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+  ) {
+    super(`Prava ${status} ${code}: ${message}`)
+  }
 }
 
 interface MockSession {
@@ -84,6 +98,7 @@ export class MockPrava implements PravaAdapter {
       sessionId,
       approvalUrl: `${this.appBaseUrl}/mock/pay/${sessionId}`,
       expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      orderId: rid('ord'),
     }
   }
 
@@ -91,6 +106,7 @@ export class MockPrava implements PravaAdapter {
     return [...this.mandates.values()]
       .filter((m) => m.customerId === customerId)
       .map(summary)
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
   }
 
   async getMandate(mandateId: string): Promise<MandateSummary | null> {
@@ -98,32 +114,66 @@ export class MockPrava implements PravaAdapter {
     return m ? summary(m) : null
   }
 
+  async getMandateCharges(mandateId: string): Promise<MandateCharge[]> {
+    return [...this.charges.values()]
+      .filter((c) => c.mandateId === mandateId)
+      .map((c) => ({
+        transactionId: c.transactionId,
+        amount: c.amount,
+        status: c.status,
+        reference: c.reference,
+        createdAt: c.createdAt,
+      }))
+  }
+
   async chargeMandate(mandateId: string, amount: string, reference: string): Promise<ChargeOutcome> {
     const refKey = `${mandateId}|${reference}`
     const existing = this.chargesByRef.get(refKey)
     if (existing) {
-      return {
-        status: existing.status === 'failed' ? 'failed' : 'awaiting_result',
-        transactionId: existing.transactionId,
-        deduplicated: true,
-      }
+      return { status: 'awaiting_result', transactionId: existing.transactionId, deduplicated: true }
     }
     const m = this.mandates.get(mandateId)
-    if (!m) return { status: 'failed', transactionId: null, errorCode: 'MANDATE_NOT_FOUND' }
+    if (!m) {
+      return { status: 'failed', transactionId: null, errorCode: 'MANDATE_NOT_FOUND', terminal: true }
+    }
     if (m.status !== 'active') {
-      return { status: 'failed', transactionId: null, errorCode: 'MANDATE_NOT_ACTIVE', errorMessage: m.status }
+      // Real API: 409 error envelope, not a 200 body. Throwing keeps the engine
+      // on the same code path it will take in sandbox.
+      throw new MockPravaError(409, 'MANDATE_NOT_ACTIVE', `mandate is ${m.status}`)
     }
     if (cents(amount) > cents(m.approvedAmount)) {
-      return { status: 'failed', transactionId: null, errorCode: 'THRESHOLD_EXCEEDED', errorMessage: 'over cap' }
+      // Over-cap declines come back 200 with the reason in errorMessage and no
+      // errorCode — mirroring that is how we know our surfaces read the right
+      // field when a real network decline lands.
+      return {
+        status: 'failed',
+        transactionId: null,
+        errorMessage: 'THRESHOLD_EXCEEDED',
+        terminal: true,
+      }
     }
     if (this.declineCharges.has(m.customerId)) {
       this.declineCharges.delete(m.customerId)
-      const failed: MockCharge = { transactionId: rid('txn'), mandateId, amount, reference, status: 'failed' }
-      this.chargesByRef.set(refKey, failed)
+      const failed: MockCharge = {
+        transactionId: rid('txn'), mandateId, amount, reference,
+        status: 'failed', createdAt: new Date().toISOString(),
+      }
       this.charges.set(failed.transactionId, failed)
-      return { status: 'failed', transactionId: failed.transactionId, errorCode: 'CARD_DECLINED', errorMessage: 'issuer declined (simulated)' }
+      // Deliberately NOT recorded in chargesByRef: "a failed charge clears its
+      // key, so a retry after failure is not deduplicated". A mock stricter
+      // than the API would prove an idempotency invariant we do not actually
+      // have.
+      return {
+        status: 'failed',
+        transactionId: failed.transactionId,
+        errorMessage: 'issuer declined (simulated)',
+        terminal: true,
+      }
     }
-    const charge: MockCharge = { transactionId: rid('txn'), mandateId, amount, reference, status: 'awaiting_result' }
+    const charge: MockCharge = {
+      transactionId: rid('txn'), mandateId, amount, reference,
+      status: 'awaiting_result', createdAt: new Date().toISOString(),
+    }
     this.charges.set(charge.transactionId, charge)
     this.chargesByRef.set(refKey, charge)
     return { status: 'awaiting_result', transactionId: charge.transactionId }
@@ -136,21 +186,28 @@ export class MockPrava implements PravaAdapter {
   ): Promise<ReportOutcome> {
     const charge = this.charges.get(transactionId)
     const m = this.mandates.get(mandateId)
-    if (!charge || !m) return { status: 'failed', mandateStatus: m?.status ?? 'unknown' }
+    if (!charge || !m) {
+      return { status: 'failed', mandateStatus: m?.status ?? 'unknown', settled: false }
+    }
     if (txnStatus === 'APPROVED') {
       charge.status = 'completed'
-      m.status = 'consumed'
-      return { status: 'completed', mandateStatus: 'consumed' }
+      m.status = 'consumed' // one-time mandates are consumed by an APPROVED report
+      return {
+        status: 'completed',
+        mandateStatus: 'consumed',
+        visaConfirmation: 'SUCCESS',
+        settled: true,
+      }
     }
     charge.status = 'failed'
-    return { status: 'failed', mandateStatus: m.status }
+    return { status: 'failed', mandateStatus: m.status, visaConfirmation: 'FAILURE', settled: false }
   }
 
   async cancelMandate(mandateId: string): Promise<void> {
     const m = this.mandates.get(mandateId)
-    if (m && (m.status === 'active' || m.status === 'paused' || m.status === 'pending')) {
-      m.status = 'cancelled'
-    }
+    // Cancel is documented only from active/paused. A pending mandate stays
+    // pending — which is exactly why cleanup revokes the session as well.
+    if (m && (m.status === 'active' || m.status === 'paused')) m.status = 'cancelled'
   }
 
   async pauseMandate(mandateId: string): Promise<void> {
@@ -163,11 +220,18 @@ export class MockPrava implements PravaAdapter {
     if (m && m.status === 'paused') m.status = 'active'
   }
 
+  /**
+   * Revoking a session kills the approval page. Prava's docs do not say what
+   * happens to a mandate still pending against it, so the simulator takes the
+   * pessimistic reading — the mandate is left alone and only the session dies.
+   * Anything that must guarantee a pending mandate is dead has to say so.
+   */
   async revokeSession(sessionId: string): Promise<void> {
     const s = this.sessions.get(sessionId)
     if (!s) return
+    this.sessions.delete(sessionId)
     const m = this.mandates.get(s.mandateId)
-    if (m && m.status === 'pending') m.status = 'cancelled'
+    if (m && m.status === 'pending') m.status = 'expired'
   }
 
   // ---- simulator-only surface (drives the fake hosted ceremony) -----------
@@ -231,6 +295,7 @@ function summary(m: MockMandate): MandateSummary {
     approvedAmount: m.approvedAmount,
     currency: m.currency,
     createdAt: m.createdAt,
+    state: m.status === 'active' ? 'available' : m.status === 'consumed' ? 'consumed' : 'expired',
   }
 }
 

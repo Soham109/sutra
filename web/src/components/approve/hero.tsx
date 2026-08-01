@@ -64,7 +64,19 @@ export function ShareHero({
         <ItemLines items={v.my_items} currency={cur} />
 
         <div style={{ marginTop: 16 }}>
-          <Guardrail merchant={v.group.merchant.name} cap={v.cap_amount} currency={cur} />
+          {v.rail === 'at_venue' ? (
+            // The mandate rail's guardrail sentence would be a lie here: there
+            // is no merchant lock and no network-enforced cap, because there is
+            // no card charge. Say what is actually true instead.
+            <p className="guardrail">
+              Nothing is charged through sutra on this split. You are agreeing that{' '}
+              <b>{money(v.share_amount, cur)}</b> is your share, then paying{' '}
+              <b>{v.group.merchant.name}</b> directly on your own card. What you get here is the
+              arithmetic, the agreement, and a signed record of who owed what.
+            </p>
+          ) : (
+            <Guardrail merchant={v.group.merchant.name} cap={v.cap_amount} currency={cur} />
+          )}
         </div>
 
         <div className="row-between" style={{ marginTop: 14, alignItems: 'flex-start', gap: 10 }}>

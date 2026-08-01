@@ -1,0 +1,282 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentfacts.org/schema/v1",
+  "title": "AgentFacts Schema",
+  "description": "Metadata schema for describing AI agents on the web",
+  "type": "object",
+  "required": [
+    "id",
+    "agent_name",
+    "label",
+    "description",
+    "version",
+    "provider",
+    "endpoints",
+    "capabilities",
+    "skills"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique machine-readable identifier for the agent"
+    },
+    "agent_name": {
+      "type": "string",
+      "description": "Agent URN identifier"
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable name of the agent"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of the agent's purpose and capabilities"
+    },
+    "version": {
+      "type": "string",
+      "description": "Version information"
+    },
+    "documentationUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to agent documentation"
+    },
+    "jurisdiction": {
+      "type": "string",
+      "description": "Country/entity that covers compliance for this agent"
+    },
+    "provider": {
+      "type": "object",
+      "required": ["name", "url"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the provider organization"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Provider's website URL"
+        },
+        "did": {
+          "type": "string",
+          "description": "Optional Decentralized identifier for provider verification"
+        }
+      }
+    },
+    "endpoints": {
+      "type": "object",
+      "required": ["static"],
+      "properties": {
+        "static": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "Static API endpoints"
+        },
+        "adaptive_resolver": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "Dynamic routing endpoint"
+            },
+            "policies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Routing policies supported"
+            }
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "required": ["modalities", "authentication"],
+      "properties": {
+        "modalities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Input/output modalities supported"
+        },
+        "streaming": {
+          "type": "boolean",
+          "description": "Whether real-time streaming is supported"
+        },
+        "batch": {
+          "type": "boolean",
+          "description": "Whether batch processing is supported"
+        },
+        "authentication": {
+          "type": "object",
+          "required": ["methods"],
+          "properties": {
+            "methods": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Supported authentication methods"
+            },
+            "requiredScopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Required OAuth scopes"
+            }
+          }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "inputModes", "outputModes"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the skill"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of what the skill does"
+          },
+          "inputModes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Input modes supported by this skill"
+          },
+          "outputModes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Output modes supported by this skill"
+          },
+          "supportedLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Language codes supported"
+          },
+          "latencyBudgetMs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Maximum expected latency in milliseconds"
+          },
+          "maxTokens": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Maximum token limit for this skill"
+          }
+        }
+      }
+    },
+    "evaluations": {
+      "type": "object",
+      "properties": {
+        "performanceScore": {
+          "type": "number",
+          "description": "Overall performance score"
+        },
+        "availability90d": {
+          "type": "string",
+          "description": "90-day availability percentage"
+        },
+        "lastAudited": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last audit"
+        },
+        "auditTrail": {
+          "type": "string",
+          "description": "Immutable audit evidence"
+        },
+        "auditorID": {
+          "type": "string",
+          "description": "Identifier of the auditing entity"
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether telemetry is enabled"
+        },
+        "retention": {
+          "type": "string",
+          "description": "Data retention period"
+        },
+        "sampling": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Sampling rate"
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "latency_p95_ms": {
+              "type": "number",
+              "minimum": 0,
+              "description": "95th percentile latency in milliseconds"
+            },
+            "throughput_rps": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Throughput in requests per second"
+            },
+            "error_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Error rate"
+            },
+            "availability": {
+              "type": "string",
+              "description": "Current availability percentage"
+            }
+          }
+        }
+      }
+    },
+    "certification": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "description": "Certification level"
+        },
+        "issuer": {
+          "type": "string",
+          "description": "Entity that issued the certification"
+        },
+        "issuanceDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When certification was issued"
+        },
+        "expirationDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When certification expires"
+        }
+      }
+    }
+  }
+}

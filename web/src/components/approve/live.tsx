@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type GmpEvent, type Group } from '@/lib/api'
 import { humanError, type MemberView } from './model'
 
-export type MemberAction = 'decline' | 'hold' | 'resume'
+/** Each maps 1:1 onto POST /v1/members/:id/<action>. `accept` is at_venue only. */
+export type MemberAction = 'decline' | 'hold' | 'resume' | 'accept'
 
 export interface Live {
   view: MemberView | null

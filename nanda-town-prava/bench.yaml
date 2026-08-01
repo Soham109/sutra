@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# The stock `marketplace` scenario with exactly one line changed:
+# `layers.payments`. Everything else is byte-identical to upstream's
+# scenarios/marketplace.yaml, so a diff of this trace against the
+# prepaid_credits baseline isolates the payments layer and nothing else.
+#
+#   nest scenarios cp marketplace ./baseline.yaml
+#   nest run ./baseline.yaml -o ./traces/baseline.jsonl
+#   nest run ./bench.yaml    -o ./traces/prava.jsonl
+#
+# Runs with no engine, no network and no keys: the plugin defaults to
+# `simulated` mode. Set NANDA_PRAVA_MODE=live plus GMP_API and
+# ENGINE_API_TOKEN to point it at a running GMP/1 engine instead.
+name: marketplace
+description: "50 buyers and 50 sellers, paying on real card mandates instead of a pooled ledger."
+
+tier: 1
+seed: 42
+
+agents:
+  count: 100
+  brain: state-machine
+  roles:
+    - name: buyer
+      count: 50
+    - name: seller
+      count: 50
+
+layers:
+  transport: in_memory
+  comms: nest_native
+  identity: did_key
+  registry: in_memory
+  auth: jwt
+  trust: score_average
+  payments: prava_mandates # <- the only change from the baseline
+  coordination: contract_net
+  negotiation: alternating_offers
+  memory: blackboard
+  privacy: noop
+  datafacts: datafacts_v1
+
+task:
+  type: marketplace
+  config:
+    catalog_size: 200
+    rounds: 10
+
+failures:
+  message_drop: 0.0
+
+duration: "ticks: 10000"
+
+metrics:
+  - success_rate
+  - mean_latency
+  - message_count
+
+output:
+  trace: ./traces/prava.jsonl

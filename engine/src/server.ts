@@ -7,9 +7,16 @@ import { EventHub } from './events.js'
 import { Poller } from './poller.js'
 import { ReceiptSigner } from './receipt.js'
 import { registerRoutes } from './routes.js'
-import { registerProductRoutes } from './routes-v2.js'
+import { registerProductRoutes, currentUserFrom } from './routes-v2.js'
+import { registerPlanRoutes } from './routes-plan.js'
 import { Social, installSocialSchema } from './social.js'
 import { Catalog } from './catalog/index.js'
+import { Places } from './places/index.js'
+import { Notifier } from './notify/index.js'
+import { registerNotifyRoutes } from './notify/routes.js'
+import { registerDiscoveryRoutes } from './discovery/routes.js'
+import { PlanService } from './plan/service.js'
+import { PlanStore, installPlanSchema } from './plan/store.js'
 import { GroupService } from './service.js'
 import { MockPrava } from './prava/mock.js'
 import { PravaClient } from './prava/client.js'
@@ -64,7 +71,48 @@ export async function main(): Promise<void> {
       .map((s) => s.trim())
       .filter(Boolean),
   })
-  registerProductRoutes(app, service, social, catalog)
+  // ---- the coordination layer -------------------------------------------
+  // Everything that happens before a cart exists: who is in, when they are
+  // free, where they are, and which real option wins on that evidence.
+  installPlanSchema(db)
+  const planStore = new PlanStore(db)
+  const places = new Places()
+
+  registerProductRoutes(app, service, social, catalog, planStore)
+
+  // Notifications: the inbox always works; push only once VAPID keys exist.
+  // Delivery is fire-and-forget by construction — nothing here can fail a
+  // protocol path.
+  const notifier = new Notifier(db)
+  registerNotifyRoutes(app, notifier, social)
+
+  // ---- agent discovery ---------------------------------------------------
+  // A2A agent card, NANDA AgentFacts, the AI Catalog, and SKILL.md — served
+  // from the real route list so another agent can find this engine and use it
+  // without a human introducing them.
+  registerDiscoveryRoutes(app, { baseUrl: APP_BASE_URL })
+  const plans = new PlanService({ store: planStore, groups: service, places, catalog, social })
+  registerPlanRoutes(app, {
+    plans,
+    store: planStore,
+    groups: service,
+    places,
+    social,
+    currentUser: (req) => currentUserFrom(social, req),
+  })
+
+  // Liveness for the platform, and a fast way for a human to tell which build
+  // is actually running. Deliberately unauthenticated and cheap: a health
+  // check that touches the database is a health check that takes the service
+  // down with the database.
+  app.get('/health', async () => ({
+    ok: true,
+    service: 'sutra-gmp-engine',
+    prava_adapter: prava.kind,
+    app_base_url: APP_BASE_URL,
+    receipt_public_key: signer.publicKeyHex,
+    uptime_s: Math.round(process.uptime()),
+  }))
 
   // ---- legacy zero-build surfaces --------------------------------------
   // The product UI is the Next.js app in /web (deployed separately). These

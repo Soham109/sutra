@@ -25,7 +25,10 @@ export interface ReceiptEntry {
   cart_hash: string
   cap_amount: number
   quoted_share: number
+  /** Money actually moved by the engine. Always 0 on a rail that cannot charge. */
   charged_amount: number
+  /** What this person agreed to pay. On at_venue this is the whole obligation. */
+  owed_amount: number
   mandate_id: string | null
   charge_txn_id: string | null
   outcome: string
@@ -43,7 +46,15 @@ export interface Receipt {
   policy: unknown
   decision_narrative: string
   status: string
-  totals: { quoted: number; charged: number }
+  /** Which rail carried this, and therefore what `charged` can possibly mean. */
+  rail: string
+  /**
+   * Stated in the artifact itself so a receipt read in isolation — printed,
+   * emailed, handed to a judge — cannot be mistaken for proof of a payment it
+   * never claimed to make.
+   */
+  settlement_disclosure: string
+  totals: { quoted: number; charged: number; owed: number }
   entries: ReceiptEntry[]
   chain_head: string
   issued_at: string
@@ -103,6 +114,15 @@ export function verifyReceipt(receipt: Receipt): { ok: boolean; errors: string[]
 
   const charged = receipt.entries.reduce((s, e) => s + e.charged_amount, 0)
   if (charged !== receipt.totals.charged) errors.push('totals.charged does not equal sum of entries')
+
+  const owed = receipt.entries.reduce((s, e) => s + (e.owed_amount ?? 0), 0)
+  if (owed !== receipt.totals.owed) errors.push('totals.owed does not equal sum of entries')
+
+  // The rail is not decoration: a receipt from a non-charging rail that claims
+  // money moved is exactly the forgery this chain exists to make detectable.
+  if (receipt.rail === 'at_venue' && charged !== 0) {
+    errors.push('at_venue receipt reports a charged amount — no card is charged on this rail')
+  }
 
   const { signature, ...unsigned } = receipt
   if (!signature) {

@@ -82,7 +82,10 @@ export interface Circle {
 
 export type MemberStatus =
   | 'invited' | 'viewed' | 'awaiting_approval' | 'approved'
-  | 'declined' | 'expired' | 'dropped' | 'charging' | 'charged' | 'failed'
+  | 'declined' | 'expired' | 'dropped' | 'charging' | 'charged' | 'settled' | 'failed'
+
+/** Which rail carried a split, and therefore what "settled" is allowed to mean. */
+export type Rail = 'prava_mandates' | 'at_venue'
 
 export type GroupStatus =
   | 'draft' | 'collecting' | 'deciding' | 'committing'
@@ -183,6 +186,86 @@ export interface ProductDetail extends Product {
   variants: { id: string; name: string; price: Money; available: boolean; options?: Record<string, string> }[]
   images: string[]
   fine_print: string[]
+}
+
+// --- the dashboard ----------------------------------------------------------
+// Computed by the engine so every client reads identical numbers.
+
+export interface NeedsYouItem {
+  kind: 'approval'
+  member_id: string
+  group_id: string
+  title: string
+  merchant: { name: string; url: string }
+  share_amount: number
+  cap_amount: number
+  currency: string
+  deadline_at: string
+  status: MemberStatus
+  rail: Rail
+  /** 'approve' opens Prava's passkey ceremony; 'accept' is the at_venue rail */
+  action: 'approve' | 'accept'
+  approval_url: string | null
+}
+
+export interface WaitingItem {
+  group_id: string
+  title: string
+  currency: string
+  total: number
+  deadline_at: string
+  status: GroupStatus
+  rail: Rail
+  you_organized: boolean
+  approved_count: number
+  paying_count: number
+  /** names are null when no-blame hides them from everyone but the organiser */
+  waiting: { name: string | null; status: MemberStatus | null }[]
+}
+
+export interface PlanSummary {
+  plan_id: string
+  participant_id: string | null
+  title: string
+  status: string
+  asked: string[]
+  deadline_at: string
+  responded_count: number
+  participant_count: number
+  option_count: number
+}
+
+/** What your card is currently on the hook for, split by what kind of hook. */
+export interface Exposure {
+  currency: string
+  /** approved but not yet charged — could still leave your card */
+  authorized: number
+  charging: number
+  settled: number
+  /** a standing offer to cover someone else's share, not yet used */
+  backstop_armed: number
+  /** at_venue rail: agreed, owed to the venue, never charged by us */
+  owed_at_venue: number
+}
+
+export interface Dashboard {
+  user: User
+  reliability: Reliability
+  needs_you: NeedsYouItem[]
+  plans_needing_you: PlanSummary[]
+  waiting_on_others: WaitingItem[]
+  live_plans: PlanSummary[]
+  recent: {
+    group_id: string
+    title: string
+    status: GroupStatus
+    rail: Rail
+    currency: string
+    charged: number
+    your_amount: number
+    at: string
+  }[]
+  exposure: Exposure[]
 }
 
 export interface SearchResponse {

@@ -3,36 +3,376 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Velvet Ticket Co. — Ratatat Live</title>
+<title>Velvet Ticket Co. — Ratatat, The Bellhouse</title>
+<meta name="description" content="4 × GA tickets to Ratatat at The Bellhouse, Sat 22 Aug.">
+
+<!-- Real OpenGraph, of the kind the detector reads on other people's pages. -->
+<meta property="og:type" content="product">
+<meta property="og:site_name" content="Velvet Ticket Co.">
+<meta property="og:title" content="Ratatat — The Bellhouse, Brooklyn">
+<meta property="og:image" content="https://placehold.co/600x400/1c1917/f59e0b/png?text=RATATAT">
+<meta property="product:price:amount" content="45.00">
+<meta property="product:price:currency" content="USD">
+
+<!--
+  Real JSON-LD, of the kind a ticketing platform actually emits. This is what
+  detect.js finds first: an Event with an Offer, a startDate and a Place. Nothing
+  here mentions sutra. That is the point — the widget below has no attributes
+  and reads this markup the same way it reads eventbrite's.
+-->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "MusicEvent",
+  "name": "Ratatat",
+  "url": "http://localhost:4100/widget-demo",
+  "startDate": "2026-08-22T21:00:00-04:00",
+  "endDate": "2026-08-23T00:30:00-04:00",
+  "eventStatus": "https://schema.org/EventScheduled",
+  "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+  "image": "https://placehold.co/600x400/1c1917/f59e0b/png?text=RATATAT",
+  "description": "Ratatat, live, one night only.",
+  "performer": { "@type": "MusicGroup", "name": "Ratatat" },
+  "organizer": { "@type": "Organization", "name": "Velvet Ticket Co.", "url": "http://localhost:4100" },
+  "location": {
+    "@type": "MusicVenue",
+    "name": "The Bellhouse",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "149 7th St",
+      "addressLocality": "Brooklyn",
+      "addressRegion": "NY",
+      "postalCode": "11215",
+      "addressCountry": "US"
+    }
+  },
+  "offers": {
+    "@type": "Offer",
+    "name": "GA ticket",
+    "price": "45.00",
+    "priceCurrency": "USD",
+    "availability": "https://schema.org/InStock",
+    "validFrom": "2026-06-01T10:00:00-04:00",
+    "url": "http://localhost:4100/widget-demo"
+  }
+}
+</script>
+
 <style>
-  body { font-family: Georgia, serif; background: #f7f3ec; color: #1c1917; margin: 0; }
-  .hero { max-width: 640px; margin: 0 auto; padding: 60px 24px; }
-  .kicker { text-transform: uppercase; letter-spacing: .2em; font-size: 12px; color: #a16207; }
-  h1 { font-size: 44px; margin: 10px 0; }
-  .meta { color: #57534e; margin-bottom: 8px; }
-  .price { font-size: 28px; font-weight: 700; margin: 18px 0; }
-  .note { font-size: 13px; color: #78716c; margin-top: 26px; border-top: 1px solid #e7e5e4; padding-top: 14px; }
+  :root {
+    --ink: #14100a; --paper: #fbfaf8; --line: #e7e2d9; --mut: #78716c;
+    --amber: #f59e0b; --card: #ffffff;
+  }
+  * { box-sizing: border-box }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 22px }
+  .topbar {
+    border-bottom: 1px solid var(--line); background: rgba(251,250,248,.9);
+    backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 10;
+  }
+  .topbar .wrap { display: flex; align-items: center; gap: 12px; height: 58px }
+  .logo { font-weight: 800; letter-spacing: -.02em; font-size: 16px }
+  .logo span { color: var(--amber) }
+  .topbar nav { margin-left: auto; display: flex; gap: 20px; font-size: 13px; color: var(--mut) }
+
+  .demo-note {
+    background: #14100a; color: #d6d3d1; font-size: 12.5px; padding: 9px 0;
+  }
+  .demo-note .wrap { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap }
+  .demo-note b { color: #fbfaf8 }
+  .demo-note code { background: #292524; padding: 1px 6px; border-radius: 5px; font-size: 11.5px; color: #fbbf24 }
+
+  .checkout { display: grid; grid-template-columns: 1fr; gap: 26px; padding: 40px 0 30px }
+  @media (min-width: 860px) { .checkout { grid-template-columns: 1.5fr 1fr; gap: 44px } }
+
+  .kicker { text-transform: uppercase; letter-spacing: .18em; font-size: 11px; font-weight: 700; color: #a16207 }
+  h1 { font-size: clamp(34px, 6vw, 52px); line-height: 1.03; letter-spacing: -.035em; margin: 10px 0 6px }
+  .venue { color: var(--mut); font-size: 15px }
+  .poster {
+    margin: 24px 0; aspect-ratio: 16/7; border-radius: 14px; border: 1px solid var(--line);
+    background:
+      radial-gradient(120% 140% at 12% 10%, #f59e0b22, transparent 60%),
+      repeating-linear-gradient(115deg, #1c1917 0 2px, #201c18 2px 9px);
+    display: grid; place-items: center; color: #f59e0b; font-weight: 800;
+    letter-spacing: .34em; font-size: clamp(20px, 4vw, 38px);
+  }
+  .seatnote { font-size: 13.5px; color: var(--mut); border-left: 3px solid var(--line); padding-left: 14px }
+
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; height: fit-content; position: sticky; top: 78px }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--mut); margin: 0 0 14px }
+  .line { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; font-size: 14.5px }
+  .line + .line { border-top: 1px dashed var(--line) }
+  .line .sub { display: block; font-size: 12px; color: var(--mut) }
+  .line.total { border-top: 1.5px solid var(--ink); margin-top: 6px; padding-top: 13px; font-weight: 800; font-size: 19px }
+  .buy { margin-top: 16px; width: 100%; padding: 15px; border: 0; border-radius: 12px; background: var(--ink); color: var(--paper); font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit }
+  .buy:hover { background: #292524 }
+  .or { text-align: center; font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: #a8a29e; margin: 15px 0 11px; position: relative }
+  .or::before, .or::after { content: ""; position: absolute; top: 50%; width: 32%; height: 1px; background: var(--line) }
+  .or::before { left: 0 } .or::after { right: 0 }
+
+  section.band { border-top: 1px solid var(--line); padding: 46px 0 }
+  section.band.dark { background: #14100a; color: #e7e5e4; border-top: 0 }
+  section.band.dark h2, section.band.dark h3 { color: #fbfaf8 }
+  h2.sec { font-size: 26px; letter-spacing: -.025em; margin: 0 0 8px }
+  .lede { color: var(--mut); max-width: 62ch; margin: 0 0 26px }
+  section.band.dark .lede { color: #a8a29e }
+
+  .cols { display: grid; gap: 22px; grid-template-columns: 1fr }
+  @media (min-width: 760px) { .cols { grid-template-columns: 1fr 1fr } }
+  .box { border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: var(--card) }
+  section.band.dark .box { border-color: #292524; background: #1c1917 }
+  .box h3 { margin: 0 0 6px; font-size: 15px; letter-spacing: -.01em }
+  .box p { margin: 0 0 12px; font-size: 13.5px; color: var(--mut) }
+  section.band.dark .box p { color: #a8a29e }
+
+  pre { background: #14100a; color: #e7e5e4; border-radius: 11px; padding: 14px 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.65; margin: 0 }
+  section.band.dark pre { background: #0c0a09; border: 1px solid #292524 }
+  pre .a { color: #fbbf24 } pre .c { color: #78716c }
+
+  .bmk {
+    display: inline-block; background: var(--amber); color: var(--ink); text-decoration: none;
+    font-weight: 750; font-size: 14px; padding: 11px 18px; border-radius: 11px;
+    box-shadow: 0 6px 18px rgba(245,158,11,.28); cursor: grab;
+  }
+  .bmk:active { cursor: grabbing }
+  .hint { font-size: 12.5px; color: var(--mut); margin-top: 10px }
+  section.band.dark .hint { color: #a8a29e }
+
+  /* --- the deliberately unstructured section ------------------------- */
+  .fake-cart { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card) }
+  .fake-cart .r { display: flex; justify-content: space-between; padding: 11px 16px; font-size: 14px }
+  .fake-cart .r + .r { border-top: 1px solid var(--line) }
+  .fake-cart .r.grand { background: #14100a; color: var(--paper); font-weight: 800; font-size: 17px }
+  .badge { display: inline-block; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #fee2e2; color: #991b1b; margin-bottom: 10px }
+  .badge.ok { background: #dcfce7; color: #166534 }
+  footer { border-top: 1px solid var(--line); padding: 26px 0 46px; font-size: 12.5px; color: #a8a29e }
 </style>
 </head>
 <body>
-<div class="hero">
-  <div class="kicker">Velvet Ticket Co. presents</div>
-  <h1>Ratatat — Live</h1>
-  <div class="meta">Sat Aug 22 · 9:00 PM · The Bellhouse</div>
-  <div class="price">$45.00 <span style="font-size:15px;color:#78716c">per GA ticket</span></div>
 
-  <!-- ↓↓↓ this is the entire integration ↓↓↓ -->
-  <script src="/widget.js"
-    data-gmp-title="Ratatat — 4 tickets"
-    data-gmp-merchant="Velvet Ticket Co."
-    data-gmp-item="GA ticket" data-gmp-price="45.00" data-gmp-qty="4"
-    data-gmp-members="Soham,Arsh,Dev,Maya"
-    data-gmp-token="dev-token"></script>
-  <!-- ↑↑↑ one script tag. that's it. ↑↑↑ -->
+<div class="demo-note"><div class="wrap">
+  <b>sutra demo</b>
+  <span>— a fake ticket checkout carrying real <code>schema.org/MusicEvent</code> JSON-LD, so the detector has something legitimate to find.</span>
+</div></div>
 
-  <div class="note">This is a plain fake ticket page with no build system — the button above came from
-    one script tag. Any page that can paste a script tag now has group checkout with per-member,
-    network-enforced mandates.</div>
+<div class="topbar"><div class="wrap">
+  <div class="logo">Velvet<span>.</span></div>
+  <nav><span>Events</span><span>Venues</span><span>Cart (4)</span></nav>
+</div></div>
+
+<div class="wrap">
+  <div class="checkout">
+    <div>
+      <div class="kicker">Velvet Ticket Co. presents</div>
+      <h1>Ratatat</h1>
+      <div class="venue">Sat 22 Aug 2026 · 9:00 PM · The Bellhouse, 149 7th St, Brooklyn NY</div>
+      <div class="poster">RATATAT</div>
+      <p class="seatnote">General admission, standing. Doors 8:00 PM. Tickets are non-transferable
+      and tied to the purchasing card — which is exactly the problem: one card has to buy four
+      tickets, and then four people have to settle up afterwards.</p>
+    </div>
+
+    <aside class="panel">
+      <h2>Order summary</h2>
+      <div class="line"><span>GA ticket <span class="sub">Ratatat · The Bellhouse</span></span><span>$45.00 × 4</span></div>
+      <div class="line"><span>Service fee</span><span>$6.00</span></div>
+      <div class="line total"><span>Total</span><span>$186.00</span></div>
+      <button class="buy" onclick="alert('This is a demo checkout. Nothing is charged.')">Pay $186.00</button>
+
+      <div class="or">or</div>
+
+      <!-- ↓↓↓ the entire integration ↓↓↓ -->
+      <script src="/widget.js"></script>
+      <!-- ↑↑↑ one script tag, no attributes ↑↑↑ -->
+
+      <div class="hint" style="margin-top:12px">
+        That button came from a bare <code>&lt;script&gt;</code> tag. It reads the JSON-LD above —
+        title, price, currency, the date and the venue — and shows you what it found before
+        anything happens.
+      </div>
+    </aside>
+  </div>
 </div>
+
+<section class="band">
+  <div class="wrap">
+    <h2 class="sec">The merchant embed</h2>
+    <p class="lede">Drop one tag anywhere on the page. With no attributes it detects the cart.
+    With <code>data-gmp-*</code> attributes it uses exactly what you give it — the original
+    contract still works, and overrides always win.</p>
+    <div class="cols">
+      <div class="box">
+        <span class="badge ok">detected</span>
+        <h3>Zero configuration</h3>
+        <p>Reads JSON-LD, microdata, OpenGraph, the live Shopify cart, or the order total in the DOM.</p>
+<pre><span class="c">&lt;!-- that is the whole thing --&gt;</span>
+&lt;script src="/widget.js"&gt;&lt;/script&gt;</pre>
+      </div>
+      <div class="box">
+        <span class="badge ok">explicit</span>
+        <h3>Or tell it exactly</h3>
+        <p>Any attribute you set overrides detection and pins confidence to 100%.</p>
+<pre>&lt;script src="/widget.js"
+  <span class="a">data-gmp-title</span>="Ratatat — 4 tickets"
+  <span class="a">data-gmp-item</span>="GA ticket"
+  <span class="a">data-gmp-price</span>="45.00" <span class="a">data-gmp-qty</span>="4"
+  <span class="a">data-gmp-members</span>="Soham,Arsh,Dev,Maya"
+  <span class="a">data-gmp-token</span>="dev-token"&gt;&lt;/script&gt;</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band dark">
+  <div class="wrap">
+    <h2 class="sec">Now the hard case</h2>
+    <p class="lede">Below is a checkout with <b>no JSON-LD, no microdata, no price meta tags</b> —
+    just a table, like most real checkouts. This is what the detector falls back to: find the
+    total label, find the nearest currency-formatted number, and say out loud that it was read
+    off the page.</p>
+
+    <div class="cols">
+      <div>
+        <div class="fake-cart" id="unstructured">
+          <div class="r"><span>Odeon Luxe — Dune: Part Three, 19:40</span><span>2 × 14.50</span></div>
+          <div class="r"><span>Booking fee</span><span>1.70</span></div>
+          <div class="r"><span>Subtotal</span><span>£29.00</span></div>
+          <div class="r grand"><span>Grand total</span><span>£30.70</span></div>
+        </div>
+        <p class="hint">Nothing above is machine-readable. Below is the <b>real detector</b>,
+        run in your browser just now, against that markup and nothing else — no JSON-LD, no
+        meta tags. It should find the <i>grand total</i> and not the subtotal, and it should
+        not pretend to be sure.</p>
+        <pre id="fallback-out" style="margin-top:12px">running…</pre>
+      </div>
+      <div class="box">
+        <span class="badge">low confidence by construction</span>
+        <h3>Try it here</h3>
+        <p>Drag this to your bookmarks bar, then click it on any checkout, anywhere. It injects
+        the widget and opens the sheet.</p>
+        <a class="bmk" id="bookmarklet" href="#">⚡ Split this with sutra</a>
+        <p class="hint">Dragging is the install. If your browser will not let you drag it,
+        right-click → copy link, then make a new bookmark and paste it into the URL field.
+        Pages with a strict Content-Security-Policy will block it — that is what the
+        extension is for.</p>
+        <p class="hint" style="margin-top:14px">Careful when you click it <i>on this page</i>:
+        the JSON-LD in the head outranks the table on the left, so you will get the £45 gig,
+        not the £30.70 cinema trip. That ordering is the whole design — structured data first,
+        scraping only when there is nothing else.</p>
+        <p class="hint" style="margin-top:14px"><b>Highlight a price first</b> and the detector
+        uses exactly that number instead. It is the escape hatch for every page it reads badly.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <h2 class="sec">What it does with the number</h2>
+    <p class="lede">Nothing, until you say so. The sheet shows the detection, its confidence, and
+    which strategy produced it. You edit anything that is wrong, name who is paying, and only then
+    does it <code>POST /v1/groups</code> — after which each person gets their own QR, approves
+    their own share, and the cap is enforced at the card network rather than by this page.</p>
+  </div>
+</section>
+
+<footer><div class="wrap">
+  sutra · GMP/1 — one cart, N people, N mandates. This page is a demo; no money moves.
+</div></footer>
+
+<!-- Filled in by widget/build-bookmarklet.mjs. Kept as text/plain so it is
+     never executed here; the script below rebinds it to this page's origin so
+     the same build works on localhost and in production. -->
+<script type="text/plain" id="bookmarklet-src">;(function () {
+var BASE = '__SUTRA_BASE__'
+function toast(msg) {
+try {
+var t = document.createElement('div')
+t.textContent = msg
+t.style.cssText =
+'all:initial;position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:2147483647;' +
+'font:600 13px/1.5 ui-sans-serif,system-ui,sans-serif;background:#14100a;color:#fbfaf8;' +
+'padding:11px 16px;border-radius:11px;box-shadow:0 10px 30px rgba(0,0,0,.35);max-width:82vw'
+document.documentElement.appendChild(t)
+setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t) }, 6000)
+} catch (e) {
+alert(msg)
+}
+}
+if (window.__sutra && window.__sutra.open) {
+window.__sutra.open()
+return
+}
+var existing = document.querySelector('script[data-sutra-widget]')
+if (existing) {
+toast('sutra is still loading…')
+return
+}
+var s = document.createElement('script')
+s.src = BASE + '/widget.js?t=' + Date.now()
+s.setAttribute('data-sutra-widget', '')
+s.setAttribute('data-sutra-open', '')
+s.setAttribute('data-gmp-mount', 'none')
+s.async = true
+s.onerror = function () {
+if (s.parentNode) s.parentNode.removeChild(s)
+toast('sutra could not load from ' + BASE + ' — this page blocks outside scripts, or the engine is down.')
+}
+document.documentElement.appendChild(s)
+setTimeout(function () {
+if (!window.__sutra) {
+toast("sutra didn't load — this page's Content-Security-Policy blocks injected scripts. Use the extension here.")
+}
+}, 4000)
+})()</script>
+<script>
+  (function () {
+    var src = document.getElementById('bookmarklet-src').textContent.trim()
+    var a = document.getElementById('bookmarklet')
+    if (!src) {
+      a.textContent = '⚡ run: node widget/build-bookmarklet.mjs'
+      a.style.background = '#e7e5e4'
+      a.style.boxShadow = 'none'
+      return
+    }
+    a.href = 'javascript:' + encodeURI(src.replace(/__SUTRA_BASE__/g, location.origin))
+      .replace(/#/g, '%23').replace(/&/g, '%26').replace(/\?/g, '%3F')
+      .replace(/"/g, '%22').replace(/'/g, '%27').replace(/</g, '%3C').replace(/>/g, '%3E')
+    a.addEventListener('click', function (e) {
+      e.preventDefault()
+      alert('Drag this to your bookmarks bar instead of clicking it — Chrome blocks javascript: links clicked directly in a page.')
+    })
+  })()
+</script>
+
+<!-- Run the real detector against the unstructured cart above, in a document
+     that contains only that markup, and print what it actually returns. The
+     widget script tag in the order panel is what puts window.__sutra here. -->
+<script>
+  (function () {
+    var out = document.getElementById('fallback-out')
+    var api = window.__sutra
+    if (!api || !api.Detect) { out.textContent = 'widget.js did not load — is the engine running?'; return }
+    var frag = document.getElementById('unstructured').outerHTML
+    var doc = new DOMParser().parseFromString(
+      '<!doctype html><html lang="en-GB"><head><title>Checkout</title></head><body>' + frag + '</body></html>',
+      'text/html',
+    )
+    var r = api.Detect.detectCartSync(doc, location)
+    var money = r.total_minor === null ? 'null' : api.Detect.formatMinor(r.total_minor, r.currency)
+    out.textContent = [
+      'total_minor  ' + r.total_minor + '   (' + r.currency + ' ' + money + ')',
+      'strategy     ' + JSON.stringify(r.strategy),
+      'from         ' + r.provenance.total_minor,
+      'confidence   ' + r.confidence,
+      'warnings     ' + (r.warnings[0] || '(none)'),
+    ].join('\n')
+  })()
+</script>
+
 </body>
 </html>
