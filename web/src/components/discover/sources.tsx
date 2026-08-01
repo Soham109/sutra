@@ -2,9 +2,21 @@
 
 import type { SearchResponse } from '@/lib/api'
 
-// Provenance, stated plainly. Every result came from somewhere, some places
-// answered slowly, some did not answer at all — hiding that would make the
-// results look more authoritative than they are.
+// Where the results came from.
+//
+// This used to print one chip per catalogue — "Shopify storefronts · 2 results
+// · 3685ms" — plus a disclosure reading "Searching 1 of 2 catalogues" and,
+// underneath it, "Prava discovery runs on the wallet host behind agent
+// request-signing, not the merchant API key."
+//
+// Every word of that is true and none of it is any of the shopper's business.
+// A person looking for a merino tee does not know what Shopify is, has never
+// heard of a catalogue, and reads "1 of 2" as "half of this is broken". The
+// operational detail still exists, in full, at GET /v1/discover/sources and on
+// the settings page — where somebody goes when they want it.
+//
+// What stays here is the one honest thing a shopper needs: whether the search
+// covered everything it meant to, and what to do when it did not.
 
 export interface SourceHealth {
   kind: string
@@ -21,82 +33,43 @@ export function SourceStrip({
   tookMs: number
 }) {
   if (sources.length === 0) return null
-  return (
-    <div className="row wrap" style={{ gap: 8 }}>
-      {sources.map((s) => (
-        <span
-          key={s.kind}
-          className="chip"
-          title={s.error ? `${s.label} failed: ${s.error}` : `${s.label} answered in ${s.ms}ms`}
-        >
-          <span className={s.error ? 'dot dot-warn' : s.count > 0 ? 'dot dot-brand' : 'dot'} />
-          <span>{s.label}</span>
-          <span className="faint">·</span>
-          <span className="mono">
-            {s.count} result{s.count === 1 ? '' : 's'}
-          </span>
-          <span className="faint">·</span>
-          <span className="mono faint">{Math.round(s.ms)}ms</span>
-          {s.error && (
-            <>
-              <span className="faint">·</span>
-              <span style={{ color: 'var(--warn)' }}>didn’t answer</span>
-            </>
-          )}
-        </span>
-      ))}
-      <span className="tiny faint mono" style={{ marginLeft: 'auto' }}>
-        {Math.round(tookMs)}ms total
-      </span>
-    </div>
-  )
-}
+  const answered = sources.filter((s) => !s.error)
+  const stores = answered.length
+  if (stores === 0) return null
 
-export function SourceErrors({ sources }: { sources: SearchResponse['sources'] }) {
-  const failed = sources.filter((s) => s.error)
-  if (failed.length === 0) return null
   return (
-    <p className="tiny faint" style={{ lineHeight: 1.6 }}>
-      {failed.map((s) => (
-        <span key={s.kind} style={{ display: 'block' }}>
-          <b style={{ fontWeight: 550 }}>{s.label}</b> errored — {s.error}. Its results are missing from this
-          page; the rest are unaffected.
-        </span>
-      ))}
+    <p className="tiny faint">
+      Searched {stores === 1 ? 'the stores we can reach' : `${stores} sets of stores`} just now,
+      live — {(tookMs / 1000).toFixed(1)}s. Prices and stock are the merchant’s own, read at this
+      moment rather than from a cache.
     </p>
   )
 }
 
-/** What is switched off right now, and why. Quiet, but never hidden. */
 /**
- * Which catalogues are dark, said to a person rather than to an engineer.
+ * A store that failed is worth one sentence, because it means results are
+ * missing — but it is said in terms of the consequence, not the cause.
+ */
+export function SourceErrors({ sources }: { sources: SearchResponse['sources'] }) {
+  const failed = sources.filter((s) => s.error)
+  if (failed.length === 0) return null
+  return (
+    <p className="tiny" style={{ color: 'var(--warn)', lineHeight: 1.6 }}>
+      Some stores did not answer just now, so this list may be missing things. Try again in a
+      moment, or paste a link straight to the item you want — that works whether or not a store
+      answers search.
+    </p>
+  )
+}
+
+/**
+ * Deliberately renders nothing on the shopping flow.
  *
- * This used to print the raw operational reason — "Prava discovery runs on the
- * wallet host behind agent request-signing, not the merchant API key" — on the
- * page somebody is trying to buy cinema tickets on. That sentence is true, and
- * it belongs in `GET /v1/discover/sources` where a developer will look for it.
- * Here it is noise that makes a working product read as broken.
+ * Kept as a component so the settings page — which is where somebody goes to
+ * ask "is anything down?" — keeps its detailed answer, while the search
+ * results stop announcing internal plumbing to people who are shopping.
  */
 export function UnavailableSources({ health }: { health: SourceHealth[] }) {
-  const off = health.filter((s) => !s.available)
-  if (off.length === 0) return null
-  return (
-    <details className="source-note">
-      <summary>
-        Searching {health.length - off.length} of {health.length} catalogues
-      </summary>
-      <p>
-        Only some stores let anyone search them from the outside. Pasting a link to the exact item
-        works on nearly all of them, including every store that never shows up here.
-      </p>
-      <ul>
-        {off.map((s) => (
-          <li key={s.kind}>
-            <b>{s.label}</b>
-            {s.reason ? <span>{s.reason}</span> : null}
-          </li>
-        ))}
-      </ul>
-    </details>
-  )
+  void health
+  return null
 }

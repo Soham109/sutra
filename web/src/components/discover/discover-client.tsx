@@ -372,38 +372,47 @@ export function DiscoverClient() {
           </button>
         </div>
 
-        <div className="row-between wrap" style={{ gap: 10, marginTop: 10 }}>
-          <p className="tiny faint" style={{ maxWidth: '60ch', lineHeight: 1.6 }}>
-            {hint ? (
-              hint.text
-            ) : isUrl ? (
+        {/* One line, and only when there is something worth saying. The old
+            version stacked a paragraph of explanation next to a permanently
+            visible "only this store" box, which made a search bar look like a
+            settings panel. */}
+        {(hint || isUrl) && (
+          <p className="discover-say">
+            {hint
+              ? hint.text
+              : 'That’s a link — sutra will open the page and read the merchant’s own price, currency, options and stock.'}
+          </p>
+        )}
+
+        {!isUrl && (
+          <div className="discover-scope">
+            {store ? (
               <>
-                That looks like a link — sutra will open the page and read the merchant’s own product data: price,
-                currency, variants, stock.
+                <input
+                  ref={storeInput}
+                  className="input mono"
+                  value={store}
+                  onChange={(e) => setStore(e.target.value)}
+                  placeholder="allbirds.com"
+                  aria-label="Limit the search to one store"
+                />
+                <button type="button" onClick={() => setStore('')}>
+                  search everywhere instead
+                </button>
               </>
             ) : (
-              <>
-                Searching eight storefronts. Anywhere else, paste the link to the exact item — that
-                works on nearly every store, including the ones that never appear here.
-              </>
+              <button
+                type="button"
+                onClick={() => {
+                  setStore(' ')
+                  setTimeout(() => storeInput.current?.focus(), 0)
+                }}
+              >
+                Search one store only
+              </button>
             )}
-          </p>
-          <label className="row" style={{ gap: 8 }}>
-            <span className="tiny faint" style={{ whiteSpace: 'nowrap' }}>
-              only this store
-            </span>
-            <input
-              ref={storeInput}
-              className="input mono"
-              style={{ width: 170, fontSize: 13 }}
-              value={store}
-              onChange={(e) => setStore(e.target.value)}
-              placeholder="allbirds.com"
-              aria-label="Limit the search to one store"
-              disabled={isUrl}
-            />
-          </label>
-        </div>
+          </div>
+        )}
 
         {/* Something to press. A search box with no examples makes people guess
             what the catalogue contains, guess wrong, get nothing, and conclude

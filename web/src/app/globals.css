@@ -630,10 +630,14 @@ a.list-row:hover { background: var(--surface-2); }
 .launch-search input { min-width: 0; border: 0; outline: 0; background: transparent; font-size: 14px; padding: 12px 0; }
 .launch-search button { border: 0; background: #ff5c35; color: #17120f; border-radius: 10px; padding: 12px 17px; font-weight: 720; cursor: pointer; }
 .launch-search button:disabled { opacity: .45; cursor: default; }
-.moment-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-.moment-grid button { min-height: 70px; text-align: left; padding: 13px; border: 1px solid rgb(255 255 255 / .17); border-radius: 12px; background: rgb(255 255 255 / .07); color: #dedcf7; cursor: pointer; font-size: 12px; transition: background .18s, transform .18s; }
-.moment-grid button:hover { background: rgb(255 255 255 / .14); transform: translateY(-2px); }
-.moment-grid button span { display: block; color: #ff8b70; font-size: 17px; margin-bottom: 5px; }
+/* These were styled white-on-transparent for the purple slab this page no
+   longer has, so on warm paper they were near-invisible cards with pale text.
+   Tokens now, and they carry their own weight instead of borrowing a
+   background's. */
+.moment-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.moment-grid button { min-height: 82px; text-align: left; padding: 14px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); cursor: pointer; font-size: 12.5px; line-height: 1.45; box-shadow: var(--shadow-1); transition: border-color .18s, transform .18s, box-shadow .18s; }
+.moment-grid button:hover { border-color: var(--brand); transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.moment-grid button span { display: block; color: var(--brand); font-size: 19px; margin-bottom: 7px; line-height: 1; }
 .home-page .section-title { font-size: 13px; letter-spacing: -.01em; }
 .home-page .section-head a { font-size: 12px; color: var(--ink-2); }
 .home-ledger, .record-surface { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
@@ -1214,3 +1218,13 @@ a.list-row:hover { background: var(--surface-2); }
 .picker-circles button:hover:not(:disabled) { border-color: var(--brand); color: var(--brand-ink); }
 .picker-circles button:disabled { opacity: .5; cursor: default; }
 .picker-circles em { font-style: normal; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+
+/* Discover: search scope and the one-line explainer.
+   The scope box used to sit permanently beside the search field with a label
+   reading "only this store", which made a search bar look like a settings
+   panel. It appears when asked for and gets out of the way otherwise. */
+.discover-say { margin-top: 10px; color: var(--ink-2); font-size: 12.5px; line-height: 1.6; max-width: 68ch; }
+.discover-scope { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.discover-scope input { width: 190px; font-size: 13px; }
+.discover-scope button { border: 0; background: none; padding: 4px 0; color: var(--ink-3); font-size: 11.5px; text-decoration: underline; cursor: pointer; }
+.discover-scope button:hover { color: var(--brand-ink); }
