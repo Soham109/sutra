@@ -15,3 +15,7 @@ data/
 
 .vercel
 .env*
+
+# Throwaway browser profiles from QA runs — never commit these,
+# they carry cookies and saved logins.
+.qa/

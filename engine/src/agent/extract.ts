@@ -62,8 +62,7 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
  */
 export function extractDeterministic(text: string, now = new Date()): Extraction {
   const uncertainties: string[] = []
-  const lower = text.toLowerCase()
-
+  const lower = text.toLowerCase()  
   const category = CATEGORY_WORDS.find(([re]) => re.test(text))?.[1]
   const currency = CURRENCY_HINTS.find(([re]) => re.test(text))?.[1] ?? 'USD'
 

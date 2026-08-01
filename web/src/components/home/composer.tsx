@@ -59,9 +59,9 @@ function readInput(raw: string): Read | null {
 
   return {
     route: 'plan',
-    label: 'Plan it with the group',
+    label: 'Plan with Sutra bot',
     detail:
-      'We’ll read who, when and where from that sentence, ask everyone for their times and locations, then rank real places against the answers.',
+      'Sutra bot reads who, when and where from that sentence, asks everyone for their times and locations, then ranks real places against the answers.',
   }
 }
 

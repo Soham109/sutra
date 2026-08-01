@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { Mark } from '@/components/shell'
 import { ConsentThreadDemo } from '@/components/landing/consent-thread'
+import { HowItWorks } from '@/components/landing/how'
+import { LandingNav } from '@/components/landing/nav'
 import { MandateOrbit } from '@/components/landing/mandate-orbit'
 import { ProductLab } from '@/components/landing/product-lab'
 import { ScrollStory } from '@/components/landing/scroll-story'
@@ -13,19 +15,17 @@ function Arrow() { return <svg className="l-arrow" viewBox="0 0 20 20" aria-hidd
 
 export default function Landing() {
   return <div className="landing">
-    <header className="l-nav"><div className="l-wrap l-nav-in">
-      <Link href="/" className="l-brand" aria-label="Sutra home"><Mark /><span>sutra</span></Link>
-      <nav className="l-nav-links" aria-label="Main navigation"><a href="#product">Product</a><a href="#consent">Consent</a><a href="#proof">Architecture</a><a href={SPEC}>Developers</a></nav>
-      <div className="l-nav-end"><Link className="l-login" href="/app">Log in</Link><Link className="l-button l-button-small" href="/app/plan/new"><span className="l-start-long">Start a plan</span><span className="l-start-short">Start</span> <Arrow /></Link></div>
-    </div></header>
+    <LandingNav specUrl={SPEC} />
 
     <main>
       <section className="l-wrap l-hero"><div className="l-hero-copy">
-        <h1>Turn “we should”<br />into <span>“we did.”</span></h1>
-        <p>Sutra finds the plan, shapes the split, gets every person’s consent, and pays the merchant from everyone’s own card—when that merchant supports the rail.</p>
-        <div className="l-hero-actions"><Link className="l-button" href="/app/plan/new">Plan something <Arrow /></Link><Link className="l-button l-button-quiet" href="/app/discover">Bring a link</Link></div>
+        <h1>Split it before<br />you <span>pay it.</span></h1>
+        <p>Plan the thing, ask everyone the awkward questions, and let each person pay their own share from their own card. No one fronts the money. No one chases anyone for it afterwards.</p>
+        <div className="l-hero-actions"><Link className="l-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link><Link className="l-button l-button-quiet" href="/app/bill">Split a bill</Link></div>
         <div className="l-hero-proof"><span>Nothing pooled</span><span>Nothing fronted</span><span>Nothing invented</span></div>
       </div><MandateOrbit /></section>
+
+      <HowItWorks />
 
       <div className="l-signal-rail"><div className="l-signal-track"><span><b>Say it</b> sentence → structured plan</span><i /><span><b>Paste it</b> link → imported item</span><i /><span><b>Scan it</b> receipt → exact lines</span><i /><span><b>Share it</b> invite → individual consent</span><i /><span aria-hidden><b>Say it</b> sentence → structured plan</span></div></div>
 

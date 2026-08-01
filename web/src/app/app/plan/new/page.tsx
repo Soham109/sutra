@@ -100,8 +100,8 @@ function NewPlanInner() {
   return (
     <div className="page confirm-page">
       <header className="page-head">
-        <span className="eyebrow">Check this is right</span>
-        <h1>Here’s what we read.</h1>
+        <span className="eyebrow">Sutra bot · check this is right</span>
+        <h1>Here’s what I read.</h1>
         <p className="muted">“{text}”</p>
       </header>
 
@@ -186,7 +186,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 export default function NewPlanPage() {
   return (
-    <Shell crumbs={<span className="here">New plan</span>}>
+    <Shell crumbs={<span className="here">Sutra bot</span>}>
       <Suspense fallback={<div className="page"><Skeleton h={260} /></div>}>
         <NewPlanInner />
       </Suspense>
