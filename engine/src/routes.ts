@@ -168,15 +168,25 @@ export function registerRoutes(
   app.get('/v1/groups/:id/joinable', async (req) => {
     const { id } = req.params as { id: string }
     const g = service.mustGroup(id)
+    const view = groupView(service, g)
     return {
-      group_id: g.id,
-      title: g.title,
-      members: service.db.membersOf(id).map((m) => ({
-        member_id: m.id,
-        name: m.display_name,
+      group_id: view.group_id,
+      title: view.title,
+      status: view.status,
+      merchant: view.merchant,
+      total: view.total,
+      currency: view.currency,
+      deadline_at: view.deadline_at,
+      policy_text: view.policy_text,
+      terminal: view.terminal,
+      members: view.members.map((m) => ({
+        member_id: m.member_id,
+        name: m.name,
         role: m.role,
         status: m.status,
-        claimable: ['invited'].includes(m.status),
+        share_amount: m.share_amount,
+        cap_amount: m.cap_amount,
+        claimable: ['invited', 'viewed', 'awaiting_approval'].includes(m.status),
       })),
     }
   })

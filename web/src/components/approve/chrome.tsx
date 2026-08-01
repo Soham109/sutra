@@ -81,6 +81,39 @@ const CSS = `
 .ap-bidrow { display: flex; gap: 8px; align-items: stretch; }
 .ap-bidrow .input { flex: 1; }
 
+.ap-join-hero {
+  margin: 4px 0 24px; padding: 24px; overflow: hidden; position: relative;
+  border-radius: 24px; background: #3228d8; color: #fff;
+  box-shadow: 0 24px 70px rgb(31 24 140 / .18);
+}
+.ap-join-hero::after {
+  content: ''; position: absolute; width: 220px; height: 220px; right: -95px; top: -120px;
+  border: 1px solid rgb(255 255 255 / .18); border-radius: 50%;
+}
+.ap-join-meta, .ap-join-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ap-join-meta { color: #b8b5ff; font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.ap-join-hero h1 { margin-top: 34px; max-width: 13ch; font-size: clamp(28px, 8vw, 38px); line-height: .98; letter-spacing: -.05em; }
+.ap-join-total { margin-top: 16px; color: #ff8b70; font-size: 24px; font-weight: 760; letter-spacing: -.04em; }
+.ap-join-progress { height: 7px; margin-top: 24px; overflow: hidden; background: rgb(255 255 255 / .16); border-radius: 99px; }
+.ap-join-progress span { display: block; height: 100%; background: #ff6a47; border-radius: inherit; transition: width .4s cubic-bezier(.22,1,.36,1); }
+.ap-join-foot { margin-top: 9px; color: #cbc9ff; font-size: 11px; }
+.ap-join-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 15px; margin-bottom: 12px; }
+.ap-join-heading h2 { font-size: 20px; }
+.ap-join-heading p { margin-top: 3px; color: var(--ink-2); font-size: 12px; }
+.ap-join-list { overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.ap-join-row { display: flex; align-items: center; gap: 12px; min-height: 78px; padding: 12px 14px; border-bottom: 1px solid var(--line); transition: background .15s; }
+.ap-join-row:last-child { border-bottom: 0; }
+.ap-join-row:hover { background: var(--surface-2); }
+.ap-join-name { font-weight: 680; letter-spacing: -.015em; }
+.ap-join-amount { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.ap-join-amount strong { font-size: 14px; }
+.ap-join-arrow { color: var(--ink-3); font-size: 17px; }
+.ap-join-rule { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.ap-join-rule span { color: var(--ink-3); font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.ap-join-rule p { margin-top: 5px; font-size: 13px; }
+.ap-security-note { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin: 18px 0 24px; padding: 15px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px; line-height: 1.55; }
+.ap-security-note > span { color: var(--ok); }
+
 @media (max-width: 380px) {
   .ap-wrap, .ap-dock { padding-left: 12px; padding-right: 12px; }
 }

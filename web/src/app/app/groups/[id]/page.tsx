@@ -19,6 +19,7 @@ import { BackstopMoment } from '@/components/group/BackstopMoment'
 import { CancelGroup } from '@/components/group/CancelGroup'
 import { EventLog } from '@/components/group/EventLog'
 import { MemberPanel } from '@/components/group/MemberPanel'
+import { InvitePanel } from '@/components/group/InvitePanel'
 import { ReplayBar, type Speed } from '@/components/group/Replay'
 import { TerminalBanner } from '@/components/group/TerminalBanner'
 import { BACKSTOP_MOMENTS, deriveAt, fromGroup, pNum, pStr } from '@/components/group/derive'
@@ -311,6 +312,7 @@ export default function GroupWarRoom() {
 
           {/* --- right: who, what, and under which rule ------------------ */}
           <div className="stack" style={{ ['--gap' as string]: '16px' }}>
+            {collecting && !replay ? <InvitePanel groupId={group.group_id} title={group.title} /> : null}
             <MemberPanel
               members={view.members}
               currency={currency}

@@ -8,9 +8,9 @@ import { useSession } from './session'
 
 const NAV = [
   { section: null, items: [
-    { href: '/app', label: 'Home', icon: 'home' },
-    { href: '/app/discover', label: 'Discover', icon: 'search' },
-    { href: '/app/groups', label: 'Groups', icon: 'thread' },
+    { href: '/app', label: 'Today', icon: 'home' },
+    { href: '/app/discover', label: 'New split', icon: 'search' },
+    { href: '/app/groups', label: 'Activity', icon: 'thread' },
   ] },
   { section: 'People', items: [
     { href: '/app/people', label: 'People', icon: 'people' },
@@ -45,13 +45,15 @@ export function Shell({ children, crumbs }: { children: React.ReactNode; crumbs?
       <div className="col grow" style={{ minWidth: 0 }}>
         <header className="topbar">
           <div className="crumbs grow">{crumbs ?? <span className="here">Home</span>}</div>
-          <button className="btn btn-secondary" onClick={() => setPaletteOpen(true)}>
-            <Icon name="search" /> Search <span className="kbd">⌘K</span>
+          <button className="top-search" onClick={() => setPaletteOpen(true)}>
+            <Icon name="search" /> <span className="top-search-label">Search anything</span> <span className="kbd">⌘K</span>
           </button>
+          <Link href="/app/discover" className="btn btn-primary top-create">New split <span aria-hidden>↗</span></Link>
           <ThemeToggle />
         </header>
         <main className="grow">{children}</main>
       </div>
+      <MobileNav />
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
     </div>
   )
@@ -66,7 +68,7 @@ function Sidebar() {
       <div className="sidebar-head">
         <Link href="/app" className="row" style={{ gap: 9, padding: '4px 6px' }}>
           <Mark />
-          <span style={{ fontWeight: 650, letterSpacing: '-0.02em', fontSize: 16 }}>sutra</span>
+          <span style={{ fontWeight: 720, letterSpacing: '-0.045em', fontSize: 18 }}>sutra</span>
         </Link>
       </div>
 
@@ -115,6 +117,24 @@ function Sidebar() {
         )}
       </div>
     </aside>
+  )
+}
+
+function MobileNav() {
+  const path = usePathname()
+  const items = [
+    { href: '/app', label: 'Today', icon: 'home' },
+    { href: '/app/discover', label: 'New', icon: 'search' },
+    { href: '/app/groups', label: 'Activity', icon: 'thread' },
+    { href: '/app/people', label: 'People', icon: 'people' },
+  ]
+  return (
+    <nav className="mobile-nav" aria-label="Mobile navigation">
+      {items.map((item) => {
+        const active = item.href === '/app' ? path === '/app' : path.startsWith(item.href)
+        return <Link href={item.href} key={item.href} aria-current={active ? 'page' : undefined}><Icon name={item.icon} /><span>{item.label}</span></Link>
+      })}
+    </nav>
   )
 }
 

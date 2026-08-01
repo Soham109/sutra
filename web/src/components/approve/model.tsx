@@ -51,12 +51,21 @@ export interface JoinableMember {
   name: string
   role: 'payer' | 'sponsor' | 'backstop' | 'observer'
   status: MemberStatus
+  share_amount: number
+  cap_amount: number
   claimable: boolean
 }
 
 export interface Joinable {
   group_id: string
   title: string
+  status: GroupStatus
+  merchant: { name: string; url: string; country_code_iso2: string }
+  total: number
+  currency: string
+  deadline_at: string
+  policy_text: string
+  terminal: boolean
   members: JoinableMember[]
 }
 

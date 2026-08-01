@@ -47,6 +47,25 @@ interface Problem {
   fix?: { label: string; run: () => void }
 }
 
+interface BuilderDraftSnapshot {
+  version: 1
+  productUrl: string
+  updatedAt: number
+  members: DraftMember[]
+  variantId: string
+  items: DraftItem[]
+  fees: DraftFee[]
+  title: string
+  policy: Policy
+  deadlineMinutes: number
+  toleranceBps: number
+  straggler: StragglerPolicy
+  noBlame: boolean
+  circleId: string
+}
+
+const DRAFT_MAX_AGE = 7 * 24 * 60 * 60 * 1000
+
 export function Builder({
   product,
   strategy,
@@ -79,6 +98,9 @@ export function Builder({
   const [circleId, setCircleId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [draftStatus, setDraftStatus] = useState<'checking' | 'restored' | 'saving' | 'saved'>('checking')
+  const draftHydrated = useRef(false)
+  const draftKey = `sutra:split-draft:v1:${product.product_url}`
 
   const split = useMemo(
     () => computeSplit(items, fees, members, toleranceBps),
@@ -95,6 +117,81 @@ export function Builder({
         : current,
     )
   }, [user])
+
+  // A precise split can take time. Restore it on this device before enabling
+  // autosave, so the empty initial render can never overwrite a useful draft.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(draftKey)
+      if (raw) {
+        const draft = JSON.parse(raw) as BuilderDraftSnapshot
+        const valid =
+          draft.version === 1 &&
+          draft.productUrl === product.product_url &&
+          Date.now() - draft.updatedAt < DRAFT_MAX_AGE &&
+          Array.isArray(draft.members) &&
+          Array.isArray(draft.items) &&
+          draft.members.length > 0 &&
+          draft.items.length > 0
+        if (valid) {
+          setMembers(draft.members)
+          setVariantId(draft.variantId)
+          setItems(draft.items)
+          seedKey.current = draft.items[0]?.key ?? seedKey.current
+          setFees(draft.fees ?? [])
+          setTitle(draft.title)
+          setPolicy(draft.policy)
+          setDeadlineMinutes(draft.deadlineMinutes)
+          setToleranceBps(draft.toleranceBps)
+          setStraggler(draft.straggler)
+          setNoBlame(draft.noBlame)
+          setCircleId(draft.circleId ?? '')
+          setDraftStatus('restored')
+        } else {
+          window.localStorage.removeItem(draftKey)
+          setDraftStatus('saved')
+        }
+      } else {
+        setDraftStatus('saved')
+      }
+    } catch {
+      window.localStorage.removeItem(draftKey)
+      setDraftStatus('saved')
+    } finally {
+      draftHydrated.current = true
+    }
+  }, [draftKey, product.product_url])
+
+  useEffect(() => {
+    if (!draftHydrated.current || busy) return
+    setDraftStatus('saving')
+    const timer = window.setTimeout(() => {
+      const snapshot: BuilderDraftSnapshot = {
+        version: 1,
+        productUrl: product.product_url,
+        updatedAt: Date.now(),
+        members,
+        variantId,
+        items,
+        fees,
+        title,
+        policy,
+        deadlineMinutes,
+        toleranceBps,
+        straggler,
+        noBlame,
+        circleId,
+      }
+      try {
+        window.localStorage.setItem(draftKey, JSON.stringify(snapshot))
+        setDraftStatus('saved')
+      } catch {
+        // Private browsing and device storage limits should never block checkout.
+        setDraftStatus('saved')
+      }
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [busy, circleId, deadlineMinutes, draftKey, fees, items, members, noBlame, policy, product.product_url, straggler, title, toleranceBps, variantId])
 
   /** Members and claims move together: a line claimed by "everyone" keeps
    *  meaning everyone as the group grows, and a removed person stops claiming. */
@@ -233,6 +330,7 @@ export function Builder({
         circle_id: circleId || undefined,
         product,
       })
+      window.localStorage.removeItem(draftKey)
       router.push(`/app/groups/${res.group_id}`)
     } catch (e) {
       setError(
@@ -249,8 +347,41 @@ export function Builder({
     </button>
   )
 
+  const resetDraft = () => {
+    const defaultVariant = product.variants.find((variant) => variant.available)?.id ?? product.variants[0]?.id ?? ''
+    const freshItem = itemFromProduct(product, defaultVariant, [me.key])
+    window.localStorage.removeItem(draftKey)
+    setMembers([{ ...me, name: user?.name ?? me.name, userId: user?.id ?? me.userId }])
+    setVariantId(defaultVariant)
+    setItems([freshItem])
+    seedKey.current = freshItem.key
+    setFees([])
+    setTitle(product.title.slice(0, 90))
+    setPolicy({ type: 'all_of' })
+    setDeadlineMinutes(60)
+    setToleranceBps(100)
+    setStraggler('drop_and_continue')
+    setNoBlame(false)
+    setCircleId('')
+    setError('')
+    setDraftStatus('saved')
+  }
+
   return (
     <div className="col" style={{ gap: 18 }}>
+      <div className="draft-bar" role="status">
+        <span className={draftStatus === 'saving' || draftStatus === 'checking' ? 'dot dot-warn' : 'dot dot-ok'} />
+        <span>
+          {draftStatus === 'checking'
+            ? 'Checking for a saved split…'
+            : draftStatus === 'restored'
+              ? 'Restored your unfinished split from this device.'
+              : draftStatus === 'saving'
+                ? 'Saving this split…'
+                : 'This split is saved on this device.'}
+        </span>
+        <button type="button" className="text-button" onClick={resetDraft}>Start over</button>
+      </div>
       <div className="card card-pad">
         <div className="row wrap" style={{ gap: 14, alignItems: 'flex-start' }}>
           <div style={{ width: 92, flex: 'none' }}>

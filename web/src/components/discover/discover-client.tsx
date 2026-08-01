@@ -235,15 +235,27 @@ export function DiscoverClient() {
   const loading = status === 'loading'
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>Find something worth splitting</h1>
+    <div className="page discover-page">
+      <div className="page-head discover-head">
+        <span className="eyebrow">New split</span>
+        <h1>Bring the thing.<br /><span>We’ll shape the split.</span></h1>
         <p className="muted">
-          Search the catalogues that answer, or paste a link from a store nobody here has ever heard of.
+          Start broad with a plan or paste the exact merchant page. You stay in control of every item, person, fee and rule before an invite leaves the app.
         </p>
       </div>
 
-      <form onSubmit={submit} className="card card-pad" style={{ marginBottom: 18 }}>
+      <div className="discover-moments" aria-label="Start from a common group purchase">
+        {[
+          ['◒', 'Movie tickets'], ['✦', 'Flights'], ['⌂', 'A place to stay'],
+          ['♫', 'Concert tickets'], ['⌁', 'Dinner'], ['◇', 'Group gift'],
+        ].map(([icon, label]) => (
+          <button key={label} type="button" onClick={() => { setQ(label); void runSearch(label, store) }}>
+            <span>{icon}</span>{label}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={submit} className="card card-pad discover-search" style={{ marginBottom: 18 }}>
         <div className="row wrap" style={{ gap: 10 }}>
           <div className="grow" style={{ minWidth: 200 }}>
             <input
