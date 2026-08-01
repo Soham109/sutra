@@ -600,7 +600,15 @@
       cand.confidence = kind === 'offer' ? 0.82 : 0.9
       // Nothing on the page said which of these the page is *about*. On a
       // search results page that is a coin flip, not a detection.
-      if (ambiguous) cand.confidence -= siblings > 5 ? 0.3 : 0.15
+      //
+      // The penalty scales with how many things we were choosing between: a
+      // real 309-listing Craigslist page was landing on 0.6 and being labelled
+      // "good confidence", which is a coin flip wearing a reassuring word. Two
+      // candidates is a mild doubt; three hundred is not a detection at all.
+      if (ambiguous) {
+        var spread = Math.min(0.45, 0.12 + 0.13 * Math.log2(Math.max(2, siblings)))
+        cand.confidence -= spread
+      }
     } else {
       // Name but no price is still worth having — og/DOM may fill the number.
       cand.confidence = 0.4
@@ -1715,7 +1723,7 @@
 
   function confChip(c) {
     var cls = c >= 0.75 ? 'hi' : c >= 0.5 ? 'md' : 'lo'
-    var word = c >= 0.85 ? 'high confidence' : c >= 0.6 ? 'good confidence' : c >= 0.35 ? 'low confidence' : 'guess'
+    var word = c >= 0.85 ? 'high confidence' : c >= 0.75 ? 'good confidence' : c >= 0.35 ? 'low confidence' : 'guess'
     return el('span', { class: 'chip ' + cls, text: word + ' · ' + Math.round(c * 100) + '%' })
   }
 

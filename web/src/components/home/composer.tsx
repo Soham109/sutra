@@ -93,9 +93,8 @@ export function Composer() {
     <section className="composer" aria-labelledby="composer-title">
       <div className="composer-copy">
         <span className="eyebrow">Start anything</span>
-        <h1 id="composer-title">
-          Say it, paste it,<br />or drop the bill.
-        </h1>
+        {/* No forced break: the card is wide and short now, not a tall slab. */}
+        <h1 id="composer-title">Say it, paste it, or drop the bill.</h1>
         <p>
           An idea gets planned with your group. A link gets read from the merchant. A receipt gets
           itemised. All three end the same way — everyone pays their own share from their own card.

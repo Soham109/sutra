@@ -29,8 +29,20 @@ const here = dirname(fileURLToPath(import.meta.url))
 const repo = join(here, '..')
 
 const args = process.argv.slice(2)
-const baseArg = args.indexOf('--base')
-const BASE = baseArg !== -1 ? args[baseArg + 1] : process.env.APP_BASE_URL || 'http://localhost:4100'
+const flag = (name, fallback) => {
+  const i = args.indexOf(name)
+  return i !== -1 ? args[i + 1] : fallback
+}
+/** Where widget.js is fetched from. The engine serves it at /widget.js. */
+const BASE = flag('--base', process.env.APP_BASE_URL || 'http://localhost:4100')
+/**
+ * Where the widget's API calls go — normally the web app's own /api proxy
+ * rather than the engine directly, because creating a group needs a bearer
+ * token only the operator holds and the proxy attaches it server-side. Without
+ * this, a stranger clicking the bookmarklet gets a clean detection and then a
+ * 401 on the one button that matters.
+ */
+const API = flag('--api', process.env.SUTRA_WIDGET_API || '')
 
 const BEGIN = '/* >>> BEGIN INLINED widget/detect.js'
 const END = '/* <<< END INLINED widget/detect.js'
@@ -160,7 +172,7 @@ try {
 }
 
 function urlFor(base) {
-  const body = minified.replace(/__SUTRA_BASE__/g, base)
+  const body = minified.replace(/__SUTRA_BASE__/g, base).replace(/__SUTRA_API__/g, API)
   // Encode what breaks in an href, a bookmark field or an HTML attribute.
   // Everything else stays readable, because nobody should paste a
   // `javascript:` URL they cannot read.
@@ -181,8 +193,10 @@ const url = urlFor(BASE)
 writeFileSync(join(here, 'bookmarklet.min.js'), minified + '\n')
 writeFileSync(
   join(here, 'bookmarklet.url.txt'),
-  '# Paste this into a bookmark\'s URL field (built for ' + BASE + ').\n' +
-    '# Rebuild for another engine: node widget/build-bookmarklet.mjs --base https://your-engine\n' +
+  '# Paste this into a bookmark\'s URL field.\n' +
+    '#   widget.js from: ' + BASE + '\n' +
+    '#   API calls to:   ' + (API || '(the same origin as widget.js)') + '\n' +
+    '# Rebuild: node widget/build-bookmarklet.mjs --base https://engine --api https://app/api\n' +
     url + '\n',
 )
 say(`bookmarklet: ${bookmarkletSrc.length}b source -> ${minified.length}b minified -> ${url.length}b javascript: URL`)

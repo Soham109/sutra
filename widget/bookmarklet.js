@@ -17,6 +17,7 @@
  */
 ;(function () {
   var BASE = '__SUTRA_BASE__'
+  var API = '__SUTRA_API__'
 
   function toast(msg) {
     try {
@@ -50,6 +51,12 @@
   s.setAttribute('data-sutra-widget', '')
   s.setAttribute('data-sutra-open', '') // open the sheet as soon as it lands
   s.setAttribute('data-gmp-mount', 'none') // no launcher button; the sheet is the point
+  // Where the API calls go, which is deliberately NOT where the script came
+  // from. Creating a group needs a bearer token that only the operator has;
+  // pointing the widget at the app's own /api proxy lets it borrow that
+  // server-side, so a stranger can use the bookmarklet without being handed a
+  // secret. Left blank, the widget falls back to the script's own origin.
+  if (API) s.setAttribute('data-gmp-engine', API)
   s.async = true
   s.onerror = function () {
     if (s.parentNode) s.parentNode.removeChild(s)

@@ -177,6 +177,19 @@ export function absoluteUrl(candidate: string | undefined, base: string): string
   }
 }
 
+/**
+ * Whether the merchant said anything about stock at all.
+ *
+ * `parseAvailability` has to return a boolean because a cart line needs one,
+ * and it defaults an absent field to "available" — which is the only workable
+ * default but is still a guess. This lets the UI distinguish "the merchant
+ * says it is in stock" from "the merchant said nothing and we assumed", so a
+ * group is never shown an inferred fact as a stated one.
+ */
+export function availabilityStated(raw: unknown): boolean {
+  return raw !== undefined && raw !== null && String(raw).trim() !== ''
+}
+
 /** schema.org availability → boolean, tolerant of the many spellings used. */
 export function parseAvailability(raw: unknown): boolean {
   if (raw === undefined || raw === null) return true

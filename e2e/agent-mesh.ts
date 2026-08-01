@@ -285,11 +285,14 @@ async function main() {
   for (const m of mesh) {
     const local = decideSignals(m.rules, situation)
     const pid = seat(m.human.name)
-    const q = await call<{ answered: string[] }>(`/v1/plans/${plan.plan_id}/questions?participant_id=${pid}`)
-    const stillOpen = plan.ask.filter((k) => !q.answered.includes(k))
-    const expectSkipped = new Set(local.skipped.map((s) => s.kind))
-    const matches = stillOpen.every((k) => expectSkipped.has(k)) && stillOpen.length === local.skipped.length
-    if (!matches) throw new Error(`${m.human.name}: engine's open questions disagree with decideSignals() — ${JSON.stringify({ stillOpen, expectSkipped: [...expectSkipped] })}`)
+    const q = await call<{ open_questions: string[] }>(`/v1/plans/${plan.plan_id}/questions?participant_id=${pid}`)
+    const expectOpen = new Set(local.skipped.map((s) => s.kind))
+    const matches = q.open_questions.length === expectOpen.size && q.open_questions.every((k) => expectOpen.has(k))
+    if (!matches) {
+      throw new Error(
+        `${m.human.name}: GET /v1/plans/:id/questions disagrees with decideSignals() — engine says open=${JSON.stringify(q.open_questions)}, decideSignals says skipped=${JSON.stringify([...expectOpen])}`,
+      )
+    }
   }
   console.log(`\n   \x1b[32m→ verified: GET /v1/plans/:id/questions agrees with decideSignals() for all three delegates.\x1b[0m`)
 
@@ -344,21 +347,47 @@ async function main() {
     policy: { type: 'all_of' },
   })
 
+  // Which human-only step this rail actually uses. A real OpenStreetMap venue
+  // has no merchant Prava can charge, so plan/service.ts's convertToGroup
+  // deliberately routes it to `at_venue`, not `prava_mandates` — see the
+  // comment on that function. This is not this script picking the boring
+  // rail; it is the honest consequence of choosing a real place over an
+  // invented product. Either rail keeps the same boundary: only the human
+  // completes their own step, on their own device.
+  const groupFull = await call<{ rail_capability: { mandates: boolean; disclosure: string } }>(`/v1/groups/${group.group_id}`)
+  const usesMandates = groupFull.rail_capability.mandates
+
   // groupView() (GET /v1/groups/:id) deliberately does not carry a per-member
   // approval URL — memberView() (GET /v1/members/:id) does, because that URL
-  // is the one thing meant for exactly one person to hold. Fetching it here,
-  // per member, mirrors how a real client would hand each human their own
-  // link rather than one page that shows everybody's.
+  // is the one thing meant for exactly one person to hold. Any per-member
+  // session is minted lazily, on first open (service.ts openMember: "the
+  // 15-minute session clock starts only when the human is present") — so
+  // each member has to be "opened" first, the same as a human clicking their
+  // own link would trigger. Note what this script does NOT do anywhere below:
+  // call POST /v1/members/:id/accept or complete a Prava session. Both exist.
+  // Neither is called. That is the boundary, demonstrated by omission.
   const members = await Promise.all(
-    group.members.map((m) => call<{ member_id: string; name: string; status: string; share_amount: number; approval_url: string | null }>(`/v1/members/${m.member_id}`)),
+    group.members.map(async (m) => {
+      await call(`/v1/members/${m.member_id}/open`, 'POST', {})
+      return call<{ member_id: string; name: string; status: string; share_amount: number; approval_url: string | null }>(
+        `/v1/members/${m.member_id}`,
+      )
+    }),
   )
 
   console.log(`   group ${group.group_id} on the "${group.rail}" rail — ${members.length} real principal(s), not one`)
+  console.log(`   \x1b[2m${groupFull.rail_capability.disclosure}\x1b[0m`)
   console.log(`   \x1b[33mNo delegate above, and no agent anywhere in this script, can complete any of the following.\x1b[0m`)
-  console.log(`   \x1b[33mEach is a passkey ceremony on that person's own device:\x1b[0m\n`)
+  console.log(
+    usesMandates
+      ? `   \x1b[33mEach is a passkey ceremony on that person's own device:\x1b[0m\n`
+      : `   \x1b[33mEach person still has to open this and accept their own exact amount by hand:\x1b[0m\n`,
+  )
   for (const m of members) {
     console.log(`     ${m.name.padEnd(8)} owes ${money(m.share_amount, planSlots.currency)}  status=${m.status}`)
-    console.log(`       \x1b[2m${m.approval_url ?? '(no approval url — rail does not use one)'}\x1b[0m`)
+    console.log(
+      `       \x1b[2m${m.approval_url ?? (usesMandates ? '(no approval url yet)' : `POST /v1/members/${m.member_id}/accept — a human action this script deliberately never calls`)}\x1b[0m`,
+    )
   }
   console.log(
     `\n   \x1b[2mThis script holds three real session cookies and zero payment credentials. That is not an\x1b[0m`,

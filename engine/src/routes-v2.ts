@@ -4,6 +4,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { Catalog } from './catalog/index.js'
+import { compareOffers } from './catalog/compare.js'
 import { billToCart, parseBill } from './bill/index.js'
 import { inferBillCurrency } from './bill/currency.js'
 import { checkOcrIntegrity } from './bill/integrity.js'
@@ -149,15 +150,20 @@ export function registerProductRoutes(
       return member
     })
     const created = service.createGroup({ ...input, members, created_by: me.id, origin: 'extension' })
+    // Absolute, like /v1/groups already returns. These URLs are rendered into
+    // the MERCHANT'S page by the extension's on-page sheet, so a relative path
+    // resolves against amazon.com rather than against sutra — the two primary
+    // click targets at the payoff moment both 404 on somebody else's site.
+    const base = service.cfg.appBaseUrl.replace(/\/$/, '')
     return reply.status(201).send({
       group_id: created.group.id,
-      board_url: `/g/${created.group.id}/board`,
+      board_url: `${base}/g/${created.group.id}/board`,
       members: created.members.map((member) => ({
         member_id: member.id,
         name: member.display_name,
         role: member.role,
         share_amount: member.share_amount,
-        approval_page_url: `/a/${member.id}`,
+        approval_page_url: `${base}/a/${member.id}`,
       })),
     })
   })
@@ -585,6 +591,31 @@ export function registerProductRoutes(
       merchant: merchant?.trim() || undefined,
       limit: limit ? Math.min(40, Number(limit)) : 12,
     })
+  })
+
+  /**
+   * The same federated search, grouped into like-for-like offers so the
+   * cheapest one can be named. Kept separate from /search because it answers a
+   * different question — "which of these is the same thing, and which of those
+   * is cheapest per unit" — and because it is allowed to return nothing at all
+   * when it cannot honestly group anything.
+   */
+  app.get('/v1/discover/compare', async (req) => {
+    const { q = '', limit } = req.query as { q?: string; limit?: string }
+    const query = q.trim()
+    if (!query) return { groups: [], ungrouped: [], currencies: [], query, sources: [], took_ms: 0 }
+
+    // Cast the net wider than a normal search: comparison needs several
+    // listings of the same thing before it can say anything at all.
+    const found = await catalog.search(query, { limit: limit ? Math.min(60, Number(limit)) : 40 })
+    const compared = compareOffers(found.products)
+    return {
+      ...compared,
+      query,
+      sources: found.sources,
+      took_ms: found.took_ms,
+      searched: found.products.length,
+    }
   })
 
   app.post('/v1/discover/resolve', async (req) => {

@@ -287,8 +287,11 @@
 <!-- Filled in by widget/build-bookmarklet.mjs. Kept as text/plain so it is
      never executed here; the script below rebinds it to this page's origin so
      the same build works on localhost and in production. -->
-<script type="text/plain" id="bookmarklet-src">;(function () {
+<script type="text/plain" id="bookmarklet-src">
+;(function () {
 var BASE = '__SUTRA_BASE__'
+var API = '__SUTRA_API__'
+
 function toast(msg) {
 try {
 var t = document.createElement('div')
@@ -303,32 +306,37 @@ setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t) }, 6000)
 alert(msg)
 }
 }
+
 if (window.__sutra && window.__sutra.open) {
 window.__sutra.open()
 return
 }
+
 var existing = document.querySelector('script[data-sutra-widget]')
 if (existing) {
 toast('sutra is still loading…')
 return
 }
+
 var s = document.createElement('script')
 s.src = BASE + '/widget.js?t=' + Date.now()
 s.setAttribute('data-sutra-widget', '')
 s.setAttribute('data-sutra-open', '')
 s.setAttribute('data-gmp-mount', 'none')
+if (API) s.setAttribute('data-gmp-engine', API)
 s.async = true
 s.onerror = function () {
 if (s.parentNode) s.parentNode.removeChild(s)
 toast('sutra could not load from ' + BASE + ' — this page blocks outside scripts, or the engine is down.')
 }
 document.documentElement.appendChild(s)
+
 setTimeout(function () {
 if (!window.__sutra) {
 toast("sutra didn't load — this page's Content-Security-Policy blocks injected scripts. Use the extension here.")
 }
 }, 4000)
-})()</script>
+})()</script>
 <script>
   (function () {
     var src = document.getElementById('bookmarklet-src').textContent.trim()

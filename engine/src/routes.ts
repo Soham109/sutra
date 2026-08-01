@@ -105,12 +105,22 @@ export function registerRoutes(
   app.post('/v1/groups/:id/cancel', async (req, reply) => {
     const { id } = req.params as { id: string }
     const g = service.mustGroup(id)
+    const body = z.object({ as_member: z.string().optional() }).parse(req.body ?? {})
+
     const holdsToken = (req.headers.authorization ?? '') === `Bearer ${cfg.apiToken}`
     const viewer = cfg.social ? cfg.social.userFor(req as { headers: Record<string, unknown> }) : undefined
-    // A group created before accounts existed has no owner to check against;
-    // the token stays the way in for those and for server-to-server callers.
     const isOrganiser = !!g.created_by && viewer?.id === g.created_by
-    if (!holdsToken && !isOrganiser) {
+
+    // Not every group has an account behind it — one made from the widget or
+    // the bookmarklet has no `created_by` at all. For those the organiser is
+    // whoever set it up, which is the first member created, and the proof is
+    // holding that member's own link. Anyone else's link will not do: on a
+    // quorum policy a single decline does not abort, so letting any member
+    // cancel would hand them power the policy deliberately withheld.
+    const first = g.created_by ? null : service.db.membersOf(g.id)[0]
+    const isFounder = !!first && !!body.as_member && body.as_member === first.id
+
+    if (!holdsToken && !isOrganiser && !isFounder) {
       return reply.status(403).send({ error: 'only the person who started this group can call it off' })
     }
     await service.cancelGroup(id)

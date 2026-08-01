@@ -125,7 +125,7 @@
   function review(det, cfg) {
     const conf = det.confidence
     const cls = conf >= 0.75 ? 'hi' : conf >= 0.5 ? 'md' : 'lo'
-    const word = conf >= 0.85 ? 'high confidence' : conf >= 0.6 ? 'good confidence' : conf >= 0.35 ? 'low confidence' : 'guess'
+    const word = conf >= 0.85 ? 'high confidence' : conf >= 0.75 ? 'good confidence' : conf >= 0.35 ? 'low confidence' : 'guess'
     const cur = det.currency || 'USD'
     const unit = det.items[0] ? det.items[0].unit_amount : det.total_minor || 0
     const qty = det.items[0] ? det.items[0].qty : 1

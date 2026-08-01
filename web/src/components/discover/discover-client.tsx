@@ -8,6 +8,7 @@ import { Builder } from './builder'
 import { HowThisWorksNote } from './empty-state'
 import { ProductCard, ProductCardSkeleton, ResultsGrid } from './product-card'
 import { ProductImage } from './product-image'
+import { PriceCompare } from './price-compare'
 import { SourceErrors, SourceStrip, UnavailableSources, type SourceHealth } from './sources'
 import { detailFromProduct, domainOf, looksLikeUrl, normaliseUrl } from './model'
 
@@ -596,6 +597,16 @@ export function DiscoverClient() {
           <SourceStrip sources={results.sources} tookMs={results.took_ms} />
           <SourceErrors sources={results.sources} />
           {health.length > 0 && <UnavailableSources health={health} />}
+
+          {/* Only worth offering once there is something to compare against.
+              One result cannot be cheaper than anything. */}
+          {results.products.length > 1 && !results.resolved && (
+            <PriceCompare
+              key={results.query}
+              query={results.query}
+              onPick={(url) => void resolveUrl(url, true)}
+            />
+          )}
 
           {results.warnings && results.warnings.length > 0 && (
             <p className="tiny faint">{results.warnings.join(' · ')}</p>
