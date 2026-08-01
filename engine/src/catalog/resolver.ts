@@ -12,6 +12,7 @@ import {
   titleTag,
 } from './parse.js'
 import type { Money, ProductDetail, ResolveResult, Variant } from './types.js'
+export type { Money }
 
 // Universal product resolver.
 //
@@ -149,14 +150,25 @@ async function fromJsonLd(ctx: Ctx): Promise<Partial<ProductDetail> | null> {
       }
     : undefined
 
+  // Stores commonly publish one offer per size. The product is buyable if ANY
+  // of them is — judging by offers[0] alone marks live items as sold out.
+  const anyAvailable = offers.length > 0 ? offers.some((o) => parseAvailability(o['availability'])) : true
+  // Quote the cheapest available offer, so the price shown is one a member can
+  // actually be charged.
+  const buyable = variants.filter((v) => v.available)
+  const headline = (buyable.length ? buyable : variants).reduce<Money | undefined>(
+    (min, v) => (!min || v.price.amount_minor < min.amount_minor ? v.price : min),
+    undefined,
+  )
+
   return {
     title: str(node['name']),
     description: node['description'] ? stripTags(String(node['description'])) : undefined,
-    price: primary ? offerPrice(primary) ?? undefined : variants[0]?.price,
+    price: headline ?? (primary ? offerPrice(primary) ?? undefined : undefined),
     brand: str(brandName(node['brand'])),
     images,
     variants,
-    in_stock: primary ? parseAvailability(primary['availability']) : true,
+    in_stock: anyAvailable,
     rating: rating && rating.value > 0 ? rating : undefined,
     attributes: pickAttributes(node),
   }

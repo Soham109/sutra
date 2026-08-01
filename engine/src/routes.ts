@@ -269,6 +269,11 @@ export function groupView(service: GroupService, g: GroupRow) {
     tolerance_bps: g.tolerance_bps,
     straggler_policy: g.straggler_policy,
     no_blame: !!g.no_blame,
+    // The organizer is the one person no-blame mode does not hide declines
+    // from — the surfaces need this to make that call.
+    created_by: g.created_by,
+    circle_id: g.circle_id,
+    product: g.product_json ? JSON.parse(g.product_json) : null,
     deadline_at: g.deadline_at,
     decision_note: g.decision_note,
     terminal: GROUP_TERMINAL.has(g.status),

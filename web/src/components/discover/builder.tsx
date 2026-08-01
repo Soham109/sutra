@@ -1,0 +1,402 @@
+'use client'
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { api, type Policy, type ProductDetail } from '@/lib/api'
+import { useSession } from '@/components/session'
+import { Badge, ErrorNote, Guardrail, Money } from '@/components/ui'
+import { money } from '@/lib/format'
+import { CartEditor } from './cart-editor'
+import { ClaimsEditor } from './claims-editor'
+import { PeopleEditor } from './people-editor'
+import { PolicyEditor } from './policy-editor'
+import { ProductImage } from './product-image'
+import { SettingsEditor } from './settings-editor'
+import { SplitPreview } from './split-preview'
+import {
+  type DraftFee,
+  type DraftItem,
+  type DraftMember,
+  type Role,
+  type StragglerPolicy,
+  claimers,
+  computeSplit,
+  firstMember,
+  itemFromProduct,
+  policyMembers,
+  policyUsesWeights,
+} from './model'
+
+interface MemberPayload {
+  name: string
+  role: Role
+  weight?: number
+  backstop_cap?: number
+  sponsor_for?: string
+  user_id?: string
+}
+
+interface CreateResponse {
+  group_id: string
+  board_url: string
+  members: { member_id: string; name: string; role: Role; share_amount: number; approval_page_url: string }[]
+}
+
+interface Problem {
+  text: string
+  fix?: { label: string; run: () => void }
+}
+
+export function Builder({
+  product,
+  strategy,
+  warnings,
+  onBack,
+}: {
+  product: ProductDetail
+  strategy?: string
+  warnings?: string[]
+  onBack: () => void
+}) {
+  const router = useRouter()
+  const { user, friends, circles } = useSession()
+  const currency = product.price.currency
+
+  const [me] = useState<DraftMember>(() => firstMember(user))
+  const [members, setMembers] = useState<DraftMember[]>(() => [me])
+  const [variantId, setVariantId] = useState(
+    () => product.variants.find((v) => v.available)?.id ?? product.variants[0]?.id ?? '',
+  )
+  const [items, setItems] = useState<DraftItem[]>(() => [itemFromProduct(product, variantId, [me.key])])
+  const seedKey = useRef(items[0]?.key ?? '')
+  const [fees, setFees] = useState<DraftFee[]>([])
+  const [title, setTitle] = useState(product.title.slice(0, 90))
+  const [policy, setPolicy] = useState<Policy>({ type: 'all_of' })
+  const [deadlineMinutes, setDeadlineMinutes] = useState(60)
+  const [toleranceBps, setToleranceBps] = useState(100)
+  const [straggler, setStraggler] = useState<StragglerPolicy>('drop_and_continue')
+  const [noBlame, setNoBlame] = useState(false)
+  const [circleId, setCircleId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const split = useMemo(
+    () => computeSplit(items, fees, members, toleranceBps),
+    [items, fees, members, toleranceBps],
+  )
+
+  // The session can land after the builder mounts (deep link straight to
+  // ?step=build). When it does, the first member becomes you properly.
+  useEffect(() => {
+    if (!user) return
+    setMembers((current) =>
+      current.length === 1 && !current[0].userId
+        ? [{ ...current[0], name: current[0].name === 'You' ? user.name : current[0].name, userId: user.id }]
+        : current,
+    )
+  }, [user])
+
+  /** Members and claims move together: a line claimed by "everyone" keeps
+   *  meaning everyone as the group grows, and a removed person stops claiming. */
+  const handleMembers = (next: DraftMember[]) => {
+    const prevAll = claimers(members).map((m) => m.key)
+    const nextAll = claimers(next).map((m) => m.key)
+    setMembers(next)
+    setItems((current) =>
+      current.map((it) => {
+        const chosen = it.claimants.filter((k) => prevAll.includes(k))
+        const wasEveryone = chosen.length === 0 || chosen.length === prevAll.length
+        const kept = it.claimants.filter((k) => nextAll.includes(k))
+        return { ...it, claimants: wasEveryone || kept.length === 0 ? nextAll : kept }
+      }),
+    )
+  }
+
+  const handleVariant = (id: string) => {
+    setVariantId(id)
+    const fresh = itemFromProduct(product, id, [])
+    setItems((current) =>
+      current.map((it) =>
+        it.key === seedKey.current ? { ...it, sku: fresh.sku, name: fresh.name, unitAmount: fresh.unitAmount } : it,
+      ),
+    )
+  }
+
+  const payers = claimers(members)
+  const weightTotal = payers.reduce((a, m) => a + Math.max(0, m.weight), 0)
+
+  const problems: Problem[] = []
+  if (!title.trim()) {
+    problems.push({
+      text: 'The group has no name. People see it before they see anything else.',
+      fix: product.title.trim()
+        ? { label: `Use “${product.title.slice(0, 40)}”`, run: () => setTitle(product.title.slice(0, 90)) }
+        : undefined,
+    })
+  }
+  if (members.some((m) => !m.name.trim())) {
+    problems.push({ text: 'Somebody in the group has no name yet. Claims are recorded by name.' })
+  }
+  const lowered = members.map((m) => m.name.trim().toLowerCase()).filter(Boolean)
+  if (new Set(lowered).size !== lowered.length) {
+    problems.push({ text: 'Two people have the same name. Add a surname or an initial so the claims stay unambiguous.' })
+  }
+  if (payers.length === 0) {
+    problems.push({ text: 'Nobody can pay. At least one person has to be a payer or a backstop.' })
+  }
+  if (items.length === 0 || split.itemsTotal <= 0) {
+    problems.push({ text: 'The cart costs nothing. Give at least one line a price above zero.' })
+  }
+  if (items.some((it) => !it.name.trim())) {
+    problems.push({ text: 'One of the lines has no description. Name it so people know what they are approving.' })
+  }
+  const sponsorless = members.filter((m) => m.role === 'sponsor' && !m.sponsorFor)
+  if (sponsorless.length > 0) {
+    problems.push({
+      text: `${sponsorless[0].name || 'A sponsor'} is a sponsor but is not covering anybody. Pick someone, or make them a payer.`,
+    })
+  }
+  const namesNow = new Set(members.map((m) => m.name.trim()).filter(Boolean))
+  for (const n of new Set(policyMembers(policy))) {
+    if (!n) problems.push({ text: 'The policy singles out a person, but no person is chosen yet.' })
+    else if (!namesNow.has(n)) {
+      problems.push({ text: `The policy names ${n}, who is not in the group any more. Choose somebody else.` })
+    }
+  }
+  if (policy.type === 'quorum' && policy.m > payers.length) {
+    problems.push({
+      text: `The rule needs ${policy.m} approvals, but only ${payers.length} ${payers.length === 1 ? 'person' : 'people'} can approve.`,
+      fix: { label: `Ask for ${payers.length}`, run: () => setPolicy({ type: 'quorum', m: Math.max(1, payers.length) }) },
+    })
+  }
+  if (policy.type === 'weighted' && policy.threshold > weightTotal) {
+    problems.push({
+      text: `The rule needs ${policy.threshold} of weight, and everyone together is worth ${weightTotal}.`,
+      fix: {
+        label: `Ask for ${Math.max(1, weightTotal)}`,
+        run: () => setPolicy({ type: 'weighted', threshold: Math.max(1, weightTotal) }),
+      },
+    })
+  }
+
+  const ready = problems.length === 0 && !busy
+
+  const create = async () => {
+    if (!ready) return
+    setBusy(true)
+    setError('')
+    const nameOf = (key: string) => members.find((m) => m.key === key)?.name.trim() ?? ''
+    const eligKeys = payers.map((m) => m.key)
+
+    const cartItems = items.map((it) => {
+      const chosen = it.claimants.filter((k) => eligKeys.includes(k))
+      const list = chosen.length > 0 ? chosen : eligKeys
+      const everyone = members.length === list.length && members.every((m) => list.includes(m.key))
+      return {
+        sku: it.sku || it.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'line',
+        name: it.name.trim(),
+        unit_amount: it.unitAmount,
+        qty: it.qty,
+        tier: it.tier,
+        claimants: everyone ? ['mi_all'] : list.map(nameOf).filter(Boolean),
+        contested: list.length > it.qty,
+      }
+    })
+
+    const usesWeights = policyUsesWeights(policy)
+    const memberPayload: MemberPayload[] = members.map((m) => {
+      const out: MemberPayload = { name: m.name.trim(), role: m.role }
+      if (usesWeights && m.role !== 'observer') out.weight = m.weight
+      if (m.role === 'backstop') out.backstop_cap = m.backstopCap
+      if (m.role === 'sponsor' && m.sponsorFor) out.sponsor_for = nameOf(m.sponsorFor)
+      if (m.userId) out.user_id = m.userId
+      return out
+    })
+
+    try {
+      const res = await api.post<CreateResponse>('/v1/groups', {
+        title: title.trim(),
+        merchant: {
+          id: product.merchant.domain,
+          name: product.merchant.name,
+          url: product.merchant.url,
+          country_code_iso2: product.merchant.country_code_iso2,
+        },
+        cart: { items: cartItems, fees: fees.map((f) => ({ name: f.name.trim() || 'Fee', amount: f.amount })), currency },
+        members: memberPayload,
+        policy,
+        tolerance_bps: toleranceBps,
+        straggler_policy: straggler,
+        no_blame: noBlame,
+        deadline_minutes: deadlineMinutes,
+        created_by: user?.id,
+        circle_id: circleId || undefined,
+        product,
+      })
+      router.push(`/app/groups/${res.group_id}`)
+    } catch (e) {
+      setError(
+        (e as Error).message ||
+          'The engine would not take that group. Nothing was created and nobody was contacted.',
+      )
+      setBusy(false)
+    }
+  }
+
+  const createButton = (
+    <button type="button" className="btn btn-primary btn-block btn-lg" disabled={!ready} onClick={() => void create()}>
+      {busy ? 'Creating…' : `Create the group · ${money(split.total, currency)}`}
+    </button>
+  )
+
+  return (
+    <div className="col" style={{ gap: 18 }}>
+      <div className="card card-pad">
+        <div className="row wrap" style={{ gap: 14, alignItems: 'flex-start' }}>
+          <div style={{ width: 92, flex: 'none' }}>
+            <ProductImage
+              src={product.images[0] ?? product.image_url}
+              alt={product.title}
+              domain={product.merchant.domain}
+              ratio="1 / 1"
+              radius="var(--r)"
+            />
+          </div>
+          <div className="grow col" style={{ gap: 8, minWidth: 200 }}>
+            <div className="row wrap" style={{ gap: 8 }}>
+              <span className="mono tiny faint">{product.merchant.domain}</span>
+              {product.brand && <Badge>{product.brand}</Badge>}
+              {!product.in_stock && <Badge tone="warn">out of stock</Badge>}
+              {strategy && <Badge>read via {strategy}</Badge>}
+            </div>
+            <label className="field">
+              <span className="field-label">Group name</span>
+              <input
+                className="input input-lg"
+                value={title}
+                maxLength={120}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="What is this group buying?"
+              />
+            </label>
+            <div className="row wrap" style={{ gap: 12 }}>
+              <a className="btn btn-ghost" href={product.product_url} target="_blank" rel="noreferrer noopener">
+                View on {product.merchant.domain} ↗
+              </a>
+              <button type="button" className="btn btn-ghost" onClick={onBack}>
+                ← Choose something else
+              </button>
+            </div>
+          </div>
+          <div className="col" style={{ alignItems: 'flex-end', gap: 2 }}>
+            <Money minor={product.price.amount_minor} currency={currency} size="lg" />
+            <span className="tiny faint">{product.unit_label}</span>
+          </div>
+        </div>
+
+        {warnings && warnings.length > 0 && (
+          <p className="tiny faint" style={{ marginTop: 12, lineHeight: 1.6 }}>
+            {warnings.map((w, i) => (
+              <span key={i} style={{ display: 'block' }}>
+                Note while reading the page: {w}
+              </span>
+            ))}
+          </p>
+        )}
+
+        {product.fine_print.length > 0 && (
+          <p className="tiny faint" style={{ marginTop: 8 }}>
+            {product.fine_print.join(' · ')}
+          </p>
+        )}
+      </div>
+
+      <div className="row" style={{ gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div className="col" style={{ gap: 18, flex: '3 1 440px', minWidth: 0 }}>
+          <CartEditor
+            product={product}
+            variantId={variantId}
+            onVariant={handleVariant}
+            items={items}
+            fees={fees}
+            currency={currency}
+            itemsTotal={split.itemsTotal}
+            feesTotal={split.feesTotal}
+            onItems={setItems}
+            onFees={setFees}
+          />
+
+          <PeopleEditor
+            members={members}
+            onMembers={handleMembers}
+            friends={friends}
+            circles={circles}
+            currency={currency}
+            meId={user?.id}
+            circleId={circleId}
+            onCircle={setCircleId}
+          />
+
+          <ClaimsEditor items={items} members={members} currency={currency} onItems={setItems} />
+
+          <PolicyEditor policy={policy} onPolicy={setPolicy} members={members} onMembers={handleMembers} />
+
+          <SettingsEditor
+            deadlineMinutes={deadlineMinutes}
+            onDeadline={setDeadlineMinutes}
+            toleranceBps={toleranceBps}
+            onTolerance={setToleranceBps}
+            straggler={straggler}
+            onStraggler={setStraggler}
+            noBlame={noBlame}
+            onNoBlame={setNoBlame}
+            sampleShare={split.shares.find((s) => s.payable > 0)?.payable ?? Math.round(split.total / Math.max(1, payers.length))}
+            currency={currency}
+          />
+        </div>
+
+        <div className="col" style={{ gap: 14, flex: '1 1 300px', minWidth: 0, position: 'sticky', top: 70 }}>
+          <SplitPreview split={split} currency={currency} toleranceBps={toleranceBps} />
+
+          <div className="card card-pad col" style={{ gap: 12 }}>
+            <Guardrail merchant={product.merchant.name} cap={split.total} currency={currency} />
+
+            {problems.length > 0 && (
+              <div className="col" style={{ gap: 8 }}>
+                {problems.slice(0, 4).map((p, i) => (
+                  <div key={i} className="row wrap" style={{ gap: 8, alignItems: 'flex-start' }}>
+                    <span className="tiny" style={{ color: 'var(--warn)', lineHeight: 1.5 }}>
+                      {p.text}
+                    </span>
+                    {p.fix && (
+                      <button type="button" className="btn btn-secondary tiny" onClick={p.fix.run}>
+                        {p.fix.label}
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {problems.length > 4 && (
+                  <span className="tiny faint">and {problems.length - 4} more to fix.</span>
+                )}
+              </div>
+            )}
+
+            {error && (
+              <ErrorNote>
+                {error} Nothing was created and nobody has been asked for money — fix the detail above and try
+                again.
+              </ErrorNote>
+            )}
+
+            {createButton}
+
+            <p className="tiny faint" style={{ lineHeight: 1.55 }}>
+              Creating the group only sends everyone a link. No card is touched until each person approves their
+              own share on their own device.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -1,5 +1,9 @@
 node_modules/
 dist/
+.next/
+out/
+.vercel/
+next-env.d.ts
 *.tsbuildinfo
 .env
 *.db
