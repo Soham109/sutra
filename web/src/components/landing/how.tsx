@@ -46,9 +46,15 @@ const STEPS: Step[] = [
   },
   {
     n: '05',
-    title: 'Everyone pays their own share',
-    body: 'Each person approves their own amount on their own card, capped at their own number by the card network. Every phone flips in the same second — or nobody is charged at all.',
-    aside: 'Nobody fronts the money. Nobody chases anybody.',
+    title: 'Everyone approves. Nobody has paid yet.',
+    body: 'Each person approves a Prava mandate with their own passkey — a permission to charge one merchant, up to one amount. Approving costs nothing and shows up nowhere. No card has been touched.',
+    aside: 'Not a hold. Nothing is reserved against anyone’s balance.',
+  },
+  {
+    n: '06',
+    title: 'Then everyone pays at once — or nobody does',
+    body: 'Only once the group’s rule is satisfied does Prava mint a single-use card number per person and charge it. If somebody backs out, every mandate is cancelled instead: no charge, so no refund, and nothing to wait three days for.',
+    aside: 'The cap is enforced by the card network, not by our arithmetic.',
   },
 ]
 

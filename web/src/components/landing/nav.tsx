@@ -11,10 +11,12 @@ import { Mark } from '@/components/shell'
 // tighter height once you have actually scrolled. At rest it should feel like
 // part of the page; in motion it should feel like it is above it.
 
+// "Architecture" used to point at #proof, a section that is commented out in
+// page.tsx — so the link scrolled nowhere.
 const LINKS = [
   { href: '#how', label: 'How it works' },
   { href: '#product', label: 'Product' },
-  { href: '#proof', label: 'Architecture' },
+  { href: '#consent', label: 'The decision' },
 ]
 
 export function LandingNav({ specUrl }: { specUrl: string }) {

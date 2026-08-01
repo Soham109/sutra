@@ -3,6 +3,7 @@ import { Mark } from '@/components/shell'
 import { ConsentThreadDemo } from '@/components/landing/consent-thread'
 import { HowItWorks } from '@/components/landing/how'
 import { LandingNav } from '@/components/landing/nav'
+import { LiveBadge } from '@/components/landing/live-badge'
 import { MandateOrbit } from '@/components/landing/mandate-orbit'
 import { ProductLab } from '@/components/landing/product-lab'
 import './landing.css'
@@ -19,9 +20,10 @@ export default function Landing() {
     <main>
       <section className="l-wrap l-hero"><div className="l-hero-copy">
         <h1>Split it before<br />you <span>pay it.</span></h1>
-        <p>Plan the thing, ask everyone the awkward questions, and let each person pay their own share from their own card. No one fronts the money. No one chases anyone for it afterwards.</p>
+        <p>Plan the thing, ask everyone the awkward questions, then let each person approve their own share on their own card. Every card is charged in the same moment, or none of them is. Nobody fronts the money and nobody chases anyone for it.</p>
         <div className="l-hero-actions"><Link className="l-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link><Link className="l-button l-button-quiet" href="/app/bill">Split a bill</Link></div>
         <div className="l-hero-proof"><span>Nothing pooled</span><span>Nothing fronted</span><span>Nothing invented</span></div>
+        <LiveBadge />
       </div>
       <MandateOrbit />
       </section>

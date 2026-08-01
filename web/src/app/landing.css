@@ -539,3 +539,16 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* The live adapter badge.
+   It is a link, deliberately: the claim is only worth what it costs to check,
+   and this costs one click to the engine's own /health. */
+.l-live-badge { display: inline-flex; align-items: center; gap: 9px; margin-top: 18px; padding: 7px 13px 7px 11px; border: 1px solid rgb(255 255 255 / .16); border-radius: 999px; background: rgb(255 255 255 / .05); color: inherit; text-decoration: none; font-size: 12px; letter-spacing: -.01em; backdrop-filter: blur(8px); transition: border-color .18s, background .18s; }
+.l-live-badge:hover { border-color: rgb(255 255 255 / .34); background: rgb(255 255 255 / .09); }
+.l-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #43d39a; box-shadow: 0 0 0 3px rgb(67 211 154 / .2); flex: none; }
+.l-live-badge.is-mock .l-live-dot { background: #e8b45c; box-shadow: 0 0 0 3px rgb(232 180 92 / .2); }
+.l-live-check { opacity: .55; font-size: 11px; }
+@media (prefers-reduced-motion: no-preference) {
+  .l-live-dot { animation: l-live-pulse 2.4s ease-in-out infinite; }
+}
+@keyframes l-live-pulse { 0%, 100% { box-shadow: 0 0 0 3px rgb(67 211 154 / .2); } 50% { box-shadow: 0 0 0 6px rgb(67 211 154 / .05); } }

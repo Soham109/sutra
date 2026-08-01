@@ -91,69 +91,77 @@ export function Composer() {
 
   return (
     <section className="composer" aria-labelledby="composer-title">
-      <div className="composer-copy">
-        <span className="eyebrow">Start anything</span>
-        {/* No forced break: the card is wide and short now, not a tall slab. */}
-        <h1 id="composer-title">Say it, paste it, or drop the bill.</h1>
-        <p>
-          An idea gets planned with your group. A link gets read from the merchant. A receipt gets
-          itemised. All three end the same way — everyone pays their own share from their own card.
+      <header className="page-head">
+        <span className="eyebrow">Sutra bot</span>
+        <h1 id="composer-title">What are we doing?</h1>
+        <p className="muted">
+          Say it, paste a link, or drop in the bill. An idea gets planned with your group, a link
+          gets read from the merchant, a receipt gets itemised — and all three end the same way.
         </p>
-      </div>
+      </header>
 
-      <div className="composer-action">
-        <div className={`composer-box${read ? ` composer-box-${read.route}` : ''}`}>
-          {multiline ? (
-            <textarea
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              rows={8}
-              placeholder={'Paste the receipt, line by line…\n\n2x Margherita       24.00\nPaneer Tikka        380\nService charge       45'}
-              aria-label="Describe a plan, paste a link, or paste a bill"
-              autoFocus
-            />
-          ) : (
-            <input
-              value={value}
-              onChange={(e) => {
-                const next = e.target.value
-                setValue(next)
-                if (next.includes('\n')) setMultiline(true)
-              }}
-              onPaste={(e) => {
-                // A pasted receipt needs room to breathe immediately.
-                if (e.clipboardData.getData('text').includes('\n')) setMultiline(true)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  go()
-                }
-              }}
-              placeholder="Dinner saturday with Arsh and Maya near Koramangala, under ₹800 each"
-              aria-label="Describe a plan, paste a link, or paste a bill"
-            />
-          )}
+      <form
+        className="ask-box"
+        onSubmit={(e) => {
+          e.preventDefault()
+          go()
+        }}
+      >
+        <textarea
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value)
+            if (e.target.value.includes('\n')) setMultiline(true)
+          }}
+          onPaste={(e) => {
+            // A pasted receipt needs room to breathe immediately.
+            if (e.clipboardData.getData('text').includes('\n')) setMultiline(true)
+          }}
+          onKeyDown={(e) => {
+            // Enter sends; shift-enter is for the people pasting a receipt.
+            if (e.key === 'Enter' && !e.shiftKey && !multiline) {
+              e.preventDefault()
+              go()
+            }
+          }}
+          rows={multiline ? 9 : 3}
+          placeholder="Dinner Saturday with Arsh and Maya near Koramangala, under ₹800 each"
+          aria-label="Describe a plan, paste a link, or paste a bill"
+        />
+        <button className="btn btn-primary btn-lg" type="submit" disabled={!read}>
+          {read ? read.label : 'Continue'}
+        </button>
+      </form>
 
-          <div className="composer-foot">
-            <button
-              type="button"
-              className="composer-mode"
-              onClick={() => setMultiline((v) => !v)}
-              aria-pressed={multiline}
-            >
-              {multiline ? 'One line' : 'Paste a receipt'}
-            </button>
-            <button type="button" className="btn btn-primary" onClick={go} disabled={!read}>
-              {read ? read.label : 'Continue'}
-            </button>
-          </div>
-        </div>
+      {/* Say where this is about to go before anything is pressed. Detection
+          that acts silently is a magic trick; detection that announces itself
+          is a tool. */}
+      <p className="composer-read" role="status" aria-live="polite">
+        {read ? read.detail : 'Type anything. We’ll tell you what happens next before it happens.'}
+      </p>
 
-        <p className="composer-read" role="status" aria-live="polite">
-          {read ? read.detail : 'Type anything. We’ll tell you what happens next before it happens.'}
-        </p>
+      <div className="ask-examples">
+        <span className="tiny faint">Try one:</span>
+        {EXAMPLES.map((ex) => (
+          <button
+            key={ex}
+            type="button"
+            onClick={() => {
+              setValue(ex)
+              setMultiline(false)
+            }}
+          >
+            {ex}
+          </button>
+        ))}
       </div>
     </section>
   )
 }
+
+/** The same three the Sutra bot page offers, so the two never disagree. */
+const EXAMPLES = [
+  'Dinner Saturday with Arsh and Maya near Koramangala, under ₹800 each',
+  'Somewhere to watch the match with the boys tonight',
+  'Coffee tomorrow morning with Priya around Indiranagar',
+]

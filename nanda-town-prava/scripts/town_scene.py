@@ -462,11 +462,20 @@ async def run_live_scene(base_url: str, token: str) -> None:
     say(f"group_id : {auth.group_id}")
     say(f"board_url: {auth.board_url}")
     say(f"status   : {group.status}")
-    say("one real approval URL per principal — each is Prava's own hosted ceremony:")
+    say(f"one real approval URL per member whose session opened before commit "
+        f"({len(group.approval_urls)} of 4) — each is Prava's own hosted ceremony:")
     for name, url in group.approval_urls.items():
         say(f"  {name:<8} -> {url}")
-    check("four distinct approval URLs were minted",
-          len(set(group.approval_urls.values())) == len(group.approval_urls))
+    if mock and len(group.approval_urls) < 4:
+        say("Fewer than four: on a real engine, auto-approval races ahead of quorum. "
+            "quorum(2) committed as soon as Soham and Arsh approved, so Dev's and "
+            "Maya's sessions never opened — there was nothing left to open a ceremony")
+        say("for. The simulated scene uses auto_approve=False specifically so every "
+            "session opens before anyone approves, which is what makes the decline / "
+            "backstop cascade in Acts 3-5 there observable step by step.")
+    check("every minted approval URL is distinct — no two people share a ceremony",
+          len(set(group.approval_urls.values())) == len(group.approval_urls),
+          f"{len(group.approval_urls)} minted")
 
     if mock:
         check("group committed with auto-approval standing in for the passkey tap",
@@ -476,8 +485,22 @@ async def run_live_scene(base_url: str, token: str) -> None:
         report = payments.conservation_report()
         check("no_pooled_funds", report["no_pooled_funds"])
         check("settlement_conserved", report["settlement_conserved"])
-        say("Full commit proof against this exact adapter, with a real Ed25519 signature, "
-            "is in docs/NANDA-EVIDENCE.md §3.3.")
+
+        receipt = await payments._bundle.transport.get_receipt(auth.group_id)  # noqa: SLF001
+        if receipt:
+            say("")
+            say("this run's own signed receipt, straight off the real engine's HTTP API:")
+            say(f"  rail: {receipt.get('rail')}   status: {receipt.get('status')}")
+            say(f"  totals: {json.dumps(receipt.get('totals'))}")
+            say(f"  settlement_disclosure: {receipt.get('settlement_disclosure')}")
+            say(f"  chain_head: {receipt.get('chain_head')}")
+            sig = str(receipt.get("signature") or "")
+            say(f"  signature: {len(sig)} hex chars"
+                + (f" ({sig[:24]}…)" if sig else " (this engine did not attach one)"))
+            check("this run's receipt says rail=prava_mandates",
+                  receipt.get("rail") == "prava_mandates", str(receipt.get("rail")))
+        await run_agent_cannot_pay_agent()
+        await run_prepaid_credits_contrast()
         return
 
     check("every approval URL is Prava's own hosted ceremony, not our mock ceremony",

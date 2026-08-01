@@ -139,9 +139,42 @@ export function extractDeterministic(text: string, now = new Date()): Extraction
   }
 }
 
-/** The phrase to geocode, if the sentence named a place. Service resolves it. */
+/**
+ * Words that follow "in"/"at"/"near" constantly and are never a place. Without
+ * these, a case-insensitive match turns "dinner at 8" into a search for "8"
+ * and "in the evening" into a search for "the evening".
+ */
+const NOT_A_PLACE =
+  /^(?:the|a|an|my|our|your|this|that|some|any|it|us|me|them|him|her|home|town|city|person|people|mind|order|total|advance|cash|fact|time|general|particular|between|about|case|which|what|when|where|how|why|and|or|but|to|for|of|on|off|up|down|out|over|under|before|after|during|while|because|if|so|than|then|there|here|now|today|tonight|tomorrow|yesterday|morning|afternoon|evening|night|noon|midnight|weekend|week|month|year|day|days|hours?|mins?|minutes?|am|pm|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)$/i
+
+/**
+ * The phrase to geocode, if the sentence named a place. The service resolves
+ * it; nothing here invents a coordinate.
+ *
+ * This used to demand a capital letter, which meant "dinner this saturday in
+ * khan market" — an entirely normal way to type — named nowhere, geocoded
+ * nothing, and left the options board saying "nobody has shared a location
+ * yet" about a sentence that had just named one. People do not capitalise.
+ *
+ * A capitalised run is still trusted outright. Otherwise the words after the
+ * preposition are taken up to the first one that is obviously not a place, and
+ * an empty result is returned rather than a guess.
+ */
 export function locationPhrase(text: string): string | null {
-  return /\b(?:near|around|in|at|by)\s+([A-Z][\w'’.-]*(?:\s+[A-Z][\w'’.-]*){0,3})/.exec(text)?.[1] ?? null
+  const capitalised = /\b(?:near|around|in|at|by)\s+([A-Z][\w'’.-]*(?:\s+[A-Z][\w'’.-]*){0,3})/.exec(text)?.[1]
+  if (capitalised) return capitalised
+
+  const m = /\b(?:near|around|in|at|by)\s+([\w'’.-]+(?:\s+[\w'’.-]+){0,3})/i.exec(text)
+  if (!m?.[1]) return null
+
+  const kept: string[] = []
+  for (const word of m[1].split(/\s+/)) {
+    // A bare number after "at" is a time, not an address.
+    if (NOT_A_PLACE.test(word) || /^\d/.test(word)) break
+    kept.push(word)
+  }
+  const phrase = kept.join(' ').replace(/[.,;:!?]+$/, '').trim()
+  return phrase.length >= 3 ? phrase : null
 }
 
 /** True when the text names a currency outright, so nothing may override it. */

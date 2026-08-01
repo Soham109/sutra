@@ -12,6 +12,36 @@ layers:
 
 ---
 
+## See it happen
+
+One command, narrated on screen: four named town agents — Soham, Arsh, Dev,
+Maya — mint a real `pay_group()` mandate each, Dev declines mid-flight, Maya's
+backstop absorbs the shortfall, the group commits, the signed receipt and
+`conservation_report()` print with all three invariants ticked — and the same
+purchase is then attempted against the bundled `prepaid_credits` side by side,
+plus a direct demonstration that one agent cannot pay another on this rail.
+
+```bash
+python scripts/town_scene.py
+```
+
+Zero network, zero keys, fully reproducible. Point the identical `pay_group()`
+call at a real GMP/1 engine instead — it mints real
+`sandbox.collect.prava.space` approval URLs:
+
+```bash
+python scripts/town_scene.py --mode live
+```
+
+[`scripts/town_scene.py`](scripts/town_scene.py) explains, in its own module
+docstring, why the scene shows a *backstop absorbing* a decline rather than a
+*requote cascade*: the local `simulated` engine implements the former but not
+the latter (Limitations #9 below) — a real requote cascade is proven
+separately, over HTTP, in [`scripts/live_check.py`](scripts/live_check.py) and
+[`docs/NANDA-EVIDENCE.md`](../docs/NANDA-EVIDENCE.md) §3.1.
+
+---
+
 ## The point: `pay()` never moves pooled funds
 
 Nanda Town's bundled `prepaid_credits` is a pooled internal ledger. `pay()` debits
@@ -95,6 +125,11 @@ payments:
 ---
 
 ## Run
+
+For the group-purchase differentiator specifically — narrated, with the
+`prepaid_credits` contrast — see [See it happen](#see-it-happen) above
+(`python scripts/town_scene.py`). What follows here is the plain
+`nest run` / `pytest` path.
 
 Out of the box, with **no engine, no network and no keys**:
 
@@ -439,7 +474,7 @@ PASS marketplace_all_responded   - all 500 requests answered
 PASS marketplace_price_agreement -
 
 $ pytest -q
-44 passed, 1 skipped
+46 passed, 1 skipped
 ```
 
 The `prepaid_credits` baseline and the `prava_mandates` run produce traces of
@@ -458,6 +493,10 @@ nanda_town_prava/
   _simulator.py    in-process GMP/1 engine for `simulated` mode
   _redaction.py    redaction by construction
 tests/             conservation, unknown states, refund honesty, group commit, secrets
+scripts/
+  town_scene.py    the narrated group-purchase scene — see "See it happen" above
+  baseline_diff.py prepaid_credits vs prava_mandates, run in process, numbers not adjectives
+  live_check.py    the live-mode harness against a real GMP/1 engine over HTTP
 bench.yaml         marketplace scenario with layers.payments: prava_mandates
 ```
 
