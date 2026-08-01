@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { GroupMember } from '@/lib/api'
+import { PassThePhone, buildInviteText } from './PassThePhone'
 
 interface NdefWriter {
   write: (message: { records: { recordType: 'url'; data: string }[] }) => Promise<void>
@@ -8,12 +10,13 @@ interface NdefWriter {
 
 type NdefConstructor = new () => NdefWriter
 
-export function InvitePanel({ groupId, title }: { groupId: string; title: string }) {
+export function InvitePanel({ groupId, title, members = [], currency = 'USD' }: { groupId: string; title: string; members?: GroupMember[]; currency?: string }) {
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState('')
   const [qrOpen, setQrOpen] = useState(false)
   const [canShare, setCanShare] = useState(false)
   const [canWriteNfc, setCanWriteNfc] = useState(false)
+  const [passOpen, setPassOpen] = useState(false)
 
   useEffect(() => {
     setUrl(`${window.location.origin}/j/${groupId}`)
@@ -41,6 +44,24 @@ export function InvitePanel({ groupId, title }: { groupId: string; title: string
     }
   }
 
+  const payers = members.filter((m) => m.role !== 'observer')
+
+  /** One pre-written message carrying every person's own link. */
+  const shareEveryone = async () => {
+    const text = buildInviteText(members, currency, title, window.location.origin)
+    try {
+      if (window.navigator.share) {
+        await window.navigator.share({ title, text })
+        setStatus('Share sheet opened')
+        return
+      }
+      await window.navigator.clipboard.writeText(text)
+      setStatus(`Copied ${payers.length} personal links — paste them into the group chat`)
+    } catch (cause) {
+      if ((cause as Error).name !== 'AbortError') setStatus('Could not share — copy the link below instead')
+    }
+  }
+
   const writeNfc = async () => {
     if (!url) return
     const Reader = (window as unknown as { NDEFReader?: NdefConstructor }).NDEFReader
@@ -60,15 +81,17 @@ export function InvitePanel({ groupId, title }: { groupId: string; title: string
         <div><span className="eyebrow">Bring everyone in</span><h3>One link for the whole group</h3></div>
         <span className="invite-signal"><i /> Live</span>
       </div>
-      <p>Friends choose their name, inspect their exact share, then approve with their own passkey.</p>
+      <p>Everyone gets their own link and their own exact amount. Nobody picks a name off a list, so nobody claims the wrong share.</p>
       <div className="invite-url"><span>{url || 'Preparing join link…'}</span><button type="button" onClick={() => void copy()}>Copy</button></div>
       <div className="invite-actions">
-        {canShare ? <button type="button" className="btn btn-primary" onClick={() => void share()}>Share invite</button> : null}
+        {payers.length > 0 ? <button type="button" className="btn btn-primary" onClick={() => void shareEveryone()}>{canShare ? 'Send everyone their link' : 'Copy all links'}</button> : null}
+        {payers.length > 0 ? <button type="button" className="btn btn-secondary" onClick={() => setPassOpen(true)}>Pass the phone round</button> : null}
         <button type="button" className="btn btn-secondary" onClick={() => setQrOpen((open) => !open)}>{qrOpen ? 'Hide QR' : 'Show QR'}</button>
         {canWriteNfc ? <button type="button" className="btn btn-secondary" onClick={() => void writeNfc()}>Write NFC tag</button> : null}
       </div>
       {qrOpen ? <div className="invite-qr"><img src={`/api/v1/groups/${groupId}/join-qr.png`} alt={`QR code to join ${title}`} /><span>Scan once, then choose your name.</span></div> : null}
       {status ? <div className="invite-status" role="status">{status}</div> : null}
+      {passOpen ? <PassThePhone members={members} currency={currency} title={title} onClose={() => setPassOpen(false)} /> : null}
     </section>
   )
 }

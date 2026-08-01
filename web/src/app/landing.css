@@ -489,3 +489,30 @@
 /* The panel needs height for a phone to breathe. */
 .how-panel { height: 430px; }
 @media (max-width: 900px) { .how-panel { height: 380px; } }
+
+/* Balance pass ------------------------------------------------------------- */
+/* The scenes were right in kind and wrong in proportion: phone screens had a
+   void down the middle because the tick was pushed to the bottom with
+   margin-auto, and the two columns sat at opposite edges of a very wide grid. */
+.how-scroll { grid-template-columns: 20px minmax(0, .95fr) minmax(0, 1.05fr); gap: 0 clamp(24px, 3vw, 44px); }
+.how-panel { padding: 0; }
+.how-scene { padding: clamp(16px, 2vw, 24px); }
+
+/* Content fills the screen instead of clustering at the top. */
+.ph-ans .ph-screen { justify-content: flex-start; gap: 5px; padding: 17px 8px 12px; }
+.ph-ans-tick { margin-top: 10px; }
+.ph-mini .ph-screen { justify-content: center; gap: 4px; }
+.ph-mini-btn { margin-top: 10px; }
+
+/* Answering: phones and the result share the row evenly, nothing overflows. */
+.sc-ans { gap: 8px; align-items: center; }
+.sc-ans .ph-mini { aspect-ratio: 9 / 16; }
+.ans-out { flex: 0 0 38%; min-width: 0; }
+.ans-venue { padding: 8px 10px; }
+
+/* QR row: the card and the fan get comparable weight. */
+.sc-qr { gap: 14px; }
+.sc-qr .ph-mini { aspect-ratio: 9 / 16; }
+.qr { width: 84px; height: 84px; }
+
+.sc-pay .ph-mini { aspect-ratio: 9 / 15; }
