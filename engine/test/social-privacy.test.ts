@@ -104,4 +104,35 @@ describe('becoming someone’s friend', () => {
     expect(social.friendsOf(a.id)).toHaveLength(0)
     expect(social.friendsOf(b.id)).toHaveLength(0)
   })
+
+  it('assertLinkedFriends rejects strangers and nameless seats', () => {
+    const social = world()
+    const a = social.createUser({ handle: 'a', name: 'A' })
+    const b = social.createUser({ handle: 'b', name: 'B' })
+    const c = social.createUser({ handle: 'c', name: 'C' })
+    social.requestFriend(a.id, b.id)
+    social.acceptFriend(b.id, a.id)
+
+    expect(() => social.assertLinkedFriends(a.id, [{ name: 'Ghost' }])).toThrow(/needs a sutra account/)
+    expect(() => social.assertLinkedFriends(a.id, [{ name: 'C', user_id: c.id }])).toThrow(/aren’t friends yet/)
+    expect(() =>
+      social.assertLinkedFriends(a.id, [
+        { name: 'A', user_id: a.id },
+        { name: 'B', user_id: b.id },
+      ]),
+    ).not.toThrow()
+  })
+
+  it('circles refuse non-friend members', () => {
+    const social = world()
+    const a = social.createUser({ handle: 'a', name: 'A' })
+    const b = social.createUser({ handle: 'b', name: 'B' })
+    expect(() => social.createCircle({ ownerId: a.id, name: 'crew', memberIds: [b.id] })).toThrow(
+      /aren’t friends yet/,
+    )
+    social.requestFriend(a.id, b.id)
+    social.acceptFriend(b.id, a.id)
+    const circle = social.createCircle({ ownerId: a.id, name: 'crew', memberIds: [b.id] })
+    expect(social.circleMembers(circle.id).map((u) => u.id).sort()).toEqual([a.id, b.id].sort())
+  })
 })

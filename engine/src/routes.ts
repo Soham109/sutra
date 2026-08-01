@@ -18,7 +18,10 @@ export interface RoutesConfig {
    * that need to know who is asking. A function rather than the object itself
    * because the social layer is built after these routes are registered.
    */
-  social?: { userFor: (req: { headers: Record<string, unknown> }) => { id: string } | undefined }
+  social?: {
+    userFor: (req: { headers: Record<string, unknown> }) => { id: string } | undefined
+    assertLinkedFriends?: (actorId: string, seats: { name: string; user_id?: string | null }[]) => void
+  }
 }
 
 export function registerRoutes(
@@ -73,6 +76,10 @@ export function registerRoutes(
   app.post('/v1/groups', async (req, reply) => {
     if (!requireToken(req, reply)) return
     const input = CreateGroupSchema.parse(req.body)
+    // Human creates (cookie or created_by) only seat friends. Operator/agent
+    // creates with neither still work for demos and NANDA scenes.
+    const actor = cfg.social?.userFor(req)?.id ?? input.created_by
+    if (actor) cfg.social?.assertLinkedFriends?.(actor, input.members)
     const { group, members } = service.createGroup(input)
     return reply.status(201).send({
       group_id: group.id,

@@ -79,7 +79,10 @@ export async function main(): Promise<void> {
   registerRoutes(app, service, poller, {
     apiToken,
     appBaseUrl: APP_BASE_URL,
-    social: { userFor: (req) => currentUserFrom(social, req) },
+    social: {
+      userFor: (req) => currentUserFrom(social, req),
+      assertLinkedFriends: (actorId, seats) => social.assertLinkedFriends(actorId, seats),
+    },
   })
 
   const catalog = new Catalog({

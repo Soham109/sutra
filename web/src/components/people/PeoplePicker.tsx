@@ -10,15 +10,9 @@ import { api, type User } from '@/lib/api'
 // Every flow that used to hand you a blank box labelled "Person 2" now offers
 // your friends first — ranked by who you actually split something with most
 // recently, not A→Z — then your circles, then the rest of the directory if
-// you search for someone who isn't a friend yet. Finding a stranger offers a
-// friend request right there, inline, with its pending state visible; it
-// never silently re-sends one that is already outstanding, because
-// `requestFriend` on the engine resolves a crossing request to friendship
-// instead of deadlocking (see engine/test/social-privacy.test.ts).
-//
-// A typed name with no account stays possible — splitting a restaurant bill
-// with a stranger at the table is a real case — but it is visibly the
-// lesser option (dashed, uncoloured, last) and says what you lose.
+// you search. Finding a stranger offers a friend request right there; they
+// only become addable once they accept (or you accept theirs). Typed names
+// without an account are gone: circles, bills and plans only seat friends.
 
 export interface PickedPerson {
   /** Stable identity: used for de-dup and as the chip's react key. */
@@ -80,18 +74,14 @@ export function PeoplePicker({
   }
   const remove = (key: string) => onChange(value.filter((p) => p.key !== key))
 
-  // Enter always adds — but if the exact text you typed is a friend's name,
-  // link their real account rather than creating a second, unlinked "person"
-  // who happens to share a name with someone the app already knows.
+  // Enter adds a friend whose name matches exactly — never a nameless seat.
   const addTyped = (raw: string) => {
     const name = raw.trim()
     if (!name) return
     const match = friends.find((f) => f.name.trim().toLowerCase() === name.toLowerCase())
     if (match) {
       add({ userId: match.id, name: match.name, handle: match.handle, accent: match.accent })
-      return
     }
-    add({ name })
   }
 
   // Friends ranked "who did I just split something with", not alphabetical —
@@ -149,8 +139,7 @@ export function PeoplePicker({
     [directory, selectedKeys],
   )
 
-  /** Ask to be friends — or, if they already asked you, this accepts instead
-   *  (requestFriend resolves the crossing request; see engine/src/social.ts). */
+  /** Ask to be friends — or, if they already asked you, this accepts instead. */
   const sendRequest = async (p: DirectoryPerson) => {
     setPending((prev) => ({ ...prev, [p.id]: 'sending' }))
     try {
@@ -158,8 +147,6 @@ export function PeoplePicker({
       if (res.state === 'requested') {
         setPending((prev) => ({ ...prev, [p.id]: 'sent' }))
       } else {
-        // Now friends — either directly, or a crossing request just resolved
-        // to friendship — so the person they wanted is real. Add them.
         setPending((prev) => {
           const next = { ...prev }
           delete next[p.id]
@@ -183,7 +170,7 @@ export function PeoplePicker({
     if (next !== value) onChange(next)
   }
 
-  const showTypedFallback = query.trim() !== '' && !selectedKeys.has(personKey({ name: query }))
+  const showFriendHint = query.trim() !== '' && rankedFriends.length === 0 && strangers.length === 0 && !searching
 
   return (
     <div className="field picker">
@@ -198,7 +185,7 @@ export function PeoplePicker({
               {!p.userId && (
                 <span
                   className="picker-chip-flag"
-                  title="No account — they’ll get a link, but no notifications and no history."
+                  title="No account — remove them and add a friend instead."
                 >
                   no account
                 </span>
@@ -222,12 +209,10 @@ export function PeoplePicker({
               e.preventDefault()
               addTyped(query)
             }
-            // Backspace on an empty box removes the last chip, the way every
-            // other tag input on the internet behaves.
             if (e.key === 'Backspace' && !query && value.length) remove(value[value.length - 1]!.key)
           }}
-          placeholder={value.length ? 'Search friends, or add someone else…' : 'Search your friends, or type a name'}
-          aria-label="Find or add a person"
+          placeholder={value.length ? 'Search friends…' : 'Search friends, or find someone to request'}
+          aria-label="Find a friend"
         />
       </div>
 
@@ -249,7 +234,7 @@ export function PeoplePicker({
         <div className="picker-directory">
           <span className="tiny faint">{searching && !directory ? 'Searching…' : 'Not friends yet:'}</span>
           {strangers.map((p) => {
-            const state = pending[p.id]
+            const state = pending[p.id] ?? (p.request_sent ? 'sent' : undefined)
             return (
               <div key={p.id} className="picker-directory-row">
                 <Avatar name={p.name} color={p.accent} size="sm" />
@@ -294,19 +279,17 @@ export function PeoplePicker({
         </div>
       )}
 
-      {showTypedFallback && (
-        <button type="button" className="picker-fallback" onClick={() => addTyped(query)}>
-          <span>
-            Add <b>“{query.trim()}”</b> without an account
-          </span>
-          <span>They’ll get a link — no notifications, no history, and you’ll retype them next time.</span>
-        </button>
+      {showFriendHint && (
+        <p className="tiny faint">
+          No friend matches “{query.trim()}”. Search a bit more, or open People to send a request — splits only seat
+          friends.
+        </p>
       )}
 
       {friends.length === 0 && circles.length === 0 && query.trim() === '' && (
         <p className="tiny faint">
-          No friends added yet — search above to find them and send a request, right here. A typed name still works
-          for anyone with no account.
+          No friends yet — search above to find someone and send a request. They have to accept before you can put them
+          on a split.
         </p>
       )}
     </div>

@@ -274,11 +274,11 @@ function CreateCircle({ onClose, onCreated }: { onClose: () => void; onCreated: 
   }, [])
 
   const candidates = useMemo(() => {
-    const list = (people ?? []).filter((p) => !p.is_me)
+    const list = (people ?? []).filter((p) => !p.is_me && p.is_friend)
     const needle = q.trim().toLowerCase()
     return list
       .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.handle.toLowerCase().includes(needle))
-      .sort((a, b) => Number(b.is_friend) - Number(a.is_friend) || a.name.localeCompare(b.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
   }, [people, q])
 
   const toggle = (id: string) =>
@@ -388,8 +388,8 @@ function CreateCircle({ onClose, onCreated }: { onClose: () => void; onCreated: 
             {people !== null && candidates.length === 0 && (
               <p className="small muted" style={{ padding: 14, margin: 0 }}>
                 {q
-                  ? `Nobody matches “${q}”.`
-                  : 'Nobody else is on this engine yet — create the circle and add people once they arrive.'}
+                  ? `No friend matches “${q}”.`
+                  : 'Circles only include friends. Add someone on People first, then come back.'}
               </p>
             )}
             {candidates.map((p) => (
@@ -411,7 +411,6 @@ function CreateCircle({ onClose, onCreated }: { onClose: () => void; onCreated: 
                   </span>{' '}
                   <span className="tiny faint mono">@{p.handle}</span>
                 </span>
-                {p.is_friend && <span className="chip">friend</span>}
               </label>
             ))}
           </div>

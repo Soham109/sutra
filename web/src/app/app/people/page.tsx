@@ -12,22 +12,36 @@ import { api, type Reliability, type User } from '@/lib/api'
 interface Person extends User {
   is_friend: boolean
   is_me: boolean
+  request_sent: boolean
+  request_received: boolean
 }
 
 /**
- * People are not profiles here. The only thing this page can tell you about
- * someone is what the event log already proved: how often they approved, how
- * fast, and what they carried for other people.
+ * People are not profiles here. Friendship is a request you send and they
+ * accept — never an instant add. The only facts shown about someone are what
+ * the event log already proved.
  */
 export default function PeoplePage() {
   const { user, refresh } = useSession()
   const [q, setQ] = useState('')
   const [people, setPeople] = useState<Person[] | null>(null)
+  const [incoming, setIncoming] = useState<User[]>([])
+  const [outgoing, setOutgoing] = useState<User[]>([])
   const [records, setRecords] = useState<Record<string, Reliability>>({})
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const asked = useRef<Set<string>>(new Set())
+
+  const loadRequests = useCallback(async () => {
+    try {
+      const res = await api.get<{ incoming: User[]; outgoing: User[] }>('/v1/people/requests')
+      setIncoming(res.incoming ?? [])
+      setOutgoing(res.outgoing ?? [])
+    } catch {
+      // Directory still works without the inbox; don't blank the page.
+    }
+  }, [])
 
   const search = useCallback(async (query: string) => {
     setError('')
@@ -42,12 +56,11 @@ export default function PeoplePage() {
 
   useEffect(() => {
     if (!user) return
+    void loadRequests()
     const id = setTimeout(() => void search(q), q ? 200 : 0)
     return () => clearTimeout(id)
-  }, [q, user, search])
+  }, [q, user, search, loadRequests])
 
-  // Records load per person, in parallel, and only once each — the list paints
-  // immediately and each row fills itself in.
   useEffect(() => {
     if (!people) return
     const todo = people.filter((p) => !asked.current.has(p.id))
@@ -59,23 +72,74 @@ export default function PeoplePage() {
           const res = await api.get<{ user: User; reliability: Reliability }>(`/v1/people/${p.id}/reliability`)
           setRecords((prev) => ({ ...prev, [p.id]: res.reliability }))
         } catch {
-          asked.current.delete(p.id) // let a later render retry rather than lie
+          asked.current.delete(p.id)
         }
       }),
     )
   }, [people])
 
-  const toggleFriend = async (p: Person) => {
+  const patchPerson = (id: string, patch: Partial<Person>) => {
+    setPeople((prev) => prev?.map((x) => (x.id === id ? { ...x, ...patch } : x)) ?? prev)
+  }
+
+  const sendRequest = async (p: Person) => {
     setBusyId(p.id)
     setError('')
     try {
-      await api.post(`/v1/people/${p.id}/${p.is_friend ? 'unfriend' : 'friend'}`)
-      setPeople((prev) => prev?.map((x) => (x.id === p.id ? { ...x, is_friend: !p.is_friend } : x)) ?? prev)
+      const res = await api.post<{ state: 'friends' | 'requested' | 'already' }>(`/v1/people/${p.id}/friend`)
+      if (res.state === 'friends' || res.state === 'already') {
+        patchPerson(p.id, { is_friend: true, request_sent: false, request_received: false })
+      } else {
+        patchPerson(p.id, { is_friend: false, request_sent: true, request_received: false })
+      }
+      await loadRequests()
       await refresh()
     } catch (e) {
-      setError(
-        `We couldn’t ${p.is_friend ? 'remove' : 'add'} ${p.name} — ${(e as Error).message}. Nothing changed; try again.`,
-      )
+      setError(`We couldn’t ask ${p.name} — ${(e as Error).message}. Nothing changed; try again.`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const accept = async (p: { id: string; name: string }) => {
+    setBusyId(p.id)
+    setError('')
+    try {
+      await api.post(`/v1/people/${p.id}/accept`)
+      patchPerson(p.id, { is_friend: true, request_sent: false, request_received: false })
+      await loadRequests()
+      await refresh()
+    } catch (e) {
+      setError(`We couldn’t accept ${p.name} — ${(e as Error).message}.`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const decline = async (p: { id: string; name: string }) => {
+    setBusyId(p.id)
+    setError('')
+    try {
+      await api.post(`/v1/people/${p.id}/decline`)
+      patchPerson(p.id, { request_received: false })
+      await loadRequests()
+    } catch (e) {
+      setError(`We couldn’t decline ${p.name} — ${(e as Error).message}.`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const unfriend = async (p: Person) => {
+    setBusyId(p.id)
+    setError('')
+    try {
+      await api.post(`/v1/people/${p.id}/unfriend`)
+      patchPerson(p.id, { is_friend: false, request_sent: false, request_received: false })
+      await loadRequests()
+      await refresh()
+    } catch (e) {
+      setError(`We couldn’t remove ${p.name} — ${(e as Error).message}.`)
     } finally {
       setBusyId(null)
     }
@@ -85,7 +149,9 @@ export default function PeoplePage() {
     const all = [...(people ?? [])].sort((a, b) => a.name.localeCompare(b.name))
     return {
       friends: all.filter((p) => p.is_friend),
-      others: all.filter((p) => !p.is_friend).sort((a, b) => Number(b.is_me) - Number(a.is_me)),
+      others: all
+        .filter((p) => !p.is_friend)
+        .sort((a, b) => Number(b.is_me) - Number(a.is_me) || Number(b.request_received) - Number(a.request_received)),
     }
   }, [people])
 
@@ -106,7 +172,7 @@ export default function PeoplePage() {
         <header className="page-head">
           <h1>People</h1>
           <p className="muted" style={{ maxWidth: '58ch' }}>
-            Everyone who has ever held a seat on this engine, with the record they earned holding it.
+            Friendship is a request — they have to accept before you can put them on a split, a plan, or a circle.
           </p>
         </header>
 
@@ -121,6 +187,53 @@ export default function PeoplePage() {
           />
 
           {error && <ErrorNote>{error}</ErrorNote>}
+
+          {incoming.length > 0 && (
+            <Section title="Wants to be friends" hint={`${incoming.length}`}>
+              <div className="card">
+                {incoming.map((p) => (
+                  <div key={p.id} className="list-row wrap">
+                    <Avatar name={p.name} color={p.accent} />
+                    <span className="col grow" style={{ minWidth: 0 }}>
+                      <span style={{ fontWeight: 550 }}>{p.name}</span>
+                      <span className="tiny faint mono">@{p.handle}</span>
+                    </span>
+                    <button
+                      className="btn btn-primary"
+                      disabled={busyId === p.id}
+                      onClick={() => void accept(p)}
+                    >
+                      {busyId === p.id ? 'Saving…' : 'Accept'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      disabled={busyId === p.id}
+                      onClick={() => void decline(p)}
+                    >
+                      Decline
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {outgoing.length > 0 && (
+            <Section title="Requests you sent" hint={`${outgoing.length}`}>
+              <div className="card">
+                {outgoing.map((p) => (
+                  <div key={p.id} className="list-row wrap">
+                    <Avatar name={p.name} color={p.accent} />
+                    <span className="col grow" style={{ minWidth: 0 }}>
+                      <span style={{ fontWeight: 550 }}>{p.name}</span>
+                      <span className="tiny faint mono">@{p.handle}</span>
+                    </span>
+                    <Badge>pending</Badge>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
 
           {loading && (
             <div className="card">
@@ -160,8 +273,8 @@ export default function PeoplePage() {
                     </Link>
                   }
                 >
-                  People appear on this page once they have held a seat in a group — invited, approved or declined. Run
-                  one buy and everyone you invite shows up here with a record of their own.
+                  People appear once they have held a seat in a group. Run one buy and everyone you invite shows up
+                  here.
                 </Empty>
               )}
             </div>
@@ -179,14 +292,13 @@ export default function PeoplePage() {
                         record={records[p.id]}
                         busy={busyId === p.id}
                         onOpen={() => setOpenId(p.id)}
-                        onToggle={() => void toggleFriend(p)}
+                        onPrimary={() => void unfriend(p)}
                       />
                     ))}
                   </div>
                 ) : (
                   <div className="well small muted">
-                    No friends yet. Add someone below and they are one tap away when you are picking seats for a cart —
-                    friendship here is just a shortcut, it grants nobody any spending power over you.
+                    No friends yet. Send a request below — they have to accept before you can put them on a split.
                   </div>
                 )}
               </Section>
@@ -201,22 +313,22 @@ export default function PeoplePage() {
                         record={records[p.id]}
                         busy={busyId === p.id}
                         onOpen={() => setOpenId(p.id)}
-                        onToggle={() => void toggleFriend(p)}
+                        onPrimary={() =>
+                          void (p.request_received ? accept(p) : p.request_sent ? undefined : sendRequest(p))
+                        }
                       />
                     ))}
                   </div>
                 ) : (
-                  <div className="well small muted">
-                    That is everyone — you have already added every person on this engine.
-                  </div>
+                  <div className="well small muted">That is everyone — you are already friends with the rest.</div>
                 )}
               </Section>
             </>
           )}
 
           <p className="tiny faint">
-            Approval rate and median reply are computed from the append-only event log, not entered by anyone. Somebody
-            with no record is not untrustworthy — they are just new.
+            Approval rate and median reply are computed from the append-only event log. Somebody with no record is not
+            untrustworthy — they are just new.
           </p>
         </div>
       </div>
@@ -230,32 +342,68 @@ export default function PeoplePage() {
                 <span style={{ fontWeight: 600 }}>{open.name}</span>
                 {open.is_me && <Badge>you</Badge>}
                 {open.is_friend && <Badge tone="brand">friend</Badge>}
+                {open.request_sent && <Badge>requested</Badge>}
+                {open.request_received && <Badge tone="brand">wants to be friends</Badge>}
               </div>
               <div className="small faint mono">@{open.handle}</div>
             </div>
             {!open.is_me && (
-              <button
-                className={open.is_friend ? 'btn btn-secondary' : 'btn btn-primary'}
-                disabled={busyId === open.id}
-                onClick={() => void toggleFriend(open)}
-              >
-                {busyId === open.id ? 'Saving…' : open.is_friend ? 'Remove friend' : 'Add friend'}
-              </button>
+              <FriendAction
+                person={open}
+                busy={busyId === open.id}
+                onSend={() => void sendRequest(open)}
+                onAccept={() => void accept(open)}
+                onUnfriend={() => void unfriend(open)}
+              />
             )}
           </div>
 
           <RecordGrid r={records[open.id] ?? null} />
           <ProvenanceNote who={`${open.is_me ? 'Your' : open.name.split(' ')[0] + '’s'}`} />
-
-          <div className="well" style={{ marginTop: 14 }}>
-            <div className="eyebrow" style={{ marginBottom: 4 }}>
-              Member id
-            </div>
-            <code className="mono small">{open.id}</code>
-          </div>
         </Modal>
       )}
     </Shell>
+  )
+}
+
+function FriendAction({
+  person,
+  busy,
+  onSend,
+  onAccept,
+  onUnfriend,
+}: {
+  person: Person
+  busy: boolean
+  onSend: () => void
+  onAccept: () => void
+  onUnfriend: () => void
+}) {
+  if (person.is_friend) {
+    return (
+      <button className="btn btn-secondary" disabled={busy} onClick={onUnfriend}>
+        {busy ? 'Saving…' : 'Remove friend'}
+      </button>
+    )
+  }
+  if (person.request_received) {
+    return (
+      <button className="btn btn-primary" disabled={busy} onClick={onAccept}>
+        {busy ? 'Saving…' : 'Accept request'}
+      </button>
+    )
+  }
+  if (person.request_sent) {
+    return (
+      <button className="btn btn-secondary" disabled>
+        Requested
+      </button>
+    )
+  }
+  return (
+    <button className="btn btn-primary" disabled={busy} onClick={onSend}>
+      {busy ? 'Sending…' : 'Add friend'}
+    </button>
   )
 }
 
@@ -264,14 +412,22 @@ function PersonRow({
   record,
   busy,
   onOpen,
-  onToggle,
+  onPrimary,
 }: {
   person: Person
   record?: Reliability
   busy: boolean
   onOpen: () => void
-  onToggle: () => void
+  onPrimary: () => void
 }) {
+  const label = person.is_friend
+    ? 'Friends'
+    : person.request_received
+      ? 'Accept'
+      : person.request_sent
+        ? 'Requested'
+        : 'Add friend'
+
   return (
     <div className="list-row wrap">
       <button
@@ -287,6 +443,7 @@ function PersonRow({
               {person.name}
             </span>
             {person.is_me && <Badge>you</Badge>}
+            {person.request_sent && <Badge>pending</Badge>}
           </span>
           <span className="tiny faint mono">@{person.handle}</span>
         </span>
@@ -296,12 +453,12 @@ function PersonRow({
 
       {!person.is_me && (
         <button
-          className={person.is_friend ? 'btn btn-secondary' : 'btn btn-primary'}
-          onClick={onToggle}
-          disabled={busy}
-          title={person.is_friend ? 'Remove friend' : 'Add friend'}
+          className={person.is_friend || person.request_sent ? 'btn btn-secondary' : 'btn btn-primary'}
+          onClick={onPrimary}
+          disabled={busy || person.request_sent}
+          title={label}
         >
-          {busy ? 'Saving…' : person.is_friend ? 'Friends' : 'Add friend'}
+          {busy ? 'Saving…' : label}
         </button>
       )}
     </div>

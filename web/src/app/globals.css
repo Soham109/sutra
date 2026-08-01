@@ -1025,11 +1025,11 @@ a.list-row:hover { background: var(--surface-2); }
 
 /* New split / discovery --------------------------------------------------- */
 .discover-page { max-width: 1240px; }
-.discover-head { margin: clamp(20px, 4vw, 54px) 0 34px; max-width: 900px; }
-.discover-head .eyebrow { display: block; margin-bottom: 18px; }
-.discover-head h1 { font-size: clamp(44px, 6vw, 82px); line-height: .91; letter-spacing: -.062em; font-weight: 570; }
-.discover-head h1 span { color: var(--brand); font-weight: 720; letter-spacing: -.072em; }
-.discover-head p { margin-top: 25px; max-width: 64ch; font-size: 16px; }
+.discover-head { margin: 12px auto 18px; max-width: none; text-align: center; }
+.discover-head .eyebrow { display: block; margin-bottom: 8px; }
+.discover-head h1 { font-size: clamp(28px, 3.2vw, 40px); line-height: 1.1; letter-spacing: -.04em; font-weight: 600; }
+.discover-head h1 span { color: var(--brand); font-weight: 720; letter-spacing: -.05em; }
+.discover-head p { margin: 10px auto 0; max-width: 52ch; font-size: 14px; }
 .discover-search { border-radius: 18px; padding: 14px; box-shadow: 0 16px 50px rgb(28 25 19 / .06); }
 .discover-search .input-lg { border: 0; box-shadow: none; font-size: 15px; }
 .discover-search .btn-lg { border-radius: 11px; }
@@ -1055,7 +1055,6 @@ a.list-row:hover { background: var(--surface-2); }
 @media (max-width: 900px) { .discover-moments-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 560px) {
   .discover-moments-grid { grid-template-columns: repeat(2, 1fr); }
-  .discover-head h1 { font-size: 48px; }
   .discover-search .row:first-child { align-items: stretch; }
   .discover-search .row:first-child .btn { width: 100%; }
 }

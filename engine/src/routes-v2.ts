@@ -152,13 +152,8 @@ export function registerProductRoutes(
   app.post('/v1/extension/groups', async (req, reply) => {
     const me = requireUser(req)
     const input = CreateGroupSchema.parse(req.body)
-    const friendIds = new Set(social.friendsOf(me.id).map((friend) => friend.id))
-    const members = input.members.map((member) => {
-      if (member.user_id && member.user_id !== me.id && !friendIds.has(member.user_id)) {
-        throw new UserError('the extension can only invite you or one of your friends', 403)
-      }
-      return member
-    })
+    social.assertLinkedFriends(me.id, input.members)
+    const members = input.members
     const created = service.createGroup({ ...input, members, created_by: me.id, origin: 'extension' })
     // Absolute, like /v1/groups already returns. These URLs are rendered into
     // the MERCHANT'S page by the extension's on-page sheet, so a relative path
@@ -219,6 +214,14 @@ export function registerProductRoutes(
     }
   })
 
+  app.get('/v1/people/requests', async (req) => {
+    const me = requireUser(req)
+    return {
+      incoming: social.incomingRequests(me.id).map(publicUser),
+      outgoing: social.outgoingRequests(me.id).map(publicUser),
+    }
+  })
+
   app.post('/v1/people/:id/accept', async (req) => {
     const me = requireUser(req)
     const { id } = req.params as { id: string }
@@ -234,14 +237,6 @@ export function registerProductRoutes(
     const { id } = req.params as { id: string }
     social.declineFriend(me.id, id)
     return { incoming: social.incomingRequests(me.id).map(publicUser) }
-  })
-
-  app.get('/v1/people/requests', async (req) => {
-    const me = requireUser(req)
-    return {
-      incoming: social.incomingRequests(me.id).map(publicUser),
-      outgoing: social.outgoingRequests(me.id).map(publicUser),
-    }
   })
 
   app.post('/v1/people/:id/unfriend', async (req) => {
@@ -535,6 +530,9 @@ export function registerProductRoutes(
     }
 
     const cart = billToCart(bill, { claimantsByItemIndex: body.claimants })
+
+    if (!me) throw new UserError('sign in to continue', 401)
+    social.assertLinkedFriends(me.id, body.members)
 
     const { group, members } = service.createGroup({
       title: body.title,

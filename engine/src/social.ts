@@ -2,6 +2,7 @@ import { ulid } from './ids.js'
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import type { Db } from './db.js'
 import type { Policy } from './types.js'
+import { UserError } from './service.js'
 
 // People, and the groups they keep buying with. Everything here is derived
 // from the same append-only event log the protocol already writes, so a
@@ -239,7 +240,7 @@ export class Social {
    * who is waiting on you should obviously mean yes.
    */
   requestFriend(userId: string, friendId: string): 'friends' | 'requested' | 'already' {
-    if (userId === friendId) throw new Error('you are already yourself')
+    if (userId === friendId) throw new UserError('you are already yourself', 400)
     if (this.areFriends(userId, friendId)) return 'already'
 
     const theyAsked = this.db.sql
@@ -283,6 +284,33 @@ export class Social {
       .get(a, b)
   }
 
+  /**
+   * Circles, splits and plans only seat people who already said yes.
+   * Every seat must be a real account — either you, or a mutual friend.
+   */
+  assertLinkedFriends(
+    actorId: string,
+    seats: { name: string; user_id?: string | null }[],
+  ): void {
+    for (const seat of seats) {
+      const id = seat.user_id?.trim()
+      if (!id) {
+        throw new UserError(
+          `“${seat.name}” needs a sutra account — find them on People and become friends first`,
+          400,
+        )
+      }
+      if (id === actorId) continue
+      if (!this.byId(id)) throw new UserError(`no such person for “${seat.name}”`, 404)
+      if (!this.areFriends(actorId, id)) {
+        throw new UserError(
+          `you and ${seat.name} aren’t friends yet — send a request on People first`,
+          403,
+        )
+      }
+    }
+  }
+
   /** People waiting on this user to answer. */
   incomingRequests(userId: string): User[] {
     return this.db.sql
@@ -321,6 +349,10 @@ export class Social {
   // ---- circles ------------------------------------------------------------
 
   createCircle(input: { ownerId: string; name: string; emoji?: string; policy?: Policy; memberIds: string[] }): Circle {
+    this.assertLinkedFriends(
+      input.ownerId,
+      input.memberIds.map((user_id) => ({ name: this.byId(user_id)?.name ?? user_id, user_id })),
+    )
     const id = `cr_${ulid()}`
     this.db.sql
       .prepare(`INSERT INTO circles (id, owner_id, name, emoji, policy_json) VALUES (?, ?, ?, ?, ?)`)

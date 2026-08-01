@@ -119,6 +119,7 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     const { id } = req.params as { id: string }
     const plan0 = d.plans.mustPlan(id)
     requirePlanOrganiser(d, req, plan0)
+    const me = requireUser(req)
     const body = z
       .object({
         name: z.string().min(1).max(60),
@@ -126,6 +127,7 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
         contact: z.string().max(200).optional(),
       })
       .parse(req.body)
+    d.social.assertLinkedFriends(me.id, [body])
     d.plans.addParticipant(id, body)
     const plan = d.plans.mustPlan(id)
     return planView(d, plan, viewerFor(d, req, plan))

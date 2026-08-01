@@ -343,11 +343,10 @@ export function DiscoverClient() {
     <div className="page discover-page">
       <div className="page-head discover-head">
         <span className="eyebrow">New split</span>
-        <h1>Find it.<br /><span>Then split it.</span></h1>
-        <p className="muted">
-          Search the stores below, or paste a link from anywhere — sutra reads the merchant’s own
-          price and options off the page. Then decide who’s paying for what.
-        </p>
+        <h1>
+          Find it. <span>Then split it.</span>
+        </h1>
+        <p className="muted">Search a store, or paste a product link — then seat your friends.</p>
       </div>
 
       <form onSubmit={submit} className="card card-pad discover-search" style={{ marginBottom: 14 }}>
