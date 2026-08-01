@@ -29,6 +29,19 @@ export default function PlanPage({ params }: { params: Promise<{ id: string }> }
         api.get<PlanView>(`/v1/plans/${id}`),
         api.get<RankedOptions>(`/v1/plans/${id}/options`),
       ])
+      // Merge stashed organiser links so anonymous create → navigate still
+      // shows "copy link" chips after the re-GET redacts participant_id.
+      try {
+        const raw = sessionStorage.getItem(`sutra:plan-links:${id}`)
+        if (raw) {
+          const links = JSON.parse(raw) as Record<string, string>
+          p.participants = p.participants.map((part) =>
+            part.participant_id ? part : { ...part, participant_id: links[part.name] ?? null },
+          )
+        }
+      } catch {
+        /* ignore */
+      }
       setPlan(p)
       setRanked(r)
     } catch (e) {
@@ -115,8 +128,13 @@ export default function PlanPage({ params }: { params: Promise<{ id: string }> }
             <h2>
               {plan.responded_count} of {plan.participants.length} answered
             </h2>
-            <button className="text-button" onClick={() => void refresh()} disabled={busy}>
-              {busy ? 'Searching…' : 'Search again'}
+            <button
+              className="text-button"
+              onClick={() => void refresh()}
+              disabled={busy || !plan.slots?.where?.label}
+              title={!plan.slots?.where?.label ? 'Share a location first' : undefined}
+            >
+              {busy ? 'Searching…' : plan.slots?.where?.label ? 'Search again' : 'Waiting on a location'}
             </button>
           </div>
 
@@ -189,9 +207,11 @@ export default function PlanPage({ params }: { params: Promise<{ id: string }> }
                   ? `No places came back near ${plan.slots.where.label} yet — OpenStreetMap can time out under load. Try searching again, or widen the area.`
                   : 'Options appear once somebody shares a location — there is nowhere to search around until then.'}
               </p>
-              <button className="btn btn-secondary" onClick={() => void refresh()} disabled={busy}>
-                {busy ? 'Searching…' : 'Search again'}
-              </button>
+              {plan.slots?.where?.label ? (
+                <button className="btn btn-secondary" onClick={() => void refresh()} disabled={busy}>
+                  {busy ? 'Searching…' : 'Search again'}
+                </button>
+              ) : null}
             </div>
           ) : (
             <div className="opt-list">

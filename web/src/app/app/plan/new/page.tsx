@@ -86,6 +86,18 @@ function NewPlanInner() {
         text,
         participants: people.map((p) => ({ name: p.name, user_id: p.userId })),
       })
+      // Create returns full:true once — participant ids for copy-link. After
+      // navigate, a re-GET may redact them for anonymous organisers, so stash.
+      try {
+        const links = Object.fromEntries(
+          (res.plan.participants ?? [])
+            .filter((p) => p.participant_id)
+            .map((p) => [p.name, p.participant_id as string]),
+        )
+        sessionStorage.setItem(`sutra:plan-links:${res.plan.plan_id}`, JSON.stringify(links))
+      } catch {
+        /* private mode */
+      }
       router.push(`/app/plans/${res.plan.plan_id}`)
     } catch (e) {
       setError((e as Error).message)

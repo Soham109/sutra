@@ -22,7 +22,7 @@ export function Waiting({ groups, plans }: { groups: WaitingItem[]; plans: PlanS
       <div className="section-head">
         <h2 id="waiting-title">Waiting on others</h2>
         <Link href="/app/groups" className="text-button">
-          All activity ↗
+          All groups ↗
         </Link>
       </div>
 

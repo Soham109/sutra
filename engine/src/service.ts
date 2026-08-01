@@ -29,6 +29,8 @@ export interface ServiceConfig {
   appBaseUrl: string
   /** injectable clock so tests and replay stay deterministic */
   now?: () => Date
+  /** optional — when set, protocol moments land in the inbox / push */
+  notifier?: { notify(userId: string, input: { kind: string; title: string; body?: string; url?: string }): unknown }
 }
 
 interface ChargePlanEntry {
@@ -190,6 +192,14 @@ export class GroupService {
     }
     for (const m of members) {
       this.hub.emit(gid, m.id, 'member.invited', { name: m.display_name, role: m.role, share: m.share_amount })
+      if (m.user_id && m.user_id !== input.created_by) {
+        this.cfg.notifier?.notify(m.user_id, {
+          kind: 'member.invited',
+          title: `You're on “${input.title}”`,
+          body: 'Your share is ready to approve.',
+          url: `/a/${m.id}`,
+        })
+      }
     }
     return { group: this.db.getGroup(gid)!, members }
   }
@@ -632,6 +642,17 @@ export class GroupService {
     if (fresh.status === 'committing' && this.db.casGroup(fresh.id, fresh.version, { status })) {
       this.hub.emit(g.id, null, `group.${status}`, {})
       this.issueReceipt(this.mustGroup(g.id))
+      if (status === 'committed' || status === 'partial') {
+        for (const m of this.db.membersOf(g.id)) {
+          if (!m.user_id) continue
+          this.cfg.notifier?.notify(m.user_id, {
+            kind: `group.${status}`,
+            title: status === 'committed' ? `“${g.title}” is locked in` : `“${g.title}” partially charged`,
+            body: 'Open the group board for the receipt.',
+            url: `/g/${g.id}/board`,
+          })
+        }
+      }
     }
   }
 
@@ -658,6 +679,15 @@ export class GroupService {
     if (fresh.status === 'committing' && this.db.casGroup(fresh.id, fresh.version, { status: 'committed' })) {
       this.hub.emit(g.id, null, 'group.committed', { rail: g.rail, charged: false })
       this.issueReceipt(this.mustGroup(g.id))
+      for (const m of this.db.membersOf(g.id)) {
+        if (!m.user_id) continue
+        this.cfg.notifier?.notify(m.user_id, {
+          kind: 'group.committed',
+          title: `“${g.title}” is locked in`,
+          body: 'Everyone’s share is settled at the venue.',
+          url: `/g/${g.id}/board`,
+        })
+      }
     }
   }
 
@@ -992,6 +1022,15 @@ export class GroupService {
     }
     this.hub.emit(groupId, null, `group.${kind}`, { reason })
     this.issueReceipt(this.mustGroup(groupId))
+    for (const m of this.db.membersOf(groupId)) {
+      if (!m.user_id) continue
+      this.cfg.notifier?.notify(m.user_id, {
+        kind: `group.${kind}`,
+        title: kind === 'expired' ? `“${g.title}” ran out of time` : `“${g.title}” was called off`,
+        body: reason,
+        url: `/g/${groupId}/board`,
+      })
+    }
   }
 
   /** Poller tick: enforce the group deadline. */

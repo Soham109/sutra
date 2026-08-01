@@ -54,20 +54,13 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   // every visitor of sutra-gmp.vercel.app into an operator — undoing the
   // cancel-authority and plan-privacy fixes.
   //
-  // Only POST /v1/groups (create) requires the operator token under GMP/1;
-  // bill/split and plan convert create groups in-process. Session identity
-  // travels on the cookie we already forward above.
-  const pathJoined = path.join('/')
-  const needsOperatorToken = request.method === 'POST' && pathJoined === 'v1/groups'
-  if (needsOperatorToken && ENGINE_TOKEN) {
-    headers.set('authorization', `Bearer ${ENGINE_TOKEN}`)
-  } else {
-    const clientAuth = request.headers.get('authorization')
-    // Never let a client smuggle the master token through; session bearers
-    // (sutra_session_*) and extension tokens are fine to forward.
-    if (clientAuth && (!ENGINE_TOKEN || clientAuth !== `Bearer ${ENGINE_TOKEN}`)) {
-      headers.set('authorization', clientAuth)
-    }
+  // Never stamp the operator token for browser traffic. Human creates use the
+  // session cookie; the engine accepts cookie OR operator bearer on POST
+  // /v1/groups. Injecting the master token here elevated every visitor and
+  // let anonymous creates skip the friends-only gate.
+  const clientAuth = request.headers.get('authorization')
+  if (clientAuth && (!ENGINE_TOKEN || clientAuth !== `Bearer ${ENGINE_TOKEN}`)) {
+    headers.set('authorization', clientAuth)
   }
 
   // An event stream is supposed to stay open. Everything else is not: without a
@@ -111,10 +104,19 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     )
   }
   const outgoing = new Headers()
-  for (const name of ['content-type', 'cache-control', 'location', 'set-cookie']) {
+  for (const name of ['content-type', 'cache-control', 'location']) {
     const value = response.headers.get(name)
     if (value) outgoing.set(name, value)
   }
+  // Signout (and some login paths) set multiple cookies. headers.get() joins
+  // them with commas and breaks Set-Cookie parsing — append each one.
+  const setCookies =
+    typeof response.headers.getSetCookie === 'function'
+      ? response.headers.getSetCookie()
+      : response.headers.get('set-cookie')
+        ? [response.headers.get('set-cookie')!]
+        : []
+  for (const cookie of setCookies) outgoing.append('set-cookie', cookie)
   return new Response(response.body, { status: response.status, headers: outgoing })
 }
 

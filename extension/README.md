@@ -2,14 +2,16 @@
 
 Imports the product, ticket, stay or cart open in the active tab into the same Sutra account used by the web app. It can choose persisted friends/circles and create a coordinated group; detection alone does not authenticate to, order from, or pay an arbitrary merchant.
 
+Splits only seat **you or people you are already friends with**. The engine rejects strangers with a clear 403; add friends in the web app People page first.
+
 ## Load and connect
 
 1. Generate shared detector and icons: `npm run build:widget` and `node extension/icons/make-icons.mjs`.
 2. Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select this directory.
 3. Open the extension, then **Open account settings**.
-4. In Sutra settings create an extension token, copy it once, and paste it into the extension.
+4. In Sutra settings (`https://sutra-gmp.vercel.app/app/settings`) create an extension token, copy it once, and paste it into the extension.
 
-Production defaults are `https://engine-production-e6fa.up.railway.app` and `https://sutra-gmp.vercel.app`. Local development can set the engine preference to `http://localhost:4100`.
+Production defaults are `https://engine-production-e6fa.up.railway.app` (engine) and `https://sutra-gmp.vercel.app` (app). Local development can override the engine preference to `http://localhost:4100` (allowed in the manifest).
 
 The extension never receives `ENGINE_API_TOKEN`. Its revocable, 90-day user session is stored in `chrome.storage.local`; non-secret preferences use `chrome.storage.sync`. Only a SHA-256 token hash is persisted by the engine.
 
@@ -27,6 +29,6 @@ The extension imports facts and starts coordination. Automatic merchant purchase
 
 - `background.js` — detection, account API and signed-in group creation.
 - `popup.html` / `popup.js` — account, circle/friend picker and split review.
-- `content.js` — optional in-page surface.
+- `content.js` — optional in-page surface (Alt+Shift+S).
 - `detect.js` — generated from `widget/detect.js`; do not edit directly.
 - `icons/` — generated consent-graph PNG mark.

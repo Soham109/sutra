@@ -633,7 +633,7 @@ a.list-row:hover { background: var(--surface-2); }
    the left edge of a wide viewport and leaves a dead column on the right. */
 .page { max-width: 1320px; margin-inline: auto; padding: clamp(22px, 3vw, 42px) clamp(18px, 3.5vw, 52px) 100px; }
 
-.home-page { display: flex; flex-direction: column; gap: clamp(46px, 6vw, 78px); }
+.home-page { display: flex; flex-direction: column; gap: clamp(28px, 4vw, 48px); }
 .launchpad { min-height: 490px; background: #3228d8; color: #f8f7f3; border-radius: 28px; padding: clamp(28px, 4.8vw, 68px); display: grid; grid-template-columns: .8fr 1.2fr; gap: clamp(38px, 7vw, 100px); align-items: end; overflow: hidden; position: relative; isolation: isolate; }
 .launchpad::before { content: ''; position: absolute; width: 560px; height: 560px; border: 1px solid rgb(255 255 255 / .12); border-radius: 50%; right: -180px; top: -270px; z-index: -1; }
 .launchpad::after { content: ''; position: absolute; width: 360px; height: 360px; border: 1px dashed rgb(255 255 255 / .16); border-radius: 50%; left: 30%; bottom: -290px; z-index: -1; }
@@ -659,8 +659,8 @@ a.list-row:hover { background: var(--surface-2); }
 .home-page .section-head a { font-size: 12px; color: var(--ink-2); }
 .home-ledger, .record-surface { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
 .record-surface { padding: 20px; }
-.quiet-state { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding: 24px 0; border-block: 1px solid var(--line); align-items: end; }
-.quiet-state h2 { margin-top: 8px; font-size: clamp(25px, 3vw, 40px); }
+.quiet-state { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; padding: 18px 0; border-block: 1px solid var(--line); align-items: end; }
+.quiet-state h2 { margin-top: 6px; font-size: clamp(22px, 2.6vw, 32px); }
 .quiet-state p { color: var(--ink-2); max-width: 52ch; }
 .home-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(22px, 4vw, 50px); align-items: stretch; }
 .model-note { background: #ff5c35; color: #15120f; border-radius: var(--r-lg); padding: clamp(24px, 3vw, 38px); display: flex; flex-direction: column; align-items: flex-start; }

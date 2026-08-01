@@ -18,7 +18,7 @@ const CSS = `
   background: color-mix(in srgb, var(--paper) 84%, transparent);
   backdrop-filter: saturate(180%) blur(12px);
 }
-.ap-wrap { width: 100%; max-width: 460px; margin: 0 auto; padding: 16px 16px 6px; flex: 1; }
+.ap-wrap { width: 100%; max-width: 460px; margin: 0 auto; padding: 16px 16px calc(160px + env(safe-area-inset-bottom)); flex: 1; }
 .ap-dock {
   position: sticky; bottom: 0; z-index: 20;
   width: 100%; max-width: 460px; margin: 0 auto;

@@ -61,7 +61,7 @@ function readInput(raw: string): Read | null {
     route: 'plan',
     label: 'Plan with Sutra bot',
     detail:
-      'Sutra bot reads who, when and where from that sentence, asks everyone for their times and locations, then ranks real places against the answers.',
+      'Sutra bot reads who, when and where, asks your friends for times and locations, then ranks real places against the answers.',
   }
 }
 
@@ -95,8 +95,8 @@ export function Composer() {
         <span className="eyebrow">Sutra bot</span>
         <h1 id="composer-title">What are we doing?</h1>
         <p className="muted">
-          Say it, paste a link, or drop in the bill. An idea gets planned with your group, a link
-          gets read from the merchant, a receipt gets itemised — and all three end the same way.
+          Say it, paste a link, or drop in the bill — then seat friends from People. An idea gets planned, a link gets
+          read from the merchant, a receipt gets itemised.
         </p>
       </header>
 

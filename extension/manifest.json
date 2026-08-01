@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "sutra — decide and split together",
   "short_name": "sutra",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Bring a product page into sutra, choose friends or a circle, and coordinate the split.",
   "minimum_chrome_version": "111",
 

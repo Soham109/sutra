@@ -173,15 +173,10 @@ export default function BillPage() {
       <div className={`page bill-page${bill ? "" : " is-fresh"}`}>
         <header className="page-head">
           <span className="eyebrow">Split a bill</span>
-          <h1>
-            The bill just landed.
-            <br />
-            <span>Nobody has to front it.</span>
-          </h1>
+          <h1>Itemise the receipt</h1>
           <p className="muted">
-            Paste or type what the receipt says. Every line is itemised, the maths is checked
-            against the printed total, and everyone agrees their exact number before the card
-            machine reaches the table.
+            Paste or type the lines. We check maths against the printed total. Seats are friends only —
+            everyone agrees their amount here, then pays the venue on their own card. Sutra does not charge.
           </p>
         </header>
 

@@ -77,9 +77,11 @@
     input,select{width:100%;padding:10px 11px;border:1px solid #ddd7cd;border-radius:9px;font-size:14px;background:#fff;color:#14100a}
     input:focus,select:focus{outline:2px solid #f59e0b;outline-offset:-1px}
     .row{display:flex;gap:9px}.row>*{flex:1}.qty{max-width:88px}.cur{max-width:82px}
-    .people{display:flex;flex-direction:column;gap:7px}
-    .person{display:flex;gap:7px}.person .x{flex:none;width:32px;height:38px;border-radius:9px}
-    .add{margin-top:7px;border:1px dashed #ddd7cd;background:transparent;color:#78716c;padding:9px;border-radius:9px;width:100%;cursor:pointer;font-size:13px}
+    .people{display:flex;flex-wrap:wrap;gap:7px}
+    .person{border:1px solid #ddd7cd;background:#fff;color:#14100a;padding:8px 11px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:600}
+    .person.on{border-color:#f59e0b;background:#fff7ed;color:#9a3412}
+    .person:disabled{opacity:.55;cursor:default}
+    .hint{font-size:12px;color:#78716c;line-height:1.45;margin-top:6px}
     .sum{margin-top:16px;background:#14100a;color:#fbfaf8;border-radius:13px;padding:13px 15px}
     .sum .l{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:#a8a29e}
     .sum .l b{color:#fbfaf8;font-size:19px;font-weight:750}.sum .l+.l{margin-top:6px}
@@ -116,20 +118,34 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 
-  Promise.all([send({ type: 'detect' }), send({ type: 'config' })])
-    .then(([det, cfg]) => review(det, cfg))
+  const absUrl = (value, base) => {
+    try {
+      return new URL(value, String(base).replace(/\/+$/, '') + '/').href
+    } catch {
+      return String(value || '')
+    }
+  }
+
+  Promise.all([send({ type: 'detect' }), send({ type: 'config' }), send({ type: 'account' })])
+    .then(([det, cfg, account]) => review(det, cfg, account))
     .catch((e) => {
-      bd.innerHTML = `<div class="err">${esc(e.message)}</div>`
+      const msg = e.message || String(e)
+      const needConnect = /connect your sutra account|sign in/i.test(msg)
+      bd.innerHTML = needConnect
+        ? `<div class="err">Connect the extension first — open the sutra icon, paste your extension token from Settings, then try again.</div>`
+        : `<div class="err">${esc(msg)}</div>`
     })
 
-  function review(det, cfg) {
+  function review(det, cfg, account) {
     const conf = det.confidence
     const cls = conf >= 0.75 ? 'hi' : conf >= 0.5 ? 'md' : 'lo'
     const word = conf >= 0.85 ? 'high confidence' : conf >= 0.75 ? 'good confidence' : conf >= 0.35 ? 'low confidence' : 'guess'
     const cur = det.currency || 'USD'
     const unit = det.items[0] ? det.items[0].unit_amount : det.total_minor || 0
     const qty = det.items[0] ? det.items[0].qty : 1
-    const members = cfg.members && cfg.members.length ? cfg.members : ['You', 'Friend 1']
+    const friends = account.friends || []
+    const me = account.user
+    const selected = new Map([[me.id, me]])
     let sub = det.merchant.name
     if (det.event && det.event.start) {
       const d = new Date(det.event.start)
@@ -158,9 +174,14 @@
         <input id="price" inputmode="decimal" value="${(unit / 10 ** exp(cur)).toFixed(exp(cur))}">
         <input id="qty" class="qty" type="number" min="1" max="99" value="${qty}">
       </div>
-      <label>Who is paying</label>
-      <div class="people"></div>
-      <button class="add">+ add someone</button>
+      <label>Who is paying <span id="count">1 selected</span></label>
+      <div class="people">
+        <button type="button" class="person on" data-id="${esc(me.id)}" disabled>You</button>
+        ${friends.map((f) => `<button type="button" class="person" data-id="${esc(f.id)}">${esc(f.name)}</button>`).join('')}
+      </div>
+      ${friends.length === 0
+        ? `<p class="hint">No friends yet. Add them on <a href="${esc(cfg.app)}/app/people" target="_blank" rel="noopener">People</a> first — only friends can sit on a split.</p>`
+        : `<p class="hint">Only people who have accepted your friend request can be seated.</p>`}
       <details>
         <summary>Policy and deadline</summary>
         <label>Approval policy</label>
@@ -176,64 +197,56 @@
         <div class="l"><span>Total</span><b id="total">—</b></div>
         <div class="l"><span>Each</span><span id="each"></span></div>
       </div>
-      <button class="cta" id="go">Request payment</button>
+      <button class="cta" id="go">Create group</button>
       <div id="err"></div>
-      <div class="foot">Each person approves their own share, capped at that share, locked to this merchant. The cap is enforced by the card network. Detected via <b>${esc(det.provenance.total_minor || 'nothing')}</b>.</div>`
+      <div class="foot">Importing a page does not authorize a merchant checkout. Each friend approves their own share on their own phone. Detected via <b>${esc(det.provenance.total_minor || 'nothing')}</b>.</div>`
 
     root.querySelector('#policy').value = cfg.policy || 'all_of'
 
-    const people = root.querySelector('.people')
-    const addPerson = (name) => {
-      const row = document.createElement('div')
-      row.className = 'person'
-      const input = document.createElement('input')
-      input.value = name
-      input.maxLength = 60
-      input.placeholder = 'Name'
-      input.addEventListener('input', update)
-      const rm = document.createElement('button')
-      rm.className = 'x'
-      rm.textContent = '−'
-      rm.addEventListener('click', () => { if (people.children.length > 1) { row.remove(); update() } })
-      row.append(input, rm)
-      people.appendChild(row)
-    }
-    members.forEach(addPerson)
-    root.querySelector('.add').addEventListener('click', () => {
-      if (people.children.length < 20) { addPerson('Friend ' + people.children.length); update() }
-    })
-
     const $ = (s) => root.querySelector(s)
-    const names = () => [...people.children].map((r) => r.firstChild.value.trim()).filter(Boolean)
     const currency = () => ($('#cur').value || 'USD').toUpperCase().slice(0, 3)
     const total = () => toMinor($('#price').value, currency()) * Math.max(1, Number($('#qty').value) || 1)
 
     function update() {
       const c = currency()
-      const n = Math.max(1, names().length)
+      const n = Math.max(1, selected.size)
       $('#total').textContent = fmt(total(), c)
       $('#each').textContent = fmt(Math.floor(total() / n), c) + ' × ' + n
-      $('#go').textContent = `Request payment from ${n} ${n === 1 ? 'person' : 'people'}`
+      $('#count').textContent = `${n} selected`
+      $('#go').textContent = `Create group · ${n}`
     }
+
+    root.querySelectorAll('.person[data-id]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const id = button.dataset.id
+        if (id === me.id) return
+        const friend = friends.find((f) => f.id === id)
+        if (!friend) return
+        if (selected.has(id)) selected.delete(id)
+        else selected.set(id, friend)
+        button.classList.toggle('on', selected.has(id))
+        update()
+      })
+    })
+
     ;['#title', '#cur', '#price', '#qty'].forEach((s) => $(s).addEventListener('input', update))
     update()
 
     $('#go').addEventListener('click', async () => {
       const c = currency()
       const unitNow = toMinor($('#price').value, c)
-      const who = names()
       const err = $('#err')
       err.textContent = ''
       if (unitNow <= 0) return (err.innerHTML = '<div class="err">Set a price above zero.</div>')
-      if (!who.length) return (err.innerHTML = '<div class="err">Add at least one person.</div>')
       if (!/^[A-Z]{3}$/.test(c)) return (err.innerHTML = '<div class="err">Currency must be a 3-letter code.</div>')
 
       const btn = $('#go')
       btn.disabled = true
-      btn.textContent = 'Creating mandates…'
+      btn.textContent = 'Creating group…'
       const deadline = Math.max(1, Number($('#deadline').value) || 60)
       const policyKind = $('#policy').value
-      const quorum = Math.max(1, Math.ceil(who.length * 0.6))
+      const people = [...selected.values()]
+      const quorum = Math.max(1, Math.ceil(people.length * 0.6))
       const policy =
         policyKind === 'quorum'
           ? { type: 'quorum', m: quorum }
@@ -241,19 +254,22 @@
             ? { type: 'deadline', at: new Date(Date.now() + deadline * 60000).toISOString(), primary: { type: 'all_of' }, fallback: { type: 'quorum', m: quorum } }
             : { type: 'all_of' }
 
+      const country =
+        (det.merchant && det.merchant.country_code_iso2) ||
+        (navigator.language || 'en-IN').split('-')[1] ||
+        'IN'
+
       try {
-        await send({ type: 'save-config', patch: { members: who, policy: policyKind, deadlineMinutes: deadline } })
+        await send({ type: 'save-config', patch: { policy: policyKind, deadlineMinutes: deadline } })
         const group = await send({
           type: 'create',
-          engine: cfg.engine,
-          token: cfg.token,
           group: {
             title: ($('#title').value || det.title || 'Group purchase').slice(0, 140),
             merchant: {
               id: 'sutra-extension',
               name: (det.merchant.name || location.hostname).slice(0, 80),
-              url: /^https?:\/\//.test(det.merchant.url) ? det.merchant.url : location.origin,
-              country_code_iso2: (navigator.language || 'en-US').split('-')[1] || 'US',
+              url: /^https?:\/\//.test(det.merchant.url) ? det.merchant.url : location.href,
+              country_code_iso2: String(country).slice(0, 2).toUpperCase(),
             },
             cart: {
               items: [{
@@ -266,46 +282,47 @@
               fees: [],
               currency: c,
             },
-            members: who.slice(0, 20).map((n) => ({ name: n.slice(0, 60), role: 'payer' })),
+            members: people.map((p) => ({ name: p.name.slice(0, 60), role: 'payer', user_id: p.id })),
             policy,
             deadline_minutes: Math.min(10080, deadline),
           },
         })
-        done(group, cfg.engine, c)
+        done(group, cfg.app || 'https://sutra-gmp.vercel.app', c)
       } catch (e) {
         btn.disabled = false
         update()
-        err.innerHTML = `<div class="err">${esc(e.message)}</div>`
+        const msg = e.message || String(e)
+        const friendly = /aren.?t friends|friend request|needs a sutra account/i.test(msg)
+          ? `${msg} Open People in sutra, become friends, then try again.`
+          : msg
+        err.innerHTML = `<div class="err">${esc(friendly)}</div>`
       }
     })
   }
 
-  function done(group, engine, cur) {
-    const base = String(engine).replace(/\/+$/, '')
+  function done(group, appBase, cur) {
+    const base = String(appBase).replace(/\/+$/, '')
+    const board = group.board_url && /^https?:\/\//i.test(group.board_url)
+      ? group.board_url
+      : `${base}/app/groups/${group.group_id}`
     bd.innerHTML = `
       <div class="card"><div class="t">
-        <div class="ttl">✓ ${group.members.length} mandates requested</div>
-        <div class="mut" style="margin-top:3px">Each person scans their own code and approves their own share. Nothing is charged until the policy is satisfied.</div>
+        <div class="ttl">✓ Group is live</div>
+        <div class="mut" style="margin-top:3px">${group.members.length} people can review their share. Nothing is charged until the group rule passes.</div>
       </div></div>
       ${group.members.map((m) => `
         <div class="mem">
-          <img src="${base}/v1/members/${esc(m.member_id)}/qr.png" alt="QR for ${esc(m.name)}">
           <div class="t">
             <div class="n">${esc(m.name)}</div>
             <div class="a">${fmt(m.share_amount, cur)}</div>
-            <a class="lnk" href="${esc(m.approval_page_url)}" target="_blank" rel="noopener">open →</a>
+            <a class="lnk" href="${esc(m.approval_page_url)}" target="_blank" rel="noopener">open share →</a>
             <button class="lnk copy" data-url="${esc(m.approval_page_url)}">copy link</button>
           </div>
         </div>`).join('')}
-      <a class="cta" href="${esc(group.board_url)}" target="_blank" rel="noopener">Watch the board live →</a>
-      <div class="foot">Group ${esc(group.group_id)} · close this page, the board keeps running.</div>`
-
-    root.querySelectorAll('.copy').forEach((b) =>
-      b.addEventListener('click', () => {
-        navigator.clipboard.writeText(b.dataset.url).then(() => {
-          b.textContent = 'copied ✓'
-          setTimeout(() => (b.textContent = 'copy link'), 1400)
-        })
-      }))
+      <a class="cta" href="${esc(board)}" target="_blank" rel="noopener">Open group board →</a>
+      <div class="foot">Merchant checkout stays a separate handoff unless that merchant supports a sutra payment adapter.</div>`
+    root.querySelectorAll('.copy').forEach((b) => b.addEventListener('click', () => {
+      navigator.clipboard.writeText(b.dataset.url).then(() => { b.textContent = 'copied' }).catch(() => {})
+    }))
   }
 })()

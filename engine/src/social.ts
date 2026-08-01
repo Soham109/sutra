@@ -366,14 +366,18 @@ export class Social {
     return this.db.sql.prepare(`SELECT * FROM circles WHERE id = ?`).get(id) as Circle | undefined
   }
 
-  circlesFor(userId: string): (Circle & { members: User[] })[] {
+  circlesFor(userId: string): (Circle & { members: PublicUser[] })[] {
     const circles = this.db.sql
       .prepare(
         `SELECT c.* FROM circles c JOIN circle_members m ON m.circle_id = c.id
          WHERE m.user_id = ? ORDER BY c.created_at DESC`,
       )
       .all(userId) as unknown as Circle[]
-    return circles.map((c) => ({ ...c, members: this.circleMembers(c.id) }))
+    // Never return raw user rows — SELECT u.* includes email + password_hash.
+    return circles.map((c) => ({
+      ...c,
+      members: this.circleMembers(c.id).map(publicUser),
+    }))
   }
 
   circleMembers(circleId: string): User[] {

@@ -90,11 +90,11 @@ export default function HomePage() {
               <section className="quiet-state">
                 <div>
                   <span className="eyebrow">All clear</span>
-                  <h2>Nobody is waiting on you, and you’re not waiting on anybody.</h2>
+                  <h2>Nothing needs you right now.</h2>
                 </div>
                 <p>
-                  Start above and everyone gets their own link. They approve on their own phone, with
-                  their own card, and nobody has to front the money.
+                  Start above with friends you already have on sutra. A buy uses each person’s own approval;
+                  a bill split is agreement only — they pay the venue themselves.
                 </p>
               </section>
             )}

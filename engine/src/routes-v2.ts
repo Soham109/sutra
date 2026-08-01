@@ -131,11 +131,12 @@ export function registerProductRoutes(
     }
   })
 
-  app.post('/v1/me/signout', async (_req, reply) => {
-    reply.header('set-cookie', [
-      `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`,
-      `${USER_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`,
-    ])
+  app.post('/v1/me/signout', async (req, reply) => {
+    const me = currentUser(req)
+    if (me) social.revokeSessions(me.id)
+    const clear = (name: string) =>
+      `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`
+    reply.header('set-cookie', [clear(SESSION_COOKIE), clear(USER_COOKIE)])
     return { ok: true }
   })
 

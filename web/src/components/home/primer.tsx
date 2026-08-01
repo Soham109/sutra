@@ -3,15 +3,15 @@
 const STEPS: { title: string; body: string }[] = [
   {
     title: 'One cart, one deadline',
-    body: 'Somebody builds the cart and invites the group. Everyone sees the same items, the same total and the same clock.',
+    body: 'Somebody builds the cart and invites friends. Everyone sees the same items, the same total and the same clock.',
   },
   {
     title: 'Everyone approves their own share',
-    body: 'Each member signs their own Prava mandate on their own card. No pooled wallet, no treasurer, nobody fronts the money.',
+    body: 'Each friend agrees on their own phone. On the card rail that is a Prava mandate; at a venue it is just the amount they will pay the waiter.',
   },
   {
-    title: 'The group commits, or nobody is charged',
-    body: 'When the policy is met the engine charges every mandate together. If it is not met, every mandate is cancelled — no partial spend.',
+    title: 'The group commits together — or not at all',
+    body: 'When the rule is met, either every card is charged in one moment, or the table has a signed record of who owes what. If the rule fails, nothing moves.',
   },
 ]
 

@@ -59,7 +59,12 @@ export async function main(): Promise<void> {
   const hub = new EventHub(db, process.env.WEBHOOK_SECRET ?? 'dev-webhook-secret')
   const signer = new ReceiptSigner(process.env.ENGINE_SIGNING_SEED || undefined)
   const prava = buildAdapter()
-  const service = new GroupService(db, prava, hub, signer, { appBaseUrl: APP_BASE_URL })
+  // Inbox before GroupService so invite/commit moments can notify.
+  const notifier = new Notifier(db)
+  const service = new GroupService(db, prava, hub, signer, {
+    appBaseUrl: APP_BASE_URL,
+    notifier,
+  })
   const poller = new Poller(service)
 
   // trustProxy: both Railway (direct hits) and the web app's own BFF proxy
@@ -120,8 +125,7 @@ export async function main(): Promise<void> {
 
   // Notifications: the inbox always works; push only once VAPID keys exist.
   // Delivery is fire-and-forget by construction — nothing here can fail a
-  // protocol path. Built before product routes so friend requests can notify.
-  const notifier = new Notifier(db)
+  // protocol path. (Notifier constructed earlier so GroupService can use it.)
 
   registerProductRoutes(app, service, social, catalog, planStore, notifier)
   registerNotifyRoutes(app, notifier, social)

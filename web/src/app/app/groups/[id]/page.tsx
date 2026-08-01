@@ -243,6 +243,8 @@ export default function GroupWarRoom() {
           />
         )}
 
+        {collecting && !replay ? <InvitePanel groupId={group.group_id} title={group.title} /> : null}
+
         <div className="gr-grid">
           {/* --- left: the thread and the log --------------------------- */}
           <div className="stack" style={{ ['--gap' as string]: '16px' }}>
@@ -338,7 +340,6 @@ export default function GroupWarRoom() {
 
           {/* --- right: who, what, and under which rule ------------------ */}
           <div className="stack" style={{ ['--gap' as string]: '16px' }}>
-            {collecting && !replay ? <InvitePanel groupId={group.group_id} title={group.title} /> : null}
             <MemberPanel
               members={view.members}
               currency={currency}

@@ -28,7 +28,15 @@ async function api(path, options = {}) {
   const raw = await response.text()
   let body = {}
   try { body = raw ? JSON.parse(raw) : {} } catch { body = { error: raw } }
-  if (!response.ok) throw new Error(body.error || `engine ${response.status}`)
+  if (!response.ok) {
+    const fallback =
+      response.status === 403
+        ? 'only friends (or yourself) can be invited — add them on People first'
+        : response.status === 401
+          ? 'session expired — reconnect this extension in the popup'
+          : `engine ${response.status}`
+    throw new Error(body.error || fallback)
+  }
   return body
 }
 

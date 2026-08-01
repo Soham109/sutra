@@ -74,12 +74,32 @@ export function registerRoutes(
   // -- create group ---------------------------------------------------------
 
   app.post('/v1/groups', async (req, reply) => {
-    if (!requireToken(req, reply)) return
+    const holdsToken = (req.headers.authorization ?? '') === `Bearer ${cfg.apiToken}`
+    const viewer = cfg.social?.userFor(req as { headers: Record<string, unknown> })
+    // Browser creates should use the session cookie, not the operator token.
+    // Operator/agent (token, no cookie) still works for demos and NANDA.
+    if (!holdsToken && !viewer) {
+      return reply.status(401).send({ error: 'missing or invalid bearer token' })
+    }
     const input = CreateGroupSchema.parse(req.body)
-    // Human creates (cookie or created_by) only seat friends. Operator/agent
-    // creates with neither still work for demos and NANDA scenes.
-    const actor = cfg.social?.userFor(req)?.id ?? input.created_by
-    if (actor) cfg.social?.assertLinkedFriends?.(actor, input.members)
+    if (viewer) {
+      // Human path: never trust client created_by; always friend-gate.
+      cfg.social?.assertLinkedFriends?.(viewer.id, input.members)
+      const { group, members } = service.createGroup({ ...input, created_by: viewer.id })
+      return reply.status(201).send({
+        group_id: group.id,
+        board_url: `${cfg.appBaseUrl}/g/${group.id}/board`,
+        members: members.map((m) => ({
+          member_id: m.id,
+          name: m.display_name,
+          role: m.role,
+          share_amount: m.share_amount,
+          approval_page_url: `${cfg.appBaseUrl}/a/${m.id}`,
+        })),
+      })
+    }
+    // Operator/agent path (token only).
+    if (input.created_by) cfg.social?.assertLinkedFriends?.(input.created_by, input.members)
     const { group, members } = service.createGroup(input)
     return reply.status(201).send({
       group_id: group.id,

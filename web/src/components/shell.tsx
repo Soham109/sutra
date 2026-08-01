@@ -76,7 +76,7 @@ export function Shell({ children, crumbs }: { children: React.ReactNode; crumbs?
             <Icon name="search" /> <span className="top-search-label">Search anything</span> <span className="kbd">⌘K</span>
           </button>
           <InboxBell />
-          <Link href="/app/discover" className="btn btn-primary top-create">New split <span aria-hidden>↗</span></Link>
+          <Link href="/app/plan/new" className="btn btn-primary top-create">Plan something <span aria-hidden>↗</span></Link>
           <ThemeToggle />
         </header>
         <main className="grow">{children}</main>
@@ -122,8 +122,8 @@ function Sidebar() {
         ))}
 
         <div className="nav-section">
-          <Link href="/app/discover" className="btn btn-primary btn-block" style={{ marginTop: 4 }}>
-            Start a group buy
+          <Link href="/app/plan/new" className="btn btn-primary btn-block" style={{ marginTop: 4 }}>
+            Plan something
           </Link>
         </div>
       </nav>
