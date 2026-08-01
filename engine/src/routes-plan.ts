@@ -35,6 +35,9 @@ export interface PlanRoutesDeps {
    * it is trusted the way our own deployed frontend is — see viewerFor().
    */
   apiToken: string
+  notifier?: {
+    notify: (userId: string, input: { kind: string; title: string; body?: string; url?: string }) => unknown
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +102,17 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     // Options are best-effort at creation: a plan with nobody's location yet
     // has nowhere to search, and that is a normal state, not an error.
     await d.plans.generateOptions(plan.id).catch(() => undefined)
+    if (me) {
+      for (const p of d.store.participants(plan.id)) {
+        if (!p.user_id || p.user_id === me.id) continue
+        d.notifier?.notify(p.user_id, {
+          kind: 'plan.invited',
+          title: `${me.name} invited you to a plan`,
+          body: plan.title,
+          url: `/app/plans/${plan.id}`,
+        })
+      }
+    }
     // The creator's own response is the one moment an organiser without an
     // account can grab every participant link at once — see viewerFor().
     return reply.status(201).send(planView(d, d.plans.mustPlan(plan.id), { full: true }))
@@ -129,6 +143,14 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
       .parse(req.body)
     d.social.assertLinkedFriends(me.id, [body])
     d.plans.addParticipant(id, body)
+    if (body.user_id && body.user_id !== me.id) {
+      d.notifier?.notify(body.user_id, {
+        kind: 'plan.invited',
+        title: `${me.name} added you to a plan`,
+        body: plan0.title,
+        url: `/app/plans/${id}`,
+      })
+    }
     const plan = d.plans.mustPlan(id)
     return planView(d, plan, viewerFor(d, req, plan))
   })

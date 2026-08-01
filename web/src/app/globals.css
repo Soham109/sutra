@@ -611,6 +611,23 @@ a.list-row:hover { background: var(--surface-2); }
 .top-search { width: min(260px, 24vw); display: flex; align-items: center; gap: 9px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-3); border-radius: 10px; font-size: 12px; cursor: pointer; }
 .top-search .kbd { margin-left: auto; }
 .top-create { border-radius: 999px; }
+
+/* In-app inbox — friend requests and plan invites, even without push. */
+.inbox-bell { position: relative; }
+.inbox-bell-btn { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.inbox-bell-btn:hover { color: var(--ink); border-color: var(--line-2); }
+.inbox-bell-dot { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 9px; font-weight: 700; line-height: 16px; text-align: center; }
+.inbox-bell-scrim { position: fixed; inset: 0; z-index: 40; border: 0; background: transparent; cursor: default; }
+.inbox-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; width: min(340px, calc(100vw - 24px)); border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 18px 50px rgb(17 17 15 / .14); overflow: hidden; }
+.inbox-panel-head, .inbox-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.inbox-panel-foot { border-bottom: 0; border-top: 1px solid var(--line); }
+.inbox-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; }
+.inbox-list li a, .inbox-list li > button { display: grid; gap: 2px; width: 100%; padding: 11px 14px; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; color: inherit; cursor: pointer; }
+.inbox-list li:last-child a, .inbox-list li:last-child > button { border-bottom: 0; }
+.inbox-list li.is-unread a, .inbox-list li.is-unread > button { background: color-mix(in srgb, var(--brand) 6%, transparent); }
+.inbox-title { font-size: 13px; font-weight: 600; }
+.inbox-body { font-size: 12px; color: var(--ink-3); }
+.inbox-when { margin-top: 2px; }
 .mobile-nav { display: none; }
 /* margin-inline: auto is load-bearing — without it a max-width page hugs
    the left edge of a wide viewport and leaves a dead column on the right. */

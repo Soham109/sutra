@@ -19,6 +19,7 @@ export function MemberPanel({
   allocations,
   anonymise,
   replaying,
+  charges = true,
 }: {
   members: GroupMember[]
   currency: string
@@ -26,6 +27,8 @@ export function MemberPanel({
   allocations: Record<string, { amount: number; shortfall: number }>
   anonymise: boolean
   replaying: boolean
+  /** false on at_venue — no mandates, no card-network language */
+  charges?: boolean
 }) {
   return (
     <div className="card">
@@ -47,8 +50,17 @@ export function MemberPanel({
 
       <div style={{ padding: '13px 16px', borderTop: '1px solid var(--line)' }}>
         <p className="guardrail">
-          Every mandate is locked to <b>{merchant}</b>, capped at that member&rsquo;s own number, single use, and expires
-          with the group. Those limits are enforced at the card network — not by this app.
+          {charges ? (
+            <>
+              Every mandate is locked to <b>{merchant}</b>, capped at that member&rsquo;s own number, single use, and
+              expires with the group. Those limits are enforced at the card network — not by this app.
+            </>
+          ) : (
+            <>
+              This split records who agreed to pay <b>{merchant}</b> what. Nothing is charged through sutra — each
+              person settles at the table with their own card.
+            </>
+          )}
         </p>
       </div>
     </div>

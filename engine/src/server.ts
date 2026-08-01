@@ -140,6 +140,7 @@ export async function main(): Promise<void> {
     social,
     currentUser: (req) => currentUserFrom(social, req),
     apiToken,
+    notifier,
   })
 
   // ---- delegate agents -----------------------------------------------------

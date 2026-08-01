@@ -346,6 +346,7 @@ export default function GroupWarRoom() {
               allocations={view.allocations}
               anonymise={group.no_blame}
               replaying={replay}
+              charges={group.rail_capability?.charges ?? group.rail !== 'at_venue'}
             />
 
             <div className="card">

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Avatar, Modal } from './ui'
 import { useSession } from './session'
+import { InboxBell } from './InboxBell'
 
 const NAV = [
   { section: null, items: [
@@ -74,6 +75,7 @@ export function Shell({ children, crumbs }: { children: React.ReactNode; crumbs?
           <button className="top-search" onClick={() => setPaletteOpen(true)}>
             <Icon name="search" /> <span className="top-search-label">Search anything</span> <span className="kbd">⌘K</span>
           </button>
+          <InboxBell />
           <Link href="/app/discover" className="btn btn-primary top-create">New split <span aria-hidden>↗</span></Link>
           <ThemeToggle />
         </header>

@@ -222,9 +222,8 @@ export default function SettingsPage() {
                 return (
                   <>
                     <p className="small muted" style={{ margin: 0 }}>
-                      Optional. Browser push for when you are not looking at the tab. Protocol events
-                      only reach a device that has turned this on — there is no separate in-app inbox
-                      bell yet.
+                      Optional browser push when you are not looking at the tab. Friend requests and group updates also
+                      land in the inbox bell in the top bar — that works without turning push on.
                     </p>
                     <div className="row wrap" style={{ gap: 8, alignItems: 'center' }}>
                       <button
