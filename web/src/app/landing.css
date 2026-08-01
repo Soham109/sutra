@@ -191,7 +191,18 @@
 .ans-venue b { font-size: 12px; }
 .ans-venue span { font-size: 12px; font-weight: 750; font-variant-numeric: tabular-nums; }
 
-/* Every phone flips in the same second */
+/* 05 — mandates approved, still unpaid */
+.sc-approve { gap: 12px; }
+.approve-row { display: flex; gap: 9px; flex: 1; }
+.ph-approve { border-color: rgb(53 43 221 / .28); }
+.ph-approve .ph-screen { justify-content: center; gap: 4px; }
+.ph-approve-lock { display: grid; place-items: center; width: 28px; height: 28px; margin: 0 auto 4px; border-radius: 50%; background: var(--l-indigo); color: #fff; }
+.ph-approve-cap { color: #85817a; font-size: 9px; }
+.approve-banner { padding: 13px 15px; border: 1px solid rgb(53 43 221 / .18); border-radius: 13px; background: #f4f3ff; }
+.approve-banner b { display: block; font-size: 13.5px; color: var(--l-indigo); }
+.approve-banner small { color: #85817a; font-size: 11px; }
+
+/* 06 — every phone flips in the same second */
 .sc-pay { gap: 12px; }
 .pay-row { display: flex; gap: 9px; flex: 1; }
 .ph-paid .ph-screen { justify-content: center; }
@@ -219,7 +230,9 @@
 /* Hero — sits higher now that the nav floats over it rather than pushing it
    down, so the headline and the demo both land above the fold. */
 .l-hero { min-height: min(820px, calc(100svh - 96px)); padding-top: clamp(26px, 3.5vw, 54px); padding-bottom: clamp(70px, 9vw, 120px); display: grid; grid-template-columns: minmax(0, .92fr) minmax(480px, 1.08fr); gap: clamp(34px, 5vw, 86px); align-items: center; }
-.l-hero-copy { position: relative; z-index: 2; }
+/* Sit the headline a touch below the orbit's vertical centre so the two
+   columns don't read as one mid-aligned block. */
+.l-hero-copy { position: relative; z-index: 2; margin-top: clamp(48px, 7vh, 96px); }
 .l-hero h1 { max-width: 8.8em; font-size: clamp(61px, 7vw, 104px); line-height: .91; letter-spacing: -.073em; font-weight: 690; text-wrap: balance; }
 .l-hero h1 span { color: var(--l-orange); }
 .l-hero-copy > p { max-width: 580px; margin-top: 30px; color: #55534d; font-size: clamp(17px, 1.45vw, 21px); line-height: 1.55; letter-spacing: -.018em; }
@@ -418,7 +431,7 @@
 
 /* Responsive */
 @media (max-width: 1040px) {
-  .l-hero { grid-template-columns: 1fr; padding-top: 78px; }.l-hero-copy { max-width: 760px; }.orbit-shell { width: min(100%, 720px); margin-inline: auto; }
+  .l-hero { grid-template-columns: 1fr; padding-top: 78px; }.l-hero-copy { max-width: 760px; margin-top: 0; }.orbit-shell { width: min(100%, 720px); margin-inline: auto; }
   .l-section-head-wide { grid-template-columns: 55px 1fr; }.l-section-head-wide > p { grid-column: 2; margin-top: 20px; max-width: 60ch; }.l-section-head-wide .l-section-no { grid-row: 1 / 3; }
   .lab-body { grid-template-columns: 1fr; }.lab-copy { padding-left: 0; }.lab-visual { min-height: 560px; border: 1px solid var(--l-line); border-bottom: 0; }
   .protocol-stack { grid-template-columns: 70px 1fr; }.stack-layer { inset-inline: 3%; }
@@ -522,6 +535,7 @@
 .sc-qr .ph-mini { aspect-ratio: 9 / 16; }
 .qr { width: 84px; height: 84px; }
 
+.sc-approve .ph-mini,
 .sc-pay .ph-mini { aspect-ratio: 9 / 15; }
 
 /* Reduced motion, applied to everything on this page.

@@ -316,7 +316,29 @@ function Scene({ index, on }: { index: number; on: boolean }) {
     )
   }
 
-  // 05 — every phone flips at once
+  // 05 — mandates approved; nothing charged yet
+  if (index === 4) {
+    return (
+      <div className="sc sc-approve">
+        <div className="approve-row">
+          {CREW.map((f, i) => (
+            <Phone key={f.name} className="ph-mini ph-approve" delay={i * 120}>
+              <span className="ph-approve-lock"><Icon name="card" /></span>
+              <b className="ph-mini-amt">₹780</b>
+              <span className="ph-mini-top">mandate</span>
+              <span className="ph-approve-cap">approved · unpaid</span>
+            </Phone>
+          ))}
+        </div>
+        <div className="approve-banner">
+          <b>3 of 3 approved · ₹0 charged</b>
+          <small>permissions only — cards untouched until the rule passes</small>
+        </div>
+      </div>
+    )
+  }
+
+  // 06 — every phone flips at once
   return (
     <div className="sc sc-pay">
       <div className="pay-row">
