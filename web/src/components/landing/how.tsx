@@ -1,3 +1,5 @@
+import { Reveal } from './reveal'
+
 // What this actually does, said the way a person would say it.
 //
 // The rest of the page can talk about mandates and rails. This one section has
@@ -53,15 +55,15 @@ export function HowItWorks() {
       </header>
 
       <ol className="how-steps">
-        {STEPS.map((s) => (
-          <li key={s.n}>
+        {STEPS.map((s, i) => (
+          <Reveal as="li" key={s.n} delay={i * 90}>
             <span className="how-n">{s.n}</span>
             <div>
               <h3>{s.title}</h3>
               <p>{s.body}</p>
               <span className="how-aside">{s.aside}</span>
             </div>
-          </li>
+          </Reveal>
         ))}
       </ol>
 

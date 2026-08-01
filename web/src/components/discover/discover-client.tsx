@@ -116,6 +116,12 @@ const MOMENTS: Moment[] = [
   },
 ]
 
+/** "amazon.com", "www.zara.in" — a shop, with no path to a specific item. */
+function isBareStore(q: string): boolean {
+  const s = q.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '')
+  return /^[\w-]+(\.[\w-]+)+$/.test(s)
+}
+
 export function DiscoverClient() {
   const router = useRouter()
   const params = useSearchParams()
@@ -564,7 +570,28 @@ export function DiscoverClient() {
             <p className="tiny faint">{results.warnings.join(' · ')}</p>
           )}
 
-          {results.products.length === 0 ? (
+          {results.products.length === 0 && isBareStore(results.query) ? (
+            // "amazon.com" is a shop, not a thing to buy. Reporting 0 results
+            // is technically true and completely useless — the person told us
+            // where, and we said nothing. Tell them what to do instead.
+            <Empty
+              title={`${results.query} is a store, not an item`}
+              action={
+                <a
+                  className="btn btn-primary"
+                  href={`https://${domainOf(results.query)}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  Open {domainOf(results.query)} ↗
+                </a>
+              }
+            >
+              Find the exact thing you want on their site, then copy the address of that page and
+              paste it here. Sutra reads the merchant’s own price, currency and options straight off
+              it — which is how a store nobody integrated with still works.
+            </Empty>
+          ) : results.products.length === 0 ? (
             <Empty
               title={`Nothing came back for “${results.query}”`}
               action={

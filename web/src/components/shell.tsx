@@ -139,9 +139,21 @@ function MobileNav() {
   )
 }
 
+/** What the person was trying to do when they hit the gate. */
+const INTENT_FOR: [RegExp, string][] = [
+  [/^\/app\/plan/, 'Planning something with Sutra bot'],
+  [/^\/app\/bill/, 'Splitting a bill'],
+  [/^\/app\/discover/, 'Starting a split from a link'],
+  [/^\/app\/groups/, 'Opening your groups'],
+  [/^\/app\/receipts/, 'Opening your receipts'],
+]
+
 function SignIn() {
   const { signIn, register } = useSession()
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const path = usePathname()
+  const intent = INTENT_FOR.find(([re]) => re.test(path ?? ''))?.[1] ?? ''
+  // Somebody arriving mid-action almost never has an account yet.
+  const [mode, setMode] = useState<'login' | 'register'>(intent ? 'register' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [handle, setHandle] = useState('')
@@ -170,9 +182,18 @@ function SignIn() {
           <Mark />
           <span style={{ fontWeight: 650, fontSize: 17, letterSpacing: '-0.02em' }}>sutra</span>
         </div>
+        {/* Say why this screen appeared. Landing on a bare login form after
+            pressing "Plan with Sutra bot" reads as the app having lost you. */}
+        {intent && (
+          <p className="signin-intent">
+            <b>{intent}</b> — you just need an account first. It takes a moment, and you’ll land
+            straight back here.
+          </p>
+        )}
         <h2 style={{ marginBottom: 4 }}>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
         <p className="small muted" style={{ marginBottom: 16 }}>
-          Your plans, friends, circles and extension stay connected. Paying still needs your own passkey.
+          Your plans, friends and circles stay connected across every surface. Paying is always a
+          separate step, on your own card, with your own passkey.
         </p>
         <form onSubmit={submit} className="stack" style={{ ['--gap' as string]: '12px' }}>
           <label className="field"><span className="field-label">Email</span><input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoFocus /></label>

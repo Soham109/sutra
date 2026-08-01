@@ -65,6 +65,32 @@
 .l-button-small { min-height: 42px; padding-inline: 18px; font-size: 12.5px; background: var(--l-orange); border-color: var(--l-orange); color: var(--l-ink) !important; }
 .l-button-quiet { background: transparent; color: var(--l-ink) !important; }
 
+/* Scroll reveal. Short, single-axis, and never on more than one property that
+   costs layout — transform and opacity only. */
+.l-reveal { opacity: 1; }
+.l-reveal:not(.is-in) { opacity: 0; transform: translateY(18px); }
+.l-reveal.is-in { opacity: 1; transform: none; transition: opacity .62s cubic-bezier(.22,1,.36,1), transform .62s cubic-bezier(.22,1,.36,1); }
+@media (prefers-reduced-motion: reduce) {
+  .l-reveal, .l-reveal:not(.is-in) { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
+
+/* The dotted field the whole page sits on. It is the graph paper a split gets
+   worked out on — quiet, regular, and it fades out where content needs to be
+   read. Masked rather than faded so the dots never sit on top of text. */
+.landing { position: relative; }
+.landing::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 1px 1px, rgb(17 17 15 / .13) 1px, transparent 0);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 0%, transparent 78%);
+}
+.landing > * { position: relative; z-index: 1; }
+
 /* How it works — the plain-language section. Numbers are structural here:
    these really are four things that happen in order. */
 .l-how { padding-block: clamp(56px, 8vw, 104px); }
@@ -235,8 +261,35 @@
 .l-guarantees { border-top: 1px solid var(--l-ink); }.l-guarantees article { min-height: 145px; padding: 26px 0; display: grid; grid-template-columns: 70px minmax(180px, .38fr) minmax(260px, .62fr); gap: 25px; align-items: start; border-bottom: 1px solid var(--l-line); transition: padding .3s ease; }.l-guarantees article:hover { padding-inline: 12px; }.l-guarantees article > span { color: var(--l-orange); font-family: var(--font-mono); font-size: 9px; }.l-guarantees h3 { font-size: 22px; letter-spacing: -.035em; }.l-guarantees p { max-width: 54ch; color: var(--l-muted); font-size: 14px; line-height: 1.65; }
 
 /* Final */
-.l-final { background: var(--l-indigo); color: #fff; }.l-final-inner { min-height: 650px; padding-block: clamp(80px, 10vw, 130px); display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; }.l-final h2 { font-size: clamp(62px, 9.3vw, 132px); line-height: .86; letter-spacing: -.075em; }.l-final h2 span { color: #ff9a81; }.l-final p { margin-top: 24px; color: #c9c5ff; font-size: 16px; }.l-final-button { min-height: 62px; padding: 0 27px; display: inline-flex; align-items: center; gap: 11px; border-radius: 999px; background: var(--l-orange); color: #15110e !important; font-size: 14px; font-weight: 760; transition: transform .25s ease; }.l-final-button:hover { transform: translateY(-3px) rotate(-1deg); }
-.l-footer { padding-block: 28px; background: #12110f; color: #fff; }.l-footer > div { display: grid; grid-template-columns: auto 1fr auto; gap: 35px; align-items: center; }.l-footer p { color: #8d8980; font-size: 11px; }.l-footer > div > div:last-child { display: flex; gap: 21px; color: #8d8980; font-size: 10px; }.l-footer a:hover { color: #fff; }
+/* Closing call. Previously 650px tall with space-between, which read as a big
+   empty gap, and its body copy was lavender (#c9c5ff) — a leftover from when
+   --l-indigo really was indigo rather than the brick it is now. Both fixed:
+   the block is sized by its content, and every colour comes from the warm
+   palette the rest of the page uses. */
+.l-final { background: var(--l-indigo); color: #fff; overflow: hidden; }
+.l-final-inner {
+  padding-block: clamp(64px, 8vw, 104px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) auto;
+  gap: clamp(28px, 5vw, 70px);
+  align-items: end;
+}
+.l-final h2 { font-size: clamp(46px, 6.4vw, 86px); line-height: .92; letter-spacing: -.06em; text-wrap: balance; }
+.l-final h2 span { color: #ffb9a4; }
+.l-final p { margin-top: 20px; max-width: 46ch; color: #f6d9cf; font-size: 15.5px; line-height: 1.6; }
+.l-final-button { min-height: 60px; padding: 0 28px; display: inline-flex; align-items: center; gap: 11px; border-radius: 999px; background: #fffdf9; color: #15110e !important; font-size: 14.5px; font-weight: 760; white-space: nowrap; transition: transform .25s ease, box-shadow .25s ease; }
+.l-final-button:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgb(0 0 0 / .22); }
+
+/* Footer. Was a single thin strip; now it carries the three things somebody
+   at the bottom of the page actually wants — what this is, where the code is,
+   and how to reach the protocol. */
+.l-footer { padding-block: clamp(38px, 5vw, 60px); background: #12110f; color: #fff; }
+.l-footer > div { display: grid; grid-template-columns: minmax(220px, 1fr) auto; gap: 30px 40px; align-items: start; }
+.l-footer .l-brand { font-size: 17px; }
+.l-footer p { grid-column: 1; margin-top: 12px; max-width: 44ch; color: #928d84; font-size: 12.5px; line-height: 1.6; }
+.l-footer > div > div:last-child { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 11px; color: #928d84; font-size: 12px; }
+.l-footer a { transition: color .18s ease; }
+.l-footer a:hover { color: #fff; }
 
 /* Scroll reveals: progressive enhancement, compositor-friendly only. */
 @supports (animation-timeline: view()) {

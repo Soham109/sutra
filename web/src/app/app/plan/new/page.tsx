@@ -85,15 +85,10 @@ function NewPlanInner() {
     }
   }
 
-  if (!text) {
-    return (
-      <div className="page">
-        <ErrorNote>
-          Nothing to plan. Start from the box on <a href="/app">Today</a>.
-        </ErrorNote>
-      </div>
-    )
-  }
+  // Arriving with nothing is the NORMAL case — this is where every "Plan with
+  // Sutra bot" button on the site points. Ask for the sentence rather than
+  // treating an empty query as an error, which read as a broken app.
+  if (!text) return <AskSutraBot onAsk={(t) => setText(t)} />
 
   const s = read?.understood.slots
 
@@ -171,6 +166,78 @@ function NewPlanInner() {
           </button>
         </>
       )}
+    </div>
+  )
+}
+
+const EXAMPLES = [
+  'Dinner Saturday with Arsh and Maya near Koramangala, under ₹800 each',
+  'Somewhere to watch the match with the boys tonight',
+  'Coffee tomorrow morning with Priya around Indiranagar',
+]
+
+/** The Sutra bot prompt. One box, some real examples, no jargon. */
+function AskSutraBot({ onAsk }: { onAsk: (text: string) => void }) {
+  const [value, setValue] = useState('')
+  const go = (t: string) => {
+    const trimmed = t.trim()
+    if (!trimmed) return
+    // Keep the sentence in the URL so a refresh or a shared link still works.
+    sessionStorage.setItem('sutra:intent', trimmed)
+    history.replaceState(null, '', `/app/plan/new?q=${encodeURIComponent(trimmed.slice(0, 300))}`)
+    onAsk(trimmed)
+  }
+
+  return (
+    <div className="page ask-page">
+      <header className="page-head">
+        <span className="eyebrow">Sutra bot</span>
+        <h1>What are we doing?</h1>
+        <p className="muted">
+          Say it the way you’d say it to a friend. I’ll work out who you mean, roughly when, and
+          what it should cost — then ask everyone else the awkward questions for you.
+        </p>
+      </header>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          go(value)
+        }}
+        className="ask-box"
+      >
+        <textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              go(value)
+            }
+          }}
+          rows={3}
+          autoFocus
+          placeholder="Dinner Saturday with Arsh and Maya near Koramangala, under ₹800 each"
+          aria-label="Describe what you want to plan"
+        />
+        <button className="btn btn-primary btn-lg" disabled={!value.trim()}>
+          Plan it
+        </button>
+      </form>
+
+      <div className="ask-examples">
+        <span className="tiny faint">Try one:</span>
+        {EXAMPLES.map((ex) => (
+          <button key={ex} type="button" onClick={() => go(ex)}>
+            {ex}
+          </button>
+        ))}
+      </div>
+
+      <p className="ask-alt tiny faint">
+        Already know what you’re buying? <a href="/app/discover">Paste the link</a>. Bill already
+        arrived? <a href="/app/bill">Split it</a>.
+      </p>
     </div>
   )
 }

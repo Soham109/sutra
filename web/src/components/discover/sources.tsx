@@ -68,20 +68,35 @@ export function SourceErrors({ sources }: { sources: SearchResponse['sources'] }
 }
 
 /** What is switched off right now, and why. Quiet, but never hidden. */
+/**
+ * Which catalogues are dark, said to a person rather than to an engineer.
+ *
+ * This used to print the raw operational reason — "Prava discovery runs on the
+ * wallet host behind agent request-signing, not the merchant API key" — on the
+ * page somebody is trying to buy cinema tickets on. That sentence is true, and
+ * it belongs in `GET /v1/discover/sources` where a developer will look for it.
+ * Here it is noise that makes a working product read as broken.
+ */
 export function UnavailableSources({ health }: { health: SourceHealth[] }) {
   const off = health.filter((s) => !s.available)
   if (off.length === 0) return null
   return (
-    <p className="tiny faint" style={{ lineHeight: 1.6 }}>
-      Not searching{' '}
-      {off.map((s, i) => (
-        <span key={s.kind}>
-          {i > 0 && (i === off.length - 1 ? ' and ' : ', ')}
-          <b style={{ fontWeight: 550 }}>{s.label}</b>
-          {s.reason ? ` (${s.reason})` : ''}
-        </span>
-      ))}
-      . Pasting a link from those stores still works.
-    </p>
+    <details className="source-note">
+      <summary>
+        Searching {health.length - off.length} of {health.length} catalogues
+      </summary>
+      <p>
+        Only some stores let anyone search them from the outside. Pasting a link to the exact item
+        works on nearly all of them, including every store that never shows up here.
+      </p>
+      <ul>
+        {off.map((s) => (
+          <li key={s.kind}>
+            <b>{s.label}</b>
+            {s.reason ? <span>{s.reason}</span> : null}
+          </li>
+        ))}
+      </ul>
+    </details>
   )
 }
