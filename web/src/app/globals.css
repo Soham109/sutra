@@ -1228,3 +1228,16 @@ a.list-row:hover { background: var(--surface-2); }
 .discover-scope input { width: 190px; font-size: 13px; }
 .discover-scope button { border: 0; background: none; padding: 4px 0; color: var(--ink-3); font-size: 11.5px; text-decoration: underline; cursor: pointer; }
 .discover-scope button:hover { color: var(--brand-ink); }
+
+/* "Before you tap" — the four seconds before somebody approves money on a
+   phone, on a link a friend sent them. This is the highest-stakes screen in
+   the product and the reassurance used to be eleven grey words in the
+   smallest type available. It is the thing itself now. */
+.btap { margin-top: 4px; padding: 15px 16px 16px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.btap-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); font-weight: 700; margin-bottom: 12px; }
+.btap-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 13px; }
+.btap-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 11px; align-items: start; }
+.btap-i { width: 22px; height: 22px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-ink); font-size: 11px; font-weight: 700; display: grid; place-items: center; box-shadow: inset 0 0 0 1px var(--brand-line); }
+.btap-list b { display: block; font-size: 13.5px; font-weight: 620; letter-spacing: -.015em; line-height: 1.35; }
+.btap-list p { margin-top: 4px; color: var(--ink-2); font-size: 12.5px; line-height: 1.6; }
+.btap-list strong { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }

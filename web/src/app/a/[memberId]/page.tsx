@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import { ApproveFrame, ApproveSkeleton, BadLink } from '@/components/approve/chrome'
 import { AuctionPanel } from '@/components/approve/auction'
+import { BeforeYouTap } from '@/components/approve/before-you-tap'
 import { DeclineDialog } from '@/components/approve/decline'
 import { useDisplayCurrency } from '@/components/approve/fx'
 import { ShareHero } from '@/components/approve/hero'
@@ -135,6 +136,13 @@ export default function ApprovalPage() {
           <BackstopCard v={v} />
         )}
 
+        {/* Answers the three things somebody actually wonders in the seconds
+            before tapping a payment button on a stranger's link. Card rail
+            only: on at_venue there is no redirect and no cap to explain, and
+            borrowing this copy there would describe a charge that never
+            happens. */}
+        {phase === 'deciding' && !closed && v.action === 'approve' && <BeforeYouTap v={v} />}
+
         {members.length > 0 && phase !== 'charged' && (
           <Presence members={members} meId={memberId} currency={cur} anonymise={v.group.no_blame} />
         )}
@@ -238,11 +246,13 @@ export default function ApprovalPage() {
           </button>
           {ready ? (
             <p className="tiny faint" style={{ textAlign: 'center' }}>
-              Opens Prava&apos;s own page. Your passkey never touches sutra.
+              Takes you to <b>prava.space</b> to confirm. Your passkey never touches sutra.
             </p>
           ) : (
             <div className="row" style={{ justifyContent: 'center' }}>
-              <Spinner label="Preparing your mandate…" />
+              {/* "Preparing your mandate" is a word from the protocol, read by
+                  somebody who has never met it. Say what is happening. */}
+              <Spinner label="Setting up your approval…" />
             </div>
           )}
           <button className="btn btn-ghost btn-block" onClick={() => setDeclineOpen(true)}>
