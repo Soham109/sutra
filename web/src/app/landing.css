@@ -92,7 +92,14 @@
   mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 0%, transparent 78%);
   -webkit-mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 0%, transparent 78%);
 }
-.landing > * { position: relative; z-index: 1; }
+/* The dots sit behind everything via a negative z-index inside a stacking
+   context of their own. The previous approach — `.landing > * { position:
+   relative; z-index: 1 }` — lifted content above the dots correctly and, being
+   the same specificity as `.l-nav` but later in the file, silently overwrote
+   `position: sticky` with `position: relative`. Never blanket-set `position`
+   on every child of a container that holds a sticky element. */
+.landing { isolation: isolate; }
+.landing::before { z-index: -1; }
 
 /* How it works — a scroll-driven sequence. The thread from the logo runs down
    the left, filling as you go; the panel on the right is sticky and swaps to
