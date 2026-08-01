@@ -1048,3 +1048,8 @@ a.list-row:hover { background: var(--surface-2); }
 
 /* A plan the person made for themselves. No group, no poll, no dead button. */
 .solo-note { margin: 6px 0 10px; padding: 10px 13px; border-radius: var(--r); background: var(--surface-2); color: var(--ink-2); font-size: 12.5px; line-height: 1.6; }
+
+/* Something to press on an empty search. */
+.discover-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 12px; }
+.discover-examples button { padding: 6px 12px; border: 1px dashed var(--line-2); border-radius: 999px; background: transparent; color: var(--ink-2); font-size: 12.5px; cursor: pointer; transition: .14s; }
+.discover-examples button:hover { border-style: solid; border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }

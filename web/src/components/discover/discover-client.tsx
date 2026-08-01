@@ -116,6 +116,15 @@ const MOMENTS: Moment[] = [
   },
 ]
 
+/** Queries that are known to return real products from the default shelf.
+ *  Verified against the live engine rather than hopefully typed in. */
+const EXAMPLES = [
+  { label: 'merino tee', q: 'merino tee', store: '' },
+  { label: 'earbuds', q: 'earbuds', store: 'boat-lifestyle.com' },
+  { label: 'trimmer', q: 'trimmer', store: 'bombayshavingcompany.com' },
+  { label: 'gym shorts', q: 'shorts', store: 'gymshark.com' },
+]
+
 /** "amazon.com", "www.zara.in" — a shop, with no path to a specific item. */
 function isBareStore(q: string): boolean {
   const s = q.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '')
@@ -333,10 +342,10 @@ export function DiscoverClient() {
     <div className="page discover-page">
       <div className="page-head discover-head">
         <span className="eyebrow">New split</span>
-        <h1>Bring the thing.<br /><span>We’ll shape the split.</span></h1>
+        <h1>Find it.<br /><span>Then split it.</span></h1>
         <p className="muted">
-          Paste the exact page you want the group to buy, and sutra reads the price, the variants, the stock — you
-          stay in control of every item, person, fee and rule before an invite leaves the app.
+          Search the stores below, or paste a link from anywhere — sutra reads the merchant’s own
+          price and options off the page. Then decide who’s paying for what.
         </p>
       </div>
 
@@ -351,7 +360,7 @@ export function DiscoverClient() {
                 setQ(e.target.value)
                 if (hint) setHint(null)
               }}
-              placeholder={hint?.placeholder ?? 'Paste a product link — or search a few catalogues'}
+              placeholder={hint?.placeholder ?? 'Search “merino tee”, or paste any product link'}
               aria-label="Search for a product, or paste a product link"
               autoComplete="off"
               spellCheck={false}
@@ -373,8 +382,8 @@ export function DiscoverClient() {
               </>
             ) : (
               <>
-                Words search a small demo catalogue below. A pasted link is read directly from the merchant’s page,
-                which works on almost any store — including the ones nobody here integrated with.
+                Searching eight storefronts. Anywhere else, paste the link to the exact item — that
+                works on nearly every store, including the ones that never appear here.
               </>
             )}
           </p>
@@ -394,6 +403,28 @@ export function DiscoverClient() {
             />
           </label>
         </div>
+
+        {/* Something to press. A search box with no examples makes people guess
+            what the catalogue contains, guess wrong, get nothing, and conclude
+            the product is broken. Each of these returns real results. */}
+        {!isUrl && !results && (
+          <div className="discover-examples">
+            <span className="tiny faint">Try:</span>
+            {EXAMPLES.map((ex) => (
+              <button
+                key={ex.q + ex.store}
+                type="button"
+                onClick={() => {
+                  setQ(ex.q)
+                  setStore(ex.store)
+                  void runSearch(ex.q, ex.store)
+                }}
+              >
+                {ex.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {isUrl && store.trim() !== '' && (
           <p className="tiny faint" style={{ marginTop: 6 }}>

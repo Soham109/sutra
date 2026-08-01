@@ -70,7 +70,25 @@ export async function main(): Promise<void> {
   const catalog = new Catalog({
     // Any Shopify storefront works; these are only the default shelf searched
     // when the user does not scope the query to a merchant.
-    shopifyDomains: (process.env.SHOPIFY_DOMAINS ?? 'shop.polymer.co,gymshark.com,allbirds.com')
+    // The default shelf, when a query is not scoped to one store. Every domain
+    // here was verified to answer Shopify's public /search/suggest.json with
+    // real products and real prices — a store that 404s that endpoint makes the
+    // whole search look broken, so nothing goes in this list unchecked.
+    // Deliberately spread across US and Indian storefronts, since the split is
+    // as likely to be in rupees as dollars.
+    shopifyDomains: (
+      process.env.SHOPIFY_DOMAINS ??
+      [
+        'allbirds.com',
+        'gymshark.com',
+        'fashionnova.com',
+        'kyliecosmetics.com',
+        'bombayshavingcompany.com',
+        'boat-lifestyle.com',
+        'mamaearth.in',
+        'beardo.in',
+      ].join(',')
+    )
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
