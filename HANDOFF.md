@@ -286,4 +286,34 @@ cli/src/nanda.ts             nanda check / skill-submit / index-register
   the UI refuses to show a green tick over it, and `POST /v1/bill/split` **rejects** it unless the
   caller passes `force`. Regression test uses the verbatim broken OCR output.
 
-### Next agent: start at §3.1 (Prava sandbox key), then §5 (NANDA)
+- **2026-08-01 (later)** — "Login is broken" turned out to mean the engine on Railway had been up 95
+  minutes running a build from before `/v1/auth/*` existed. The auth code was only ever local.
+  Deployed it; `npm run e2e:auth` (`e2e/auth-check.ts`) now proves sign-in on a live host in one
+  command — 8/8 against production.
+- **2026-08-01 (later)** — A Chrome profile had been committed under `.qa/`: 1545 files, 65 MB,
+  including `Login Data` and `Network/Cookies`. Untracked and gitignored. **It is still in git
+  history** — purging needs another force-push, which was not done because a teammate is active.
+  Worth doing after judging; a 65 MB blob slows every clone forever.
+- **2026-08-01 (later)** — OpenAI wired up. The first key was auto-revoked within about twenty
+  minutes of being pasted into a chat (OpenAI scans for leaked keys), so **never paste a key into a
+  transcript** — set it straight on Railway. The second key is live and verified: `extractor: openai`
+  and "somewhere to watch the match" resolves to a sports bar. `OPENAI_MODEL=gpt-4.1-nano` is the
+  cheapest tier that handles constrained tool-calling; the deterministic floor still runs whenever
+  the model is unavailable, so nothing depends on it.
+- **2026-08-01 (later)** — Landing: sticky/floating/glass nav (`components/landing/nav.tsx`), hero
+  raised now that the nav overlays rather than pushes, and a new plain-language `HowItWorks`
+  section, because the page explained the protocol but never said what the product does. The agent
+  is "**Sutra bot**" in all user-facing copy — which model is behind it is an implementation detail.
+  **Vercel's git auto-deploy did not fire on push; deploy explicitly with `npx vercel --prod --yes`
+  then `npx vercel alias set <url> sutra-gmp.vercel.app`.**
+
+### Known-stale / next up
+1. **NANDA gaps 1–3 are unfinished.** The agent doing them died on a session limit after writing
+   `docs/NANDA-EVIDENCE.md` (988 lines) and `nanda-town-prava/scripts/live_check.py`. Re-read those
+   two first — much may already be done. Registry submission has definitely NOT happened.
+2. **No real Prava charge yet.** Sessions mint correctly against the sandbox; the passkey step needs
+   a human with a phone and a test card. `npm run e2e:proof -- --watch`.
+3. Passkey (WebAuthn) login was planned to replace handle-only identity. Password auth now exists,
+   so this is an upgrade rather than a gap.
+
+### Next agent: start at "Known-stale" above, then §5 (NANDA)
