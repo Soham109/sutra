@@ -9,13 +9,22 @@ window.gmp = (() => {
 
   const api = async (path, opts = {}) => {
     const res = await fetch(path, {
-      headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
       ...opts,
+      // headers merged AFTER the spread so callers can add (not replace) them —
+      // content-type must always survive or the engine can't parse the body
+      headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     })
     if (!res.ok) {
       let msg = `${res.status}`
-      try { msg = (await res.json()).error || msg } catch {}
+      try {
+        const data = await res.json()
+        msg = data.error || msg
+        if (Array.isArray(data.details) && data.details.length) {
+          const d = data.details[0]
+          msg += `: ${(d.path || []).join('.')} — ${d.message}`
+        }
+      } catch {}
       throw new Error(msg)
     }
     return res.json()
