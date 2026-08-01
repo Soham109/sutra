@@ -1,5 +1,14 @@
 # HANDOFF — read this first
 
+> ### ⚠ Read [`STATUS.md`](STATUS.md) before this file.
+>
+> This document describes the system. **`STATUS.md` describes what happened on the last
+> working day, what is broken right now, what is half-finished, and what to do next in
+> order.** A long session on 1 Aug fixed a double-charge bug, a group-cancel auth hole, a
+> password-hash leak, a participant IDOR, and several confidently-wrong price bugs; it also
+> found that Railway's auto-deploy had been silently dead for hours. None of that is
+> reflected below. If the two disagree about current state, `STATUS.md` is newer.
+
 **Last verified:** 2026-08-01. Every number and URL below was observed by running the
 command or fetching the URL on that date. If something here disagrees with another
 document in this repo, trust this file and fix the other one.
