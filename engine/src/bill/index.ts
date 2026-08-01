@@ -140,7 +140,7 @@ async function transcribeReceipt(key: string, image: string): Promise<string> {
       method: 'POST',
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: process.env.OPENAI_MODEL ?? 'gpt-4.1-nano',
         temperature: 0,
         messages: [
           {

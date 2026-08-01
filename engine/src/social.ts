@@ -1,4 +1,5 @@
 import { ulid } from './ids.js'
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import type { Db } from './db.js'
 import type { Policy } from './types.js'
 
@@ -72,6 +73,20 @@ export function installSocialSchema(db: Db): void {
       user_id TEXT NOT NULL,
       PRIMARY KEY (circle_id, user_id)
     );
+
+    -- Opaque, revocable credentials for companion clients such as the browser
+    -- extension. Only the hash is persisted; losing the database cannot reveal
+    -- a usable token.
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      last_used_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS user_sessions_user ON user_sessions(user_id);
   `)
 
   // Group/member ownership columns, added defensively so an existing db upgrades.
@@ -79,6 +94,8 @@ export function installSocialSchema(db: Db): void {
   addColumn(db, 'groups', 'circle_id', 'TEXT')
   addColumn(db, 'groups', 'product_json', 'TEXT')
   addColumn(db, 'members', 'user_id', 'TEXT')
+  addColumn(db, 'users', 'password_hash', 'TEXT')
+  db.sql.exec(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users(lower(email))`)
 }
 
 function addColumn(db: Db, table: string, column: string, type: string): void {
@@ -106,6 +123,27 @@ export class Social {
     return this.byId(id)!
   }
 
+  registerUser(input: { handle: string; name: string; email: string; password: string }): User {
+    const email = input.email.trim().toLowerCase()
+    if (this.byEmail(email)) throw new Error('an account with that email already exists')
+    if (this.byHandle(input.handle.trim().toLowerCase())) throw new Error('that handle is already taken')
+    const user = this.createUser({ ...input, email })
+    this.db.sql.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(passwordHash(input.password), user.id)
+    return user
+  }
+
+  authenticate(email: string, password: string): User | undefined {
+    const row = this.db.sql.prepare(`SELECT * FROM users WHERE lower(email) = ?`).get(email.trim().toLowerCase()) as (User & { password_hash: string | null }) | undefined
+    if (!row?.password_hash || !verifyPassword(password, row.password_hash)) return undefined
+    const { password_hash: _secret, ...user } = row
+    return user
+  }
+
+  byEmail(email: string): User | undefined {
+    return this.db.sql.prepare(`SELECT id, handle, name, email, accent, created_at FROM users WHERE lower(email) = ?`)
+      .get(email.trim().toLowerCase()) as User | undefined
+  }
+
   byId(id: string): User | undefined {
     return this.db.sql.prepare(`SELECT * FROM users WHERE id = ?`).get(id) as User | undefined
   }
@@ -118,6 +156,34 @@ export class Social {
 
   allUsers(): User[] {
     return this.db.sql.prepare(`SELECT * FROM users ORDER BY created_at`).all() as unknown as User[]
+  }
+
+  createSession(userId: string, label = 'companion client'): { token: string; expires_at: string } {
+    if (!this.byId(userId)) throw new Error('no such user')
+    const token = `sutra_session_${randomBytes(32).toString('base64url')}`
+    const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
+    this.db.sql.prepare(
+      `INSERT INTO user_sessions (id, user_id, token_hash, label, expires_at) VALUES (?, ?, ?, ?, ?)`,
+    ).run(`ses_${ulid()}`, userId, hashToken(token), label.slice(0, 80), expiresAt)
+    return { token, expires_at: expiresAt }
+  }
+
+  userForSession(token: string): User | undefined {
+    if (!token.startsWith('sutra_session_')) return undefined
+    const row = this.db.sql.prepare(
+      `SELECT id, user_id FROM user_sessions WHERE token_hash = ? AND expires_at > ?`,
+    ).get(hashToken(token), new Date().toISOString()) as { id: string; user_id: string } | undefined
+    if (!row) return undefined
+    this.db.sql.prepare(`UPDATE user_sessions SET last_used_at = ? WHERE id = ?`)
+      .run(new Date().toISOString(), row.id)
+    return this.byId(row.user_id)
+  }
+
+  revokeSessions(userId: string, label?: string): number {
+    const result = label
+      ? this.db.sql.prepare(`DELETE FROM user_sessions WHERE user_id = ? AND label = ?`).run(userId, label)
+      : this.db.sql.prepare(`DELETE FROM user_sessions WHERE user_id = ?`).run(userId)
+    return Number(result.changes)
   }
 
   // ---- friends ------------------------------------------------------------
@@ -268,6 +334,24 @@ export class Social {
       .all(userId, userId) as unknown as { id: string }[]
     return rows.map((r) => r.id)
   }
+}
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+function passwordHash(password: string): string {
+  const salt = randomBytes(16)
+  const derived = scryptSync(password, salt, 32)
+  return `scrypt$${salt.toString('base64url')}$${derived.toString('base64url')}`
+}
+
+function verifyPassword(password: string, encoded: string): boolean {
+  const [algorithm, saltText, hashText] = encoded.split('$')
+  if (algorithm !== 'scrypt' || !saltText || !hashText) return false
+  const expected = Buffer.from(hashText, 'base64url')
+  const actual = scryptSync(password, Buffer.from(saltText, 'base64url'), expected.length)
+  return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
 function hash(s: string): number {

@@ -8,8 +8,7 @@
  * an SVG path silently falls back to the puzzle-piece icon. Verified against
  * the MV3 manifest reference — this is a real constraint, not caution.
  *
- * The mark: amber rounded square, dark bolt, 3x supersampled so the 16px
- * favicon-sized copy does not turn to mush.
+ * The mark: indigo field with three connected participants.
  */
 import { deflateSync } from 'node:zlib'
 import { writeFileSync } from 'node:fs'
@@ -18,25 +17,13 @@ import { dirname, join } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-const AMBER = [245, 158, 11, 255] // #f59e0b
-const INK = [20, 16, 10, 255] // #14100a
+const INK = [23, 21, 18, 255]
+const ORANGE = [255, 113, 59, 255]
+const PAPER = [247, 244, 237, 255]
 const CLEAR = [0, 0, 0, 0]
 
-// Lightning bolt in a unit square, wound clockwise.
-const BOLT = [
-  [0.60, 0.06], [0.26, 0.56], [0.45, 0.56],
-  [0.38, 0.94], [0.75, 0.42], [0.54, 0.42],
-]
-
-function inPolygon(x, y, poly) {
-  let inside = false
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i]
-    const [xj, yj] = poly[j]
-    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
-  }
-  return inside
-}
+function circle(x, y, cx, cy, radius) { return (x-cx)**2 + (y-cy)**2 <= radius**2 }
+function segment(x,y,ax,ay,bx,by,width){const dx=bx-ax,dy=by-ay;const t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/(dx*dx+dy*dy)));return (x-(ax+t*dx))**2+(y-(ay+t*dy))**2<=width**2}
 
 function inRoundRect(x, y, r) {
   // x,y in [0,1]; r is the corner radius as a fraction of the side.
@@ -59,7 +46,12 @@ function render(size) {
           const u = (x + (sx + 0.5) / SS) / size
           const v = (y + (sy + 0.5) / SS) / size
           let c = CLEAR
-          if (inRoundRect(u, v, radius)) c = inPolygon(u, v, BOLT) ? INK : AMBER
+          if (inRoundRect(u, v, radius)) {
+            c = PAPER
+            if (segment(u,v,.31,.34,.68,.43,.035)||segment(u,v,.31,.34,.48,.72,.035)||segment(u,v,.68,.43,.48,.72,.035)) c=INK
+            if (circle(u,v,.31,.34,.105)||circle(u,v,.48,.72,.105)) c=ORANGE
+            if (circle(u,v,.68,.43,.105)) c=INK
+          }
           // premultiply so transparent corners do not fringe
           acc[0] += (c[0] * c[3]) / 255
           acc[1] += (c[1] * c[3]) / 255

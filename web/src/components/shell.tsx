@@ -140,7 +140,10 @@ function MobileNav() {
 }
 
 function SignIn() {
-  const { signIn } = useSession()
+  const { signIn, register } = useSession()
+  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [handle, setHandle] = useState('')
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -148,11 +151,12 @@ function SignIn() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!handle.trim()) return
+    if (!email.trim() || !password) return
     setBusy(true)
     setError('')
     try {
-      await signIn(handle.trim(), name.trim() || undefined)
+      if (mode === 'login') await signIn(email.trim(), password)
+      else await register({ email: email.trim(), password, handle: handle.trim(), name: name.trim() })
     } catch (err) {
       setError((err as Error).message)
       setBusy(false)
@@ -160,37 +164,39 @@ function SignIn() {
   }
 
   return (
-    <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 20 }}>
-      <div className="card card-pad" style={{ width: '100%', maxWidth: 400 }}>
+    <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 20, minWidth: 0, overflow: 'hidden' }}>
+      <div className="card card-pad" style={{ width: 'min(400px, 100%)', minWidth: 0 }}>
         <div className="row" style={{ gap: 9, marginBottom: 16 }}>
           <Mark />
           <span style={{ fontWeight: 650, fontSize: 17, letterSpacing: '-0.02em' }}>sutra</span>
         </div>
-        <h2 style={{ marginBottom: 4 }}>Pick a handle</h2>
+        <h2 style={{ marginBottom: 4 }}>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
         <p className="small muted" style={{ marginBottom: 16 }}>
-          It only labels you inside the app. Paying still needs your own passkey on your own device.
+          Your plans, friends, circles and extension stay connected. Paying still needs your own passkey.
         </p>
         <form onSubmit={submit} className="stack" style={{ ['--gap' as string]: '12px' }}>
-          <label className="field">
+          <label className="field"><span className="field-label">Email</span><input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoFocus /></label>
+          <label className="field"><span className="field-label">Password</span><input className="input" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 10 characters" /></label>
+          {mode === 'register' && <><label className="field">
             <span className="field-label">Handle</span>
             <input
               className="input"
               value={handle}
               onChange={(e) => setHandle(e.target.value)}
               placeholder="soham"
-              autoFocus
               maxLength={30}
             />
           </label>
           <label className="field">
-            <span className="field-label">Display name (optional)</span>
+            <span className="field-label">Display name</span>
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Soham" />
-          </label>
+          </label></>}
           {error && <p className="small" style={{ color: 'var(--bad)' }}>{error}</p>}
-          <button className="btn btn-primary btn-block btn-lg" disabled={busy || !handle.trim()}>
-            {busy ? 'Setting up…' : 'Continue'}
+          <button className="btn btn-primary btn-block btn-lg" disabled={busy || !email.trim() || password.length < (mode === 'register' ? 10 : 1) || (mode === 'register' && (!handle.trim() || !name.trim()))}>
+            {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
           </button>
         </form>
+        <button className="btn btn-ghost btn-block" style={{ marginTop: 8 }} onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError('') }}>{mode === 'login' ? 'New here? Create an account' : 'Already have an account? Log in'}</button>
         <p className="tiny faint" style={{ marginTop: 14 }}>
           <Link href="/" style={{ color: 'var(--brand)' }}>← Back to the homepage</Link>
         </p>

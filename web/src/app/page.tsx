@@ -1,172 +1,52 @@
 import Link from 'next/link'
 import { Mark } from '@/components/shell'
 import { ConsentThreadDemo } from '@/components/landing/consent-thread'
-import { FrontingFlows } from '@/components/landing/flow'
-import { ResolveDemo } from '@/components/landing/resolve'
-import { CART, CAST, inr } from '@/components/landing/demo-cart'
+import { MandateOrbit } from '@/components/landing/mandate-orbit'
+import { ProductLab } from '@/components/landing/product-lab'
+import { ScrollStory } from '@/components/landing/scroll-story'
 import './landing.css'
 
 const REPO = 'https://github.com/Soham109/sutra'
 const SPEC = `${REPO}/blob/main/spec/PROTOCOL.md`
 
-const USE_CASES = [
-  { icon: '◒', title: 'Movie night', copy: 'Seats, snacks and booking fees — assigned to the people who chose them.' },
-  { icon: '✦', title: 'Flights & stays', copy: 'Different fares, rooms and baggage. One deadline, no human travel agent.' },
-  { icon: '♫', title: 'Concerts', copy: 'Hold the group together without one card carrying the whole ticket drop.' },
-  { icon: '⌁', title: 'Dinner', copy: 'Split dishes, shared plates, tax and tip before the card machine arrives.' },
-  { icon: '◇', title: 'Group gifts', copy: 'Set a target, let people choose a share, and only buy when the group clears it.' },
-  { icon: '↗', title: 'Anything with a link', copy: 'Paste a merchant URL. Sutra reads the cart and turns it into a group checkout.' },
-]
-
-const GUARANTEES = [
-  ['No fronting', 'Every person pays the merchant from their own card. Nobody becomes the group bank.'],
-  ['No pooled money', 'Sutra only coordinates the approvals. It never stores a balance, holds your money, or touches card numbers.'],
-  ['No surprise total', 'Every approval is merchant-locked, single-use, and capped at that person’s exact exposure.'],
-  ['No awkward failure', 'If the rule the group agreed cannot be met, every hold is released and nobody is charged.'],
-]
+function Arrow() { return <svg className="l-arrow" viewBox="0 0 20 20" aria-hidden><path d="M4 10h11M11 6l4 4-4 4" /></svg> }
 
 export default function Landing() {
-  return (
-    <div className="landing">
-      <header className="l-nav">
-        <div className="l-wrap l-nav-in">
-          <Link href="/" className="l-brand" aria-label="Sutra home">
-            <Mark />
-            <span>sutra</span>
-          </Link>
-          <nav className="l-nav-links" aria-label="Main navigation">
-            <a href="#possibilities">Use cases</a>
-            <a href="#how">How it works</a>
-            <a href="#safety">Safety</a>
-            <a href={SPEC} target="_blank" rel="noreferrer">Developers</a>
-          </nav>
-          <div className="l-nav-end">
-            <Link className="btn btn-ghost l-nav-spec" href="/app">Sign in</Link>
-            <Link className="btn btn-primary" href="/app/discover">Start a split <span aria-hidden>↗</span></Link>
-          </div>
+  return <div className="landing">
+    <header className="l-nav"><div className="l-wrap l-nav-in">
+      <Link href="/" className="l-brand" aria-label="Sutra home"><Mark /><span>sutra</span></Link>
+      <nav className="l-nav-links" aria-label="Main navigation"><a href="#product">Product</a><a href="#consent">Consent</a><a href="#proof">Architecture</a><a href={SPEC}>Developers</a></nav>
+      <div className="l-nav-end"><Link className="l-login" href="/app">Log in</Link><Link className="l-button l-button-small" href="/app/plan/new"><span className="l-start-long">Start a plan</span><span className="l-start-short">Start</span> <Arrow /></Link></div>
+    </div></header>
+
+    <main>
+      <section className="l-wrap l-hero"><div className="l-hero-copy">
+        <h1>Turn “we should”<br />into <span>“we did.”</span></h1>
+        <p>Sutra finds the plan, shapes the split, gets every person’s consent, and pays the merchant from everyone’s own card—when that merchant supports the rail.</p>
+        <div className="l-hero-actions"><Link className="l-button" href="/app/plan/new">Plan something <Arrow /></Link><Link className="l-button l-button-quiet" href="/app/discover">Bring a link</Link></div>
+        <div className="l-hero-proof"><span>Nothing pooled</span><span>Nothing fronted</span><span>Nothing invented</span></div>
+      </div><MandateOrbit /></section>
+
+      <div className="l-signal-rail"><div className="l-signal-track"><span><b>Say it</b> sentence → structured plan</span><i /><span><b>Paste it</b> link → imported item</span><i /><span><b>Scan it</b> receipt → exact lines</span><i /><span><b>Share it</b> invite → individual consent</span><i /><span aria-hidden><b>Say it</b> sentence → structured plan</span></div></div>
+
+      <ScrollStory />
+
+      <section id="product" className="l-wrap l-section l-product-section"><header className="l-section-head l-section-head-wide"><span className="l-section-no">PRODUCT</span><h2>Start where the group already is.</h2><p>A sentence, merchant page, paper receipt or saved circle enters one shared system. Switch the surface below—the people and rules stay intact.</p></header><ProductLab /></section>
+
+      <section id="consent" className="l-consent-band"><div className="l-wrap l-section l-consent-section"><header className="l-section-head l-section-head-inline"><div><span className="l-section-no">THE DECISION</span><h2>Money waits for the rule.</h2></div><p>No twelve-step slideshow. Change the group’s rule and watch the exact same dropout either commit cleanly or release everybody.</p></header><ConsentThreadDemo /></div></section>
+
+      <section id="proof" className="l-proof-band"><div className="l-wrap l-section"><header className="l-section-head l-section-head-light l-section-head-inline"><div><span className="l-section-no">THE WHOLE SYSTEM</span><h2>One product.<br />Honest boundaries.</h2></div><p>The extension, app, agent and payment rail share one account and one protocol. What changes is what each surface is actually allowed to do.</p></header>
+        <div className="proof-grid">
+          <article className="proof-card proof-card-surface"><span>01 · SURFACES</span><h3>Bring the context. Keep the account.</h3><div className="proof-surfaces"><b>Web + PWA<small>plan · search · manage</small></b><i>↔</i><b>Extension<small>read the active page</small></b><i>↔</i><b>Mobile next<small>camera · share · push</small></b></div><p>Friends, circles and receipts live in the hosted product database—not inside a browser extension.</p></article>
+          <article className="proof-card proof-card-rails"><span>02 · MONEY</span><h3>“Imported” is not “purchased.”</h3><div className="proof-rail"><i className="proof-dot proof-dot-good"/><b>Supported merchant</b><em>individual mandates → one merchant commit</em></div><div className="proof-rail"><i className="proof-dot"/><b>Unsupported merchant</b><em>coordinate → return to authenticated checkout</em></div><div className="proof-rail"><i className="proof-dot proof-dot-warn"/><b>Physical bill</b><em>record what is owed; never claim charged</em></div></article>
+          <article className="proof-card proof-card-agent"><span>03 · OPENAI + AGENTS</span><h3>Models interpret.<br />They never invent the bill.</h3><div className="proof-code"><p><i>intent</i> “movie Friday with the crew”</p><p><i>facts</i> merchant URL · OpenStreetMap</p><p><i>math</i> deterministic allocation</p><p><i>consent</i> GMP/1 state machine</p></div><footer><b>OpenAI optional</b><small>Offline rules remain the fallback.</small></footer></article>
+          <article className="proof-card proof-card-safety"><span>04 · INVARIANTS</span><h3>Delightful with plans.<br />Boring with money.</h3><ul><li><b>No pooled balance</b><small>Sutra never holds the group’s money.</small></li><li><b>No silent share changes</b><small>A moved cap requires fresh consent.</small></li><li><b>No unknown double charge</b><small>Ambiguous outcomes reconcile before retry.</small></li><li><b>Signed receipts</b><small>The consent chain remains verifiable.</small></li></ul></article>
         </div>
-      </header>
+        <div className="proof-actions"><a href={SPEC}>Read GMP/1 <Arrow /></a><a href={REPO}>Inspect the source <Arrow /></a></div>
+      </div></section>
 
-      <main>
-        <section className="l-wrap l-hero">
-          <div className="l-hero-copy">
-            <h1 className="l-h1">Buy it<br />together.<br /><span className="l-h1-accent">Without the group bank.</span></h1>
-            <p className="l-sub">
-              Movie seats, flights, dinner, a villa, a gift — split any checkout before it is paid. Everyone approves
-              their own share. The purchase happens together, or not at all.
-            </p>
-            <div className="l-cta-row">
-              <Link className="btn btn-primary btn-xl" href="/app/discover">Split something</Link>
-              <a className="l-text-link" href="#how">See the 30-second version <span aria-hidden>↓</span></a>
-            </div>
-            <div className="l-promise-row" aria-label="Product guarantees">
-              <span>No pooled funds</span><span>No card data</span><span>No chasing friends</span>
-            </div>
-          </div>
-          <div className="l-hero-orbit" aria-hidden>
-            <div className="l-orbit-card l-orbit-main">
-              <div className="l-orbit-top"><span>{CART.when}</span><b>{inr(CART.total)}</b></div>
-              <strong>{CART.title}</strong>
-              <span>{CART.detail}</span>
-              <div className="l-mini-people">
-                {CAST.map((m) => (
-                  <i key={m.first} style={{ '--c': m.color } as React.CSSProperties}>{m.first[0]}</i>
-                ))}
-              </div>
-              <div className="l-orbit-progress"><span /></div>
-              <small>3 of 4 ready</small>
-            </div>
-            <div className="l-orbit-card l-orbit-float l-orbit-a"><b>{inr(CART.share)}</b><span>Your share</span></div>
-            <div className="l-orbit-card l-orbit-float l-orbit-b"><span className="l-live-dot" /> <b>Live</b><span>12:48 left</span></div>
-            <div className="l-orbit-path" />
-          </div>
-        </section>
-
-        <section className="l-wrap l-live-section">
-          <div className="l-section-intro l-section-intro-wide">
-            <p className="l-index">01 / THE MOMENT THAT MATTERS</p>
-            <h2 className="l-h2">Four people can say yes.<br />Nobody has to say “pay me back.”</h2>
-            <p className="l-lede">
-              One booking, played out twice. First somebody drops out and the night still happens — then the same
-              evening is called off, and nobody pays a rupee.
-            </p>
-          </div>
-          <ConsentThreadDemo />
-        </section>
-
-        <section id="possibilities" className="l-use-band">
-          <div className="l-wrap l-section">
-            <div className="l-section-intro l-split-head">
-              <div>
-                <p className="l-index">02 / SPLIT THE REAL WORLD</p>
-                <h2 className="l-h2">If it has a price,<br />it can have a group.</h2>
-              </div>
-              <p className="l-lede">It is not “divide by four.” Sutra knows who claimed what, how the shared costs get spread, who is covering for whom, when the deadline is, and what the group agreed should happen if somebody drops.</p>
-            </div>
-            <div className="l-use-grid">
-              {USE_CASES.map((item, index) => (
-                <article className="l-use" key={item.title}>
-                  <span className="l-use-icon">{item.icon}</span>
-                  <span className="l-use-n">0{index + 1}</span>
-                  <h3>{item.title}</h3>
-                  <p>{item.copy}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="how" className="l-wrap l-section">
-          <div className="l-section-intro">
-            <p className="l-index">03 / FROM LINK TO CHECKOUT</p>
-            <h2 className="l-h2">One place to plan it.<br />One moment to commit it.</h2>
-          </div>
-          <div className="l-how-layout">
-            <ol className="l-steps-new">
-              <li><span>1</span><div><h3>Bring the thing</h3><p>Search products or paste any merchant link. Review live price, variants, stock and fees.</p></div></li>
-              <li><span>2</span><div><h3>Make the split fit the group</h3><p>Assign seats or items, split shared costs, add a sponsor, and choose what happens if someone drops.</p></div></li>
-              <li><span>3</span><div><h3>Send one clean invite</h3><p>Each person sees exactly what they are getting and the maximum their own card can be charged.</p></div></li>
-              <li><span>4</span><div><h3>Commit together</h3><p>When the group rule passes, the merchant receives every share in one tight window. Otherwise, zero moves.</p></div></li>
-            </ol>
-            <ResolveDemo />
-          </div>
-        </section>
-
-        <section className="l-dark-band">
-          <div className="l-wrap l-section">
-            <div className="l-section-intro l-split-head">
-              <div><p className="l-index">04 / THE DIFFERENCE</p><h2 className="l-h2">A split after payment is debt.<br />A split before payment is coordination.</h2></div>
-              <p className="l-lede">Sutra changes the topology of the purchase, not just the arithmetic on a receipt.</p>
-            </div>
-            <FrontingFlows />
-          </div>
-        </section>
-
-        <section id="safety" className="l-wrap l-section">
-          <div className="l-safety-head">
-            <p className="l-index">05 / BORING IN ALL THE RIGHT PLACES</p>
-            <h2 className="l-h2">Delightful for the group.<br />Uncompromising with the money.</h2>
-          </div>
-          <div className="l-guarantees">
-            {GUARANTEES.map(([title, copy], index) => (
-              <article key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{copy}</p></article>
-            ))}
-          </div>
-          <div className="l-protocol-strip">
-            <div><Mark /><span><b>GMP/1</b> is an open protocol for multi-person checkout.</span></div>
-            <div className="l-protocol-links"><a href={SPEC} target="_blank" rel="noreferrer">Read the spec ↗</a><a href={REPO} target="_blank" rel="noreferrer">View source ↗</a></div>
-          </div>
-        </section>
-
-        <section className="l-final">
-          <div className="l-wrap l-final-inner">
-            <h2>Make the plan.<br /><span>Lose the group treasurer.</span></h2>
-            <Link className="btn l-final-btn" href="/app/discover">Start a split <span aria-hidden>↗</span></Link>
-          </div>
-        </section>
-      </main>
-
-      <footer className="l-footer"><div className="l-wrap"><div className="l-brand"><Mark /><span>sutra</span></div><p>Group checkout, without the group bank.</p><span>GMP/1 · 2026</span></div></footer>
-    </div>
-  )
+      <section className="l-final"><div className="l-wrap l-final-inner"><div><h2>Make the plan.<br /><span>Lose the treasurer.</span></h2><p>One group, one decision, everyone’s own money.</p></div><Link className="l-final-button" href="/app/plan/new">Start with a sentence <Arrow /></Link></div></section>
+    </main>
+    <footer className="l-footer"><div className="l-wrap"><div className="l-brand"><Mark /><span>sutra</span></div><p>Group coordination and checkout—without turning one friend into the bank.</p><div><a href={SPEC}>Protocol</a><a href={REPO}>GitHub</a><span>GMP/1 · 2026</span></div></div></footer>
+  </div>
 }

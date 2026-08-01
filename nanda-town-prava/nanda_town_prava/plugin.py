@@ -517,8 +517,17 @@ class PravaMandates:
 
         # Each agent's headroom is exactly what it started with, minus its own
         # holds, plus its own releases. Nothing else can move it.
+        #
+        # Scoped to the ledger *this handle* shares. Nanda Town's factory hands
+        # every agent handle the same `balances` dict, so that is normally all
+        # of them; two independently constructed handles pointed at the same
+        # engine share a transport but not a ledger, and this report will not
+        # pretend to audit an agent whose balance it cannot see.
+        audited = {a for a in self._bundle.initial_headroom if AgentId(a) in self._headroom}
         drift: dict[str, int] = {}
         for agent, initial in self._bundle.initial_headroom.items():
+            if agent not in audited:
+                continue
             expected = (
                 initial
                 - sum(a.agent_reserved for a in auths if a.payer == agent)
@@ -530,7 +539,7 @@ class PravaMandates:
         overdrawn = [
             agent
             for agent, initial in self._bundle.initial_headroom.items()
-            if self._headroom.get(AgentId(agent), 0) > initial
+            if agent in audited and self._headroom.get(AgentId(agent), 0) > initial
         ]
         return {
             "reserved": reserved,

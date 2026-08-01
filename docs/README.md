@@ -10,6 +10,7 @@
 | [`../SKILL.md`](../SKILL.md) | the agent-facing contract over plain HTTP | you are an agent, or writing one |
 | [`../nanda-town-prava/README.md`](../nanda-town-prava/README.md) | the NANDA Town payments plugin: why a card rail cannot be a pooled ledger, and what it honestly cannot do | you are looking at the NANDA integration |
 | [`../extension/README.md`](../extension/README.md) | the Chrome extension: what the page detector can see, and why its permissions are the ones they are | you want the browser surface |
+| [`PRODUCT_ARCHITECTURE.md`](PRODUCT_ARCHITECTURE.md) | the boundary between web discovery, extension import, merchant checkout, accounts and mobile | you want to know what each surface can honestly do |
 | [`../openapi.json`](../openapi.json) | our copy of Prava's published API specification; the client's header comment records it as byte-identical to the live one on 2026-08-01 | you are checking our integration against theirs |
 
 ## Where the code lives

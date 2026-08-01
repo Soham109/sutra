@@ -17,12 +17,40 @@ import { useCallback, useRef, useState } from 'react'
 
 type Stage = 'idle' | 'preparing' | 'reading' | 'done' | 'failed'
 
+/** Below this, the local read is not worth trusting on its own. */
+const LOW_CONFIDENCE = 70
+
+/**
+ * Ask the engine to transcribe the photo instead. Returns null whenever that
+ * is not available — no vision key configured is the normal case, not an error.
+ */
+async function secondOpinion(file: File): Promise<string | null> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result))
+    r.onerror = () => reject(new Error('could not read the file'))
+    r.readAsDataURL(file)
+  })
+
+  // Reuse the engine's real bill endpoint. It performs the vision hop and
+  // immediately runs the transcript through the deterministic parser, so the
+  // browser never depends on a second, undocumented transcription contract.
+  const res = await fetch('/api/v1/bill/parse', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ image_base64: dataUrl }),
+  })
+  if (!res.ok) return null
+  const body = (await res.json()) as { transcript?: string }
+  return body.transcript?.trim() || null
+}
+
 export function BillCapture({
   onText,
   busy,
 }: {
-  /** Called with the OCR draft. The caller shows it for correction. */
-  onText: (text: string, meta: { confidence: number; source: 'ocr' }) => void
+  /** Called with the draft. The caller shows it for correction. */
+  onText: (text: string, meta: { confidence: number; source: 'ocr' | 'vision' }) => void
   busy?: boolean
 }) {
   const [stage, setStage] = useState<Stage>('idle')
@@ -74,8 +102,26 @@ export function BillCapture({
           return
         }
 
+        const confidence = Math.round(data.confidence ?? 0)
+
+        // A crumpled receipt in bad light comes back as confident nonsense, and
+        // on-device OCR has no way to know it. When the engine has a vision key
+        // configured, a low-confidence read is worth a second opinion — the
+        // photo goes up, the model TRANSCRIBES it (it is explicitly forbidden
+        // from doing arithmetic), and the same deterministic parser reconciles
+        // whatever comes back. If there is no key, or it fails, the local read
+        // still stands and the human still gets to correct it.
+        if (confidence < LOW_CONFIDENCE) {
+          const better = await secondOpinion(file).catch(() => null)
+          if (better) {
+            setStage('done')
+            onText(better, { confidence, source: 'vision' })
+            return
+          }
+        }
+
         setStage('done')
-        onText(text, { confidence: Math.round(data.confidence ?? 0), source: 'ocr' })
+        onText(text, { confidence, source: 'ocr' })
       } finally {
         await worker.terminate()
       }

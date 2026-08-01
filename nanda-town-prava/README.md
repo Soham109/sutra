@@ -170,6 +170,29 @@ simulator: real HTTP, real GMP/1 state machine, no Prava keys) or a real
 sandbox/production key. **The plugin does not know or care** — that is the engine's
 configuration, not the plugin's.
 
+Proof that this path works against a real engine over a real socket, including
+what broke the first time it was run and how it was fixed:
+[`docs/NANDA-EVIDENCE.md`](../docs/NANDA-EVIDENCE.md). The harness is
+[`scripts/live_check.py`](scripts/live_check.py) and it grades itself against
+whichever Prava adapter the engine reports at `GET /health`.
+
+### Requotes
+
+The engine can cancel a consent and ask for a bigger one. When a policy locks a
+subset of members, the survivors' shares are recomputed **upward**, and if the
+new share exceeds the cap someone already approved, GMP/1 §4.1 cancels their
+mandate and puts them back to `viewed` at a new cap. Consent cannot stretch.
+
+While `pay()` is waiting (`NANDA_PRAVA_AWAIT_SECONDS > 0`), the plugin re-mints
+a session for any member the engine has put back — on a real rail that is the
+same human tapping their passkey a second time, at the new number. Each
+principal's round is recorded on `authorization(ref).requote_rounds`.
+
+With `await_seconds=0` — the `live` default — `pay()` has already returned by
+then, and re-minting is the surface's job, not the plugin's: the member reloads
+their approval page and gets the fresh session. Nothing is charged over the old
+cap either way.
+
 ### Environment variables
 
 | Variable | Default | Meaning |

@@ -3,6 +3,9 @@ import '@fontsource-variable/manrope'
 import './globals.css'
 
 export const metadata: Metadata = {
+  manifest: '/manifest.webmanifest',
+  applicationName: 'sutra',
+  appleWebApp: { capable: true, title: 'sutra', statusBarStyle: 'black-translucent' },
   title: 'sutra — buy together, without the group bank',
   description:
     'Split any checkout before it is paid. Everyone approves their own share and the group commits together, or nobody is charged.',

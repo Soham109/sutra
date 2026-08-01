@@ -11,26 +11,41 @@ engine. This script is the thing that proves it.
     export ENGINE_API_TOKEN=...            # never printed by this script
     python scripts/live_check.py
 
-Seven checks, in order:
+The script asks the engine which Prava adapter it is running and grades
+itself accordingly, because the two cases have genuinely different correct
+answers:
+
+``prava_adapter: mock``
+    The engine registers ``/mock/pay/{session}/approve``. Auto-approval can
+    stand in for the passkey tap, so a group can reach ``committed`` inside
+    one process and every charge assertion below is expected to hold.
+
+``prava_adapter: sandbox`` (or any real key)
+    Approval URLs point at Prava's own hosted ceremony. ``approve_member()``
+    finds no ``/mock/pay/`` marker, returns ``False`` without sending
+    anything, and the mandates stay pending until a human taps a passkey.
+    The **correct** result is then ``PENDING`` with nothing captured — and
+    that is what is asserted. There is no code path in this package that can
+    approve a real mandate, and this run is where you watch it fail to.
+
+Checks, in order:
 
 1. ``GET /health`` — which adapter is the engine actually running?
-2. single principal: ``pay()`` → ``verify_payment()`` → ``CONFIRMED``
+2. single principal: ``pay()`` → ``verify_payment()``
 3. four principals, four cards, four passkeys, one merchant, one purchase
 4. ``quorum(3)`` of four plus a backstop, which forces a real GMP/1 requote
    cascade — the path that broke the first time this script was run
+   (mock adapter only: a requote needs a second round of approvals)
 5. unknown states — an unrecognised status string, and a group the engine
    has never heard of. Both must be ``PENDING``; neither may be
    ``CONFIRMED`` and neither may be ``FAILED``.
-6. ``refund()`` pre-charge — cancels every mandate, charges nobody
-7. ``refund()`` post-charge — refuses, because a settled card charge does
-   not roll back
+6. ``refund()`` pre-charge — cancels every mandate, charges nobody. Works on
+   either adapter: cancelling needs no human.
+7. ``refund()`` post-charge — refuses, because a settled card charge does not
+   roll back (only reachable once something has actually been charged).
 
-Auto-approval stands in for the passkey tap and only works while the
-engine's adapter is ``MockPrava``: it POSTs ``/mock/pay/{session}/approve``,
-a route the engine registers only in mock mode. Against an engine holding a
-real Prava key that route 404s, ``approve_member()`` returns ``False``, and
-the mandates stay pending until a human taps. That is the intended
-behaviour, not a limitation of this script.
+On a real adapter the script cancels every group it created before exiting,
+so it never leaves a live mandate session dangling.
 """
 
 from __future__ import annotations
@@ -61,6 +76,14 @@ BASE = os.environ.get("GMP_API", "http://localhost:4100")
 TOKEN = os.environ.get("ENGINE_API_TOKEN", "")
 RUN = os.environ.get("LIVE_RUN_ID") or time.strftime("%H%M%S")
 FAILURES: list[str] = []
+ADAPTER = "unknown"
+# Groups created against a real rail, cancelled on the way out.
+OPEN_GROUPS: list[tuple[PravaMandates, PaymentRef]] = []
+
+
+def mock() -> bool:
+    """Is the engine running its own Prava simulator?"""
+    return ADAPTER == "mock"
 
 
 def head(n: int, title: str) -> None:
@@ -71,6 +94,10 @@ def check(label: str, ok: bool, detail: str = "") -> None:
     print(f"  [{'PASS' if ok else 'FAIL'}] {label}{(' — ' + detail) if detail else ''}")
     if not ok:
         FAILURES.append(label)
+
+
+def skip(label: str, why: str) -> None:
+    print(f"  [SKIP] {label} — {why}")
 
 
 def live(agent: str, **kw: Any) -> PravaMandates:
@@ -85,26 +112,48 @@ def live(agent: str, **kw: Any) -> PravaMandates:
     )
 
 
+def show_members(view: dict[str, Any]) -> None:
+    print("  per-member state from the engine:")
+    for m in view.get("members", []):
+        print(
+            f"    {str(m.get('name')):<8} role={str(m.get('role')):<8} "
+            f"status={str(m.get('status')):<18} share={m.get('share_amount')} "
+            f"cap={m.get('cap_amount')} charged={m.get('charged_amount')} "
+            f"requote_round={m.get('requote_round')}"
+        )
+
+
+async def cannot_self_approve(payments: PravaMandates, member_id: str) -> None:
+    """On a real rail, ask the plugin to approve and watch it refuse."""
+    approved = await payments._bundle.transport.approve_member(member_id)  # noqa: SLF001
+    print(f"  approve_member({member_id}) -> {approved}")
+    check("the plugin cannot approve a real mandate", approved is False, str(approved))
+
+
 # ---------------------------------------------------------------------------
 # 1. what is on the other end
 # ---------------------------------------------------------------------------
 
 
-def check_health() -> dict[str, Any]:
+def check_health() -> None:
+    global ADAPTER
     head(1, "GET /health")
     with urllib.request.urlopen(f"{BASE}/health", timeout=30) as r:
         body = json.loads(r.read().decode())
     print(f"  {json.dumps(body, indent=2)}")
     check("engine reachable over HTTPS", bool(body.get("ok")))
+    ADAPTER = str(body.get("prava_adapter", "unknown"))
     print(
-        f"  adapter = {body.get('prava_adapter')!r}: "
+        f"  adapter = {ADAPTER!r}: "
         + (
-            "mock — no real card is charged anywhere below."
-            if body.get("prava_adapter") == "mock"
-            else "REAL Prava key in play."
+            "the engine's own Prava simulator. No real card is charged anywhere below, "
+            "and auto-approval can stand in for the passkey tap."
+            if mock()
+            else "a REAL Prava key. Approval URLs are Prava's own hosted ceremony, "
+            "nothing below can be approved without a human, and the correct answer "
+            "to every charge question is PENDING."
         )
     )
-    return body
 
 
 # ---------------------------------------------------------------------------
@@ -112,9 +161,9 @@ def check_health() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-async def check_single() -> None:
+async def check_single() -> tuple[PravaMandates, PaymentRef]:
     head(2, "single principal: pay() -> verify_payment()")
-    payments = live("buyer-0", auto_approve=True, await_seconds=30.0)
+    payments = live("buyer-0", auto_approve=True, await_seconds=30.0 if mock() else 5.0)
     ref = PaymentRef(f"live-single-{RUN}")
 
     t0 = time.monotonic()
@@ -137,18 +186,31 @@ async def check_single() -> None:
 
     status = await payments.verify_payment(ref)
     print(f"  verify_payment -> {status}")
-    check("group committed", auth.group_status == "committed", auth.group_status)
-    check("verify_payment is CONFIRMED", status is PaymentStatus.CONFIRMED)
-    check("receipt rail is prava_mandates", auth.rail == "prava_mandates", str(auth.rail))
-    check("captured covers the cart", auth.captured == 1200, str(auth.captured))
-    check("a real charge txn id exists", bool(auth.transaction_ids))
     check("simulated flag is False in live mode", auth.simulated is False)
+
+    if mock():
+        check("group committed", auth.group_status == "committed", auth.group_status)
+        check("verify_payment is CONFIRMED", status is PaymentStatus.CONFIRMED)
+        check("receipt rail is prava_mandates", auth.rail == "prava_mandates", str(auth.rail))
+        check("captured covers the cart", auth.captured == 1200, str(auth.captured))
+        check("a real charge txn id exists", bool(auth.transaction_ids))
+    else:
+        OPEN_GROUPS.append((payments, ref))
+        url = next(iter(auth.approval_urls.values()), "")
+        check("the approval URL is Prava's own hosted ceremony",
+              "/mock/pay/" not in url and url.startswith("https://"), url)
+        await cannot_self_approve(payments, auth.member_ids[0])
+        check("verify_payment is PENDING, waiting on a human",
+              status is PaymentStatus.PENDING, str(status))
+        check("nothing was captured", auth.captured == 0, str(auth.captured))
+        check("never CONFIRMED without a receipt", auth.rail is None, str(auth.rail))
 
     report = payments.conservation_report()
     print(f"  conservation_report: {json.dumps(report, indent=2)}")
     check("authorization_conserved", report["authorization_conserved"])
     check("no_pooled_funds", report["no_pooled_funds"])
     check("settlement_conserved", report["settlement_conserved"])
+    check("headroom_consistent", report["headroom_consistent"])
     return payments, ref
 
 
@@ -159,7 +221,7 @@ async def check_single() -> None:
 
 async def check_group() -> None:
     head(3, "four principals, four cards, four passkeys, ONE purchase")
-    payments = live("organizer", auto_approve=True, await_seconds=45.0)
+    payments = live("organizer", auto_approve=True, await_seconds=45.0 if mock() else 5.0)
     ref = PaymentRef(f"live-group-{RUN}")
 
     group = await payments.pay_group(
@@ -186,60 +248,68 @@ async def check_group() -> None:
     auth = payments.authorization(ref)
     assert auth is not None
     view = await payments._bundle.transport.get_group(auth.group_id)  # noqa: SLF001
-    print("  per-member state from the engine:")
-    for m in view.get("members", []):
-        print(
-            f"    {str(m.get('name')):<8} role={str(m.get('role')):<8} "
-            f"status={str(m.get('status')):<10} share={m.get('share_amount')} "
-            f"cap={m.get('cap_amount')} charged={m.get('charged_amount')}"
-        )
+    show_members(view)
 
     status = await payments.verify_payment(ref)
-    receipt = await payments._bundle.transport.get_receipt(auth.group_id)  # noqa: SLF001
     print(f"  verify_payment -> {status}")
     print(f"  reserved={auth.reserved} captured={auth.captured} released={auth.released}")
     print(f"  organizer headroom={payments.balance(AgentId('organizer'))} "
           f"(it is not a principal, so it fronts nothing)")
-    if receipt:
-        print(f"  receipt.rail   : {receipt.get('rail')}")
-        print(f"  receipt.totals : {json.dumps(receipt.get('totals'))}")
-        print(f"  receipt.status : {receipt.get('status')}")
-        print(f"  settlement_disclosure: {receipt.get('settlement_disclosure')}")
-        print(f"  chain_head     : {receipt.get('chain_head')}")
-        print(f"  signature len  : {len(str(receipt.get('signature') or ''))} hex chars")
-        for e in receipt.get("entries", []):
-            print(
-                f"    entry {str(e.get('name')):<8} cap={e.get('cap_amount')} "
-                f"quoted={e.get('quoted_share')} charged={e.get('charged_amount')} "
-                f"mandate={e.get('mandate_id')} txn={e.get('charge_txn_id')} "
-                f"outcome={e.get('outcome')}"
-            )
 
     check("four members were created", len(view.get("members", [])) == 4)
     check("four distinct approval URLs", len(set(group.approval_urls.values())) == 4,
           f"{len(set(group.approval_urls.values()))} distinct")
-    check("group committed", auth.group_status == "committed", auth.group_status)
-    check("verify_payment is CONFIRMED", status is PaymentStatus.CONFIRMED)
-    check("captured equals the cart total", auth.captured == 18600, str(auth.captured))
-    check(
-        "organizer's own headroom untouched",
-        payments.balance(AgentId("organizer")) == 100_000,
-        str(payments.balance(AgentId("organizer"))),
-    )
-    check(
-        "distinct mandate per principal",
-        len(set(auth.mandate_ids.values())) == len([v for v in auth.mandate_ids.values()]),
-        json.dumps(auth.mandate_ids),
-    )
+    check("organizer's own headroom untouched",
+          payments.balance(AgentId("organizer")) == 100_000,
+          str(payments.balance(AgentId("organizer"))))
+
+    if mock():
+        receipt = await payments._bundle.transport.get_receipt(auth.group_id)  # noqa: SLF001
+        if receipt:
+            print(f"  receipt.rail   : {receipt.get('rail')}")
+            print(f"  receipt.totals : {json.dumps(receipt.get('totals'))}")
+            print(f"  receipt.status : {receipt.get('status')}")
+            print(f"  settlement_disclosure: {receipt.get('settlement_disclosure')}")
+            print(f"  chain_head     : {receipt.get('chain_head')}")
+            print(f"  signature len  : {len(str(receipt.get('signature') or ''))} hex chars")
+            for e in receipt.get("entries", []):
+                print(
+                    f"    entry {str(e.get('name')):<8} cap={e.get('cap_amount')} "
+                    f"quoted={e.get('quoted_share')} charged={e.get('charged_amount')} "
+                    f"mandate={e.get('mandate_id')} txn={e.get('charge_txn_id')} "
+                    f"outcome={e.get('outcome')}"
+                )
+        check("group committed", auth.group_status == "committed", auth.group_status)
+        check("verify_payment is CONFIRMED", status is PaymentStatus.CONFIRMED)
+        check("captured equals the cart total", auth.captured == 18600, str(auth.captured))
+        check("one distinct mandate per principal",
+              len(set(auth.mandate_ids.values())) == 4, json.dumps(auth.mandate_ids))
+    else:
+        OPEN_GROUPS.append((payments, ref))
+        check("every approval URL is Prava's own hosted ceremony",
+              all("/mock/pay/" not in u for u in group.approval_urls.values()))
+        await cannot_self_approve(payments, auth.member_ids[0])
+        check("verify_payment is PENDING, waiting on four humans",
+              status is PaymentStatus.PENDING, str(status))
+        check("nothing was captured", auth.captured == 0, str(auth.captured))
+
     report = payments.conservation_report()
     print(f"  conservation_report: {json.dumps(report, indent=2)}")
     check("no agent was credited by another", report["no_pooled_funds"])
     check("settlement_conserved across the boundary", report["settlement_conserved"])
+    check("headroom_consistent", report["headroom_consistent"])
 
 
 async def check_requote() -> None:
     """quorum(m<n) forces a requote cascade. This is where the plugin broke."""
     head(4, "quorum(3) of 4 + a backstop — the GMP/1 requote cascade")
+    if not mock():
+        skip("requote cascade",
+             "a requote needs a second round of passkey taps, and this engine "
+             "holds a real Prava key. Covered on the mock adapter and by "
+             "tests/test_group_payment.py::test_a_requote_cascade_is_followed_to_a_commit")
+        return
+
     payments = live("organizer-2", auto_approve=True, await_seconds=60.0)
     ref = PaymentRef(f"live-quorum-{RUN}")
 
@@ -260,14 +330,7 @@ async def check_requote() -> None:
     view = await payments._bundle.transport.get_group(auth.group_id)  # noqa: SLF001
     print(f"  group_id : {group.group_id}   status: {group.status}")
     print(f"  decision : {view.get('decision_note')!r}")
-    print("  per-member state from the engine:")
-    for m in view.get("members", []):
-        print(
-            f"    {str(m.get('name')):<8} role={str(m.get('role')):<8} "
-            f"status={str(m.get('status')):<10} share={m.get('share_amount')} "
-            f"cap={m.get('cap_amount')} charged={m.get('charged_amount')} "
-            f"requote_round={m.get('requote_round')}"
-        )
+    show_members(view)
     status = await payments.verify_payment(ref)
     print(f"  verify_payment -> {status}")
     print(f"  requote_rounds recorded by the plugin: {json.dumps(auth.requote_rounds)}")
@@ -453,6 +516,12 @@ async def check_refund_postcharge(payments: PravaMandates, ref: PaymentRef) -> N
     head(7, "refund() post-charge — refuses, and says why")
     auth = payments.authorization(ref)
     assert auth is not None
+    if auth.captured == 0:
+        skip("post-charge refund",
+             "nothing was captured on this adapter, because no human tapped a "
+             "passkey. Covered on the mock adapter and by "
+             "tests/test_refund_honesty.py")
+        return
     ok, why = payments.can_refund(ref)
     print(f"  can_refund -> {ok}: {why}")
     check("can_refund says no after capture", not ok)
@@ -472,6 +541,21 @@ async def check_refund_postcharge(payments: PravaMandates, ref: PaymentRef) -> N
     check("still CONFIRMED after a refused refund", status is PaymentStatus.CONFIRMED)
 
 
+async def cleanup() -> None:
+    """Never leave a live mandate session dangling on a real rail."""
+    if not OPEN_GROUPS:
+        return
+    print("\n=== cleanup: cancelling the groups this run opened " + "=" * 15)
+    for payments, ref in OPEN_GROUPS:
+        auth = payments.authorization(ref)
+        try:
+            await payments.refund(ref)
+            print(f"  cancelled {auth.group_id if auth else ref} "
+                  f"({await payments.verify_payment(ref)})")
+        except Exception as exc:  # noqa: BLE001 - cleanup must not mask results
+            print(f"  could not cancel {ref}: {type(exc).__name__}: {exc}")
+
+
 # ---------------------------------------------------------------------------
 
 
@@ -488,8 +572,10 @@ async def main() -> int:
     await check_unknown()
     await check_refund_precharge()
     await check_refund_postcharge(payments, ref)
+    await cleanup()
 
     print("\n" + "=" * 66)
+    print(f"adapter: {ADAPTER}")
     if FAILURES:
         print(f"{len(FAILURES)} FAILED:")
         for f in FAILURES:

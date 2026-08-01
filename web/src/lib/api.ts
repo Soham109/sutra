@@ -8,8 +8,6 @@ export class ApiError extends Error {
   }
 }
 
-const ENGINE_TOKEN = process.env.NEXT_PUBLIC_ENGINE_TOKEN ?? 'dev-token'
-
 // Omit rather than intersect: `RequestInit & { body?: unknown }` collapses
 // body back to BodyInit, so callers could not pass a plain object.
 async function call<T>(path: string, init: Omit<RequestInit, 'body'> & { body?: unknown } = {}): Promise<T> {
@@ -19,7 +17,6 @@ async function call<T>(path: string, init: Omit<RequestInit, 'body'> & { body?: 
     credentials: 'include',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${ENGINE_TOKEN}`,
       ...(rest.headers ?? {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),

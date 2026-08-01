@@ -1,97 +1,32 @@
-# sutra — Chrome extension
+# sutra browser extension
 
-Turns whatever you are looking at into one card-network-enforced payment
-mandate per person. Works on pages that never heard of sutra.
+Imports the product, ticket, stay or cart open in the active tab into the same Sutra account used by the web app. It can choose persisted friends/circles and create a coordinated group; detection alone does not authenticate to, order from, or pay an arbitrary merchant.
 
-## Load it
+## Load and connect
 
-1. Start the engine: `npm run start` (defaults to `http://localhost:4100`).
-2. Build first — `extension/detect.js` is generated:
-   ```
-   node widget/build-bookmarklet.mjs
-   node extension/icons/make-icons.mjs   # only if the icons are missing
-   ```
-3. Open `chrome://extensions`.
-4. Turn on **Developer mode** (top right).
-5. Click **Load unpacked** and pick the `extension/` folder (the one with
-   `manifest.json` in it — not the repo root).
-6. Pin it: puzzle-piece icon in the toolbar → pin **sutra**.
-7. Click the icon once and open **settings**. Set:
-   - **Engine base URL** — `http://localhost:4100`
-   - **API token** — whatever `ENGINE_API_TOKEN` is in your `.env` (`dev-token`
-     out of the box)
+1. Generate shared detector and icons: `npm run build:widget` and `node extension/icons/make-icons.mjs`.
+2. Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select this directory.
+3. Open the extension, then **Open account settings**.
+4. In Sutra settings create an extension token, copy it once, and paste it into the extension.
 
-Then go to any product, ticket or checkout page and click the icon.
+Production defaults are `https://engine-production-e6fa.up.railway.app` and `https://sutra-gmp.vercel.app`. Local development can set the engine preference to `http://localhost:4100`.
 
-## Using it
+The extension never receives `ENGINE_API_TOKEN`. Its revocable, 90-day user session is stored in `chrome.storage.local`; non-secret preferences use `chrome.storage.sync`. Only a SHA-256 token hash is persisted by the engine.
 
-- **Click the icon** → popup shows what it detected, with a confidence badge
-  and where the number came from. Fix anything that is wrong, set who is
-  paying, hit *Request payment*. You get one QR per person.
-- **"on page"** in the popup header, or <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>,
-  draws the same sheet over the page itself. Useful when you want the page and
-  the split side by side. Press it again (or <kbd>Esc</kbd>) to close.
-- **Highlight a price first** and the detector will use exactly that number.
-  This is the escape hatch for pages it reads badly — and there are plenty.
+## What it reads
 
-## What it can see
+The generated `detect.js` is shared with the widget and tries Shopify cart data, JSON-LD, Shopify metadata, microdata, selected text, OpenGraph fields, then visible total text. Every result carries its strategy, provenance and confidence. Page access is granted only after a click through `activeTab`; no product page is monitored in the background.
 
-`detect.js` (shared verbatim with the widget and the bookmarklet — see
-`widget/detect.js`, which is where it is edited and tested) tries, in order:
+The manifest has host permissions only for the deployed and local Sutra engines. Those permissions allow the service worker to call the product API; they do not grant persistent access to merchant sites. The account token is never injected into a tab.
 
-| strategy | what it reads | confidence |
-| --- | --- | --- |
-| `shopify-cart` | `GET /cart.js` — the customer's real basket, with quantities | 0.97 |
-| `json-ld` | `Product`, `Offer`, `Order`, `Event`, `AggregateOffer`, `@graph` | 0.90 |
-| `shopify-meta` | `window.ShopifyAnalytics.meta.product` | 0.86 |
-| `microdata` | `itemscope`/`itemprop` on `schema.org/Product` | 0.78 |
-| `selection` | the amount you highlighted | 0.75 |
-| `og` | `og:price:amount`, `product:price:amount`, `twitter:data1` | 0.66 |
-| `dom-total` | "grand total"/"amount due" + the nearest currency-formatted number | 0.34 |
+## Important boundary
 
-The confidence you see in the popup is the confidence of *the source the number
-came from*, not of the page overall. A `dom-total` reading is always shown with
-the exact text it was scraped from, because it is a guess and should look like
-one.
-
-## Permissions, and why they are the ones they are
-
-```json
-"permissions": ["activeTab", "scripting", "storage"]
-```
-
-- **No `host_permissions`.** The extension cannot see any page until you click
-  its icon or press the shortcut. `activeTab` is granted for one tab, on that
-  gesture, and revoked when the tab navigates. Nothing runs in the background
-  on any site.
-- **`scripting`** to inject `detect.js` on that click. It goes into the **MAIN**
-  world, because an isolated content script cannot see `window.Shopify` or
-  `window.ShopifyAnalytics` — and that is how a large slice of the web
-  describes its cart.
-- **`storage`** for the engine URL, API token, and the last set of names.
-
-The API token never enters a page. The `POST /v1/groups` call is made by the
-service worker from the extension's own origin, so page script can neither read
-the token nor see the response. (The engine returns
-`access-control-allow-origin: *`, so no host permission is needed for that
-either.)
-
-## When it will not work
-
-- `chrome://`, `chrome-extension://`, the Web Store, and other privileged
-  pages — Chrome blocks all extensions there. The popup says so.
-- Pages that render their price after your click via a framework that also
-  clears the DOM — detection is a snapshot at click time. Reopen it.
-- Anything behind a login you are not logged into (`/cart.js` returns an empty
-  cart, and the page falls back to whatever the markup says).
+The extension imports facts and starts coordination. Automatic merchant purchase additionally needs a supported merchant/payment adapter, stable quote or reservation, and any required merchant authentication. Otherwise the group returns to the merchant for the final checkout. See [product architecture](../docs/PRODUCT_ARCHITECTURE.md).
 
 ## Files
 
-```
-manifest.json    MV3, no host permissions
-background.js    service worker: detect / create / mount. Holds the token.
-content.js       the on-page sheet (isolated world, shadow root)
-popup.html/.js   the popup flow: detection → edit → QRs
-detect.js        GENERATED from widget/detect.js — do not edit here
-icons/           PNGs generated by icons/make-icons.mjs
-```
+- `background.js` — detection, account API and signed-in group creation.
+- `popup.html` / `popup.js` — account, circle/friend picker and split review.
+- `content.js` — optional in-page surface.
+- `detect.js` — generated from `widget/detect.js`; do not edit directly.
+- `icons/` — generated consent-graph PNG mark.

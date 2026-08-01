@@ -12,9 +12,10 @@ import { capabilityOf } from './rails.js'
 import { UserError, type GroupService } from './service.js'
 import { Social, type User } from './social.js'
 import { groupView } from './routes.js'
-import { cartTotal, GROUP_TERMINAL, type Cart } from './types.js'
+import { cartTotal, CreateGroupSchema, GROUP_TERMINAL, type Cart } from './types.js'
 
 const USER_COOKIE = 'sutra_uid'
+const SESSION_COOKIE = 'sutra_session'
 
 /**
  * Who is asking. Deliberately lightweight: a handle picks who you are, stored
@@ -27,10 +28,17 @@ export function currentUserFrom(
   req: { headers: Record<string, unknown> },
 ): User | undefined {
   const raw = String(req.headers['cookie'] ?? '')
+  const sessionMatch = new RegExp(`${SESSION_COOKIE}=([^;]+)`).exec(raw)
+  if (sessionMatch?.[1]) {
+    const user = social.userForSession(decodeURIComponent(sessionMatch[1]))
+    if (user) return user
+  }
   const m = new RegExp(`${USER_COOKIE}=([^;]+)`).exec(raw)
   const headerId = String(req.headers['x-sutra-user'] ?? '')
   const id = headerId || (m?.[1] ? decodeURIComponent(m[1]) : '')
-  return id ? social.byId(id) : undefined
+  if (id && (process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_AUTH === 'true')) return social.byId(id)
+  const auth = String(req.headers['authorization'] ?? '')
+  return auth.startsWith('Bearer ') ? social.userForSession(auth.slice(7)) : undefined
 }
 
 export function registerProductRoutes(
@@ -54,7 +62,37 @@ export function registerProductRoutes(
     return u
   }
 
+  const sessionCookie = (token: string, maxAge = 60 * 60 * 24 * 90) =>
+    `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`
+
+  app.post('/v1/auth/register', async (req, reply) => {
+    const body = z.object({
+      email: z.string().email().max(254),
+      password: z.string().min(10).max(128),
+      handle: z.string().min(2).max(30),
+      name: z.string().min(1).max(60),
+    }).parse(req.body)
+    let user: User
+    try { user = social.registerUser(body) }
+    catch (error) { throw new UserError((error as Error).message, 409) }
+    const session = social.createSession(user.id, 'web')
+    reply.header('set-cookie', sessionCookie(session.token))
+    return { user, reliability: social.reliability(user.id) }
+  })
+
+  app.post('/v1/auth/login', async (req, reply) => {
+    const body = z.object({ email: z.string().email(), password: z.string().min(1).max(128) }).parse(req.body)
+    const user = social.authenticate(body.email, body.password)
+    if (!user) throw new UserError('email or password is incorrect', 401)
+    const session = social.createSession(user.id, 'web')
+    reply.header('set-cookie', sessionCookie(session.token))
+    return { user, reliability: social.reliability(user.id) }
+  })
+
   app.post('/v1/me', async (req, reply) => {
+    if (process.env.ALLOW_DEV_AUTH !== 'true' && process.env.NODE_ENV === 'production') {
+      throw new UserError('handle-only sign-in is disabled', 404)
+    }
     const body = z
       .object({ handle: z.string().min(1).max(30), name: z.string().max(60).optional(), email: z.string().email().optional() })
       .parse(req.body)
@@ -82,8 +120,46 @@ export function registerProductRoutes(
   })
 
   app.post('/v1/me/signout', async (_req, reply) => {
-    reply.header('set-cookie', `${USER_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`)
+    reply.header('set-cookie', [
+      `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`,
+      `${USER_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`,
+    ])
     return { ok: true }
+  })
+
+  app.post('/v1/me/extension-token', async (req) => {
+    const me = requireUser(req)
+    return social.createSession(me.id, 'browser extension')
+  })
+
+  app.post('/v1/me/extension-token/revoke', async (req) => {
+    const me = requireUser(req)
+    return { revoked: social.revokeSessions(me.id, 'browser extension') }
+  })
+
+  /** Product/BFF group creation for a signed-in companion client. */
+  app.post('/v1/extension/groups', async (req, reply) => {
+    const me = requireUser(req)
+    const input = CreateGroupSchema.parse(req.body)
+    const friendIds = new Set(social.friendsOf(me.id).map((friend) => friend.id))
+    const members = input.members.map((member) => {
+      if (member.user_id && member.user_id !== me.id && !friendIds.has(member.user_id)) {
+        throw new UserError('the extension can only invite you or one of your friends', 403)
+      }
+      return member
+    })
+    const created = service.createGroup({ ...input, members, created_by: me.id, origin: 'extension' })
+    return reply.status(201).send({
+      group_id: created.group.id,
+      board_url: `/g/${created.group.id}/board`,
+      members: created.members.map((member) => ({
+        member_id: member.id,
+        name: member.display_name,
+        role: member.role,
+        share_amount: member.share_amount,
+        approval_page_url: `/a/${member.id}`,
+      })),
+    })
   })
 
   // ---- people ------------------------------------------------------------

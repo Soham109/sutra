@@ -447,7 +447,7 @@ async function proposeWithOpenAI(key: string, prompt: string): Promise<Proposal>
     method: 'POST',
     headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: process.env.OPENAI_MODEL ?? 'gpt-4.1-nano',
       temperature: 0.1,
       response_format: { type: 'json_object' },
       messages: [

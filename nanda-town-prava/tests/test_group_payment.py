@@ -236,3 +236,89 @@ async def test_an_unimplemented_policy_refuses_rather_than_guessing() -> None:
         # Approving forces a policy evaluation, which refuses the unknown type
         # rather than silently degrading to all_of.
         await payments._bundle.transport.approve_member(auth.member_ids[0])  # noqa: SLF001
+
+
+async def test_a_requote_cascade_is_followed_to_a_commit() -> None:
+    """Regression: the engine can cancel a consent and ask for a bigger one.
+
+    Found by running `live` mode against the deployed engine for the first
+    time. The plugin opened each mandate session exactly once and then polled
+    a group that could never move again, because a requote had put every
+    survivor back to `viewed` with their old mandate cancelled. `pay()` now
+    re-mints the session — which on a real rail is the same human tapping
+    their passkey a second time, at the new number.
+    """
+    from conftest import RequotingEngine  # type: ignore[import-not-found]
+
+    engine = RequotingEngine()
+    payments = PravaMandates(
+        AgentId("organizer"),
+        initial_balance=1000,
+        engine=engine,
+        auto_approve=True,
+        await_seconds=5.0,
+        poll_interval=0.0,
+    )
+
+    group = await payments.pay_group(
+        AgentId("velvet-tickets"),
+        Money(amount=100),
+        PaymentRef("g1"),
+        principals=[Principal(name="Soham"), Principal(name="Arsh"), Principal(name="Dev")],
+        policy={"type": "quorum", "m": 2},
+    )
+
+    auth = payments.authorization(PaymentRef("g1"))
+    assert auth is not None
+    assert group.status == "committed"
+    assert await payments.verify_payment(PaymentRef("g1")) is PaymentStatus.CONFIRMED
+    assert auth.captured == 100, "the merchant is paid in full after the requote"
+    assert auth.requote_rounds == {"Soham": 1, "Arsh": 1}, "recorded, not swallowed"
+    assert engine.opens == ["mi_0", "mi_1", "mi_0", "mi_1"], (
+        "the two survivors were re-minted; the dropped member never got a session"
+    )
+    # `reserved` is the peak the network held: 3 x 35 in round 0, then
+    # 2 x 53 once the dropped member's mandate was cancelled.
+    assert auth.reserved == 106
+    assert auth.reserved == auth.captured + auth.released + auth.outstanding
+    report = payments.conservation_report()
+    assert report["authorization_conserved"]
+    assert report["no_pooled_funds"]
+    assert report["settlement_conserved"]
+
+
+async def test_a_requoted_principal_gets_a_new_approval_url() -> None:
+    """The old URL is dead: its mandate was cancelled. Handing it out is a bug."""
+    from conftest import RequotingEngine  # type: ignore[import-not-found]
+
+    engine = RequotingEngine()
+    payments = PravaMandates(
+        AgentId("organizer"),
+        initial_balance=1000,
+        engine=engine,
+        auto_approve=False,  # nobody taps yet; we only want the URLs
+        await_seconds=0.0,
+    )
+    await payments.pay_group(
+        AgentId("velvet-tickets"),
+        Money(amount=100),
+        PaymentRef("g1"),
+        principals=[Principal(name="Soham"), Principal(name="Arsh"), Principal(name="Dev")],
+        policy={"type": "quorum", "m": 2},
+    )
+    auth = payments.authorization(PaymentRef("g1"))
+    assert auth is not None
+    first = dict(auth.approval_urls)
+    assert len(first) == 3
+
+    # Soham and Arsh tap. The engine drops Dev and requotes the other two.
+    await engine.approve_member("mi_0")
+    await engine.approve_member("mi_1")
+    await payments.verify_payment(PaymentRef("g1"))
+    assert auth.requote_rounds == {"Soham": 1, "Arsh": 1}
+
+    # pay() is over, so re-minting is the next caller's move: ask again.
+    await payments._drive_members(auth)  # noqa: SLF001
+    assert auth.approval_urls["Soham"] != first["Soham"], "a fresh session, not the dead one"
+    assert "_r1" in auth.approval_urls["Soham"]
+    assert auth.approval_urls["Dev"] == first["Dev"], "a dropped member is not re-invited"

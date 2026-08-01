@@ -133,3 +133,141 @@ class HostileEngine(SimulatedEngine):
         view["api_key"] = "sk_" + "live_totally_real_key"
         view["debug"] = {"authorization": "Bearer abcdef123456", "wallet_secret": "hunter2"}
         return view
+
+
+class RequotingEngine:
+    """An engine that runs a GMP/1 requote cascade, like the real one does.
+
+    ``_simulator.py`` deliberately does not implement requote rounds, so this
+    path was invisible until ``live`` mode was pointed at the deployed engine
+    and the group stalled forever in ``collecting`` — see
+    ``docs/NANDA-EVIDENCE.md``. This is the regression test's engine.
+
+    The cascade it models is the real one (GMP/1 §4.1): a quorum locks a
+    subset, the unlocked member is dropped, the remaining shares are
+    recomputed **upward**, the new share exceeds the cap the survivors
+    already consented to, so their mandates are cancelled and they are put
+    back to ``viewed`` at a larger cap. Nothing moves again until fresh
+    sessions are minted and approved.
+
+    Three members, ``quorum(2)``, a cart of 100: shares 33 / caps 35, then
+    50 / 53 for the two survivors after the third is dropped.
+
+    Example::
+
+        engine = RequotingEngine()
+    """
+
+    QUORUM = 2
+
+    def __init__(self) -> None:
+        self._members: list[dict[str, Any]] = []
+        self._status = "collecting"
+        self._approved: set[str] = set()
+        self._round = 0
+        self.opens: list[str] = []
+
+    async def create_group(self, body: JsonDict) -> JsonDict:
+        for index, raw in enumerate(body["members"]):
+            self._members.append({
+                "member_id": f"mi_{index}",
+                "name": str(raw["name"]),
+                "role": str(raw.get("role", "payer")),
+                "status": "invited",
+                "share_amount": 33,
+                "cap_amount": 35,
+                "charged_amount": 0,
+                "requote_round": 0,
+            })
+        return {
+            "group_id": "g_requote",
+            "board_url": "https://example.test/board",
+            "members": [
+                {"member_id": m["member_id"], "name": m["name"], "role": m["role"]}
+                for m in self._members
+            ],
+        }
+
+    async def get_group(self, group_id: str) -> JsonDict:
+        return {"group_id": group_id, "status": self._status, "members": [dict(m) for m in self._members]}
+
+    async def cancel_group(self, group_id: str) -> JsonDict:
+        self._status = "aborted"
+        return await self.get_group(group_id)
+
+    async def open_member(self, member_id: str) -> JsonDict:
+        member = self._member(member_id)
+        # The real engine mints a session only from `invited` or `viewed`.
+        # Opening a dropped or already-charged member is a no-op that returns
+        # no approval URL — the plugin must not publish one it cannot use.
+        if member["status"] not in ("invited", "viewed"):
+            return dict(member)
+        self.opens.append(member_id)
+        member["status"] = "awaiting_approval"
+        return {
+            "member_id": member_id,
+            "name": member["name"],
+            "approval_url": f"https://example.test/mock/pay/sess_{member_id}_r{self._round}",
+        }
+
+    async def get_member(self, member_id: str) -> JsonDict:
+        return dict(self._member(member_id))
+
+    async def approve_member(self, member_id: str) -> bool:
+        member = self._member(member_id)
+        if member["status"] != "awaiting_approval":
+            return False
+        member["status"] = "approved"
+        self._approved.add(member_id)
+        self._decide()
+        return True
+
+    async def get_receipt(self, group_id: str) -> JsonDict | None:
+        if self._status != "committed":
+            return None
+        charged = sum(m["charged_amount"] for m in self._members)
+        return {
+            "rail": "prava_mandates",
+            "totals": {"quoted": 100, "charged": charged, "owed": 100},
+            "entries": [
+                {
+                    "name": m["name"],
+                    "mandate_id": f"mdt_{m['member_id']}",
+                    "charge_txn_id": f"txn_{m['member_id']}",
+                    "charged_amount": m["charged_amount"],
+                }
+                for m in self._members
+                if m["charged_amount"]
+            ],
+        }
+
+    # -- the cascade ---------------------------------------------------------
+
+    def _decide(self) -> None:
+        if len(self._approved) < self.QUORUM:
+            return
+        locked = set(self._approved)
+        if self._round == 0:
+            # The quorum locks the approvers and drops everyone else. The
+            # survivors now owe more than the cap they consented to, so their
+            # consent is cancelled and re-requested at the new number.
+            for member in self._members:
+                if member["member_id"] in locked:
+                    member.update(status="viewed", share_amount=50, cap_amount=53, requote_round=1)
+                else:
+                    member.update(status="dropped")
+            self._approved.clear()
+            self._round = 1
+            return
+        # Round 1: the fresh mandates cover the new shares. Commit.
+        for member in self._members:
+            if member["member_id"] in locked:
+                member.update(status="charged", charged_amount=50)
+        self._status = "committed"
+
+    def _member(self, member_id: str) -> dict[str, Any]:
+        for member in self._members:
+            if member["member_id"] == member_id:
+                return member
+        msg = f"no such member: {member_id}"
+        raise KeyError(msg)

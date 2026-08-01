@@ -346,7 +346,7 @@ export async function extractWithOpenAI(
     method: 'POST',
     headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+      model: process.env.OPENAI_MODEL ?? 'gpt-4.1-nano',
       temperature: 0,
       tools: [EXTRACTION_TOOL],
       tool_choice: { type: 'function', function: { name: 'record_intent' } },

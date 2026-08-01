@@ -50,7 +50,7 @@ export default function BillPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   /** set when the text came out of a photo rather than a keyboard */
-  const [ocr, setOcr] = useState<{ confidence: number; source: 'ocr' } | null>(null)
+  const [ocr, setOcr] = useState<{ confidence: number; source: 'ocr' | 'vision' } | null>(null)
 
   // The composer on the dashboard hands the receipt over through session
   // storage rather than the URL — a receipt is too long, and too personal, to

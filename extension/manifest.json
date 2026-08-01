@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "sutra — split any checkout",
+  "name": "sutra — decide and split together",
   "short_name": "sutra",
-  "version": "1.0.0",
-  "description": "Read the cart on any page and turn it into one card-network-enforced payment mandate per person.",
+  "version": "1.1.0",
+  "description": "Bring a product page into sutra, choose friends or a circle, and coordinate the split.",
   "minimum_chrome_version": "111",
 
   "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://engine-production-e6fa.up.railway.app/*", "http://localhost:4100/*"],
 
   "action": {
     "default_title": "Split this page with sutra",

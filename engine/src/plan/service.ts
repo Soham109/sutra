@@ -1,5 +1,7 @@
+import { classifyCategory } from '../agent/classify.js'
 import type { Catalog } from '../catalog/index.js'
 import type { Places } from '../places/index.js'
+import { resolveCategory } from '../places/taxonomy.js'
 import type { Rail } from '../rails.js'
 import type { GroupService } from '../service.js'
 import { UserError } from '../service.js'
@@ -230,9 +232,10 @@ export class PlanService {
         // `slots.radius_m ?? anchor.radius_m` can never fall through, and a
         // group spread across a city would be searched at the default 8 km.
         const radius = anchor.radius_m
+        const category = await this.resolveCategoryText(slots.category ?? plan.intent_text)
         const res = await this.d.places.search({
           near: anchor.place,
-          category: slots.category ?? plan.intent_text,
+          category,
           radius_m: radius,
           limit: MAX_OPTIONS,
         })
@@ -424,6 +427,23 @@ export class PlanService {
       radius_m: slots.radius_m ?? 8_000,
       reason: 'Nobody has shared a location yet, and the plan has no anchor — so there is nowhere to search around.',
     }
+  }
+
+  /**
+   * Free text → a category the venue search understands.
+   *
+   * The keyword table answers first and answers most of the time; it is exact,
+   * free, and offline. Only when it misses entirely — "somewhere to watch the
+   * match", "a place to hang after exams" — is a small model asked to pick one
+   * of the same 21 ids. It is constrained to that enum, so the worst outcome is
+   * the wrong real category rather than an invented one, and with no key the
+   * behaviour is exactly what it is today: fall through to a name search.
+   */
+  private async resolveCategoryText(text: string): Promise<string> {
+    const direct = resolveCategory(text)
+    if (direct) return direct.id
+    const guessed = await classifyCategory(text).catch(() => null)
+    return guessed ?? text
   }
 
   private inferKind(slots: Slots): 'venue' | 'product' {

@@ -31,6 +31,8 @@ export default function SettingsPage() {
   const [sources, setSources] = useState<Source[] | null>(null)
   const [sourceError, setSourceError] = useState('')
   const [signingOut, setSigningOut] = useState(false)
+  const [extensionToken, setExtensionToken] = useState('')
+  const [extensionStatus, setExtensionStatus] = useState('')
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_KEY)
@@ -137,9 +139,9 @@ export default function SettingsPage() {
                   </div>
 
                   <p className="tiny faint" style={{ margin: 0 }}>
-                    Your handle is a label in a cookie on this device. It cannot spend anything: every charge still
-                    needs your own passkey on Prava’s page, on your own device. Signing out here just forgets the
-                    label — your record and receipts stay on the engine.
+                    Your account is backed by an HttpOnly session; the browser cannot read it. Every charge still
+                    needs your own passkey on Prava’s page. Signing out ends this browser session while your record,
+                    circles and receipts remain in the hosted engine database.
                   </p>
                 </>
               ) : (
@@ -196,6 +198,49 @@ export default function SettingsPage() {
                 Stored on this device only, at <code className="mono">localStorage["sutra-theme"]</code>, and applied
                 as <code className="mono">data-theme</code> before first paint — so a dark reload never flashes paper.
                 System follows your OS and stores nothing.
+              </p>
+            </div>
+          </Section>
+
+          <Section title="Browser extension" hint="same people and circles, on any product page">
+            <div className="card card-pad col" style={{ gap: 14 }}>
+              <p className="small muted" style={{ margin: 0 }}>
+                Connect the extension to this account with a revocable device token. It can read your friends and
+                circles and create groups for you; it never receives the engine master key or payment credentials.
+              </p>
+              {extensionToken ? (
+                <>
+                  <Field label="One-time token">
+                    <code className="mono small" style={{ overflowWrap: 'anywhere' }}>{extensionToken}</code>
+                  </Field>
+                  <div className="row wrap" style={{ gap: 8 }}>
+                    <button className="btn btn-primary" onClick={() => {
+                      void navigator.clipboard.writeText(extensionToken)
+                      setExtensionStatus('Copied. Paste it into the sutra extension.')
+                    }}>Copy token</button>
+                    <button className="btn btn-secondary" onClick={() => setExtensionToken('')}>Hide</button>
+                  </div>
+                </>
+              ) : (
+                <div className="row wrap" style={{ gap: 8 }}>
+                  <button className="btn btn-primary" disabled={!user} onClick={async () => {
+                    setExtensionStatus('')
+                    try {
+                      const result = await api.post<{ token: string }>('/v1/me/extension-token')
+                      setExtensionToken(result.token)
+                    } catch (error) { setExtensionStatus((error as Error).message) }
+                  }}>Create extension token</button>
+                  <button className="btn btn-secondary" disabled={!user} onClick={async () => {
+                    const result = await api.post<{ revoked: number }>('/v1/me/extension-token/revoke')
+                    setExtensionToken('')
+                    setExtensionStatus(`Disconnected ${result.revoked} extension session${result.revoked === 1 ? '' : 's'}.`)
+                  }}>Disconnect extensions</button>
+                </div>
+              )}
+              {extensionStatus && <p className="tiny muted" style={{ margin: 0 }}>{extensionStatus}</p>}
+              <p className="tiny faint" style={{ margin: 0 }}>
+                Tokens expire after 90 days and are stored as a one-way hash in the database. Payment approval still
+                happens per person on the payment rail.
               </p>
             </div>
           </Section>

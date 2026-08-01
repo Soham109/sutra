@@ -36,6 +36,10 @@ const APP_BASE_URL = process.env.APP_BASE_URL ?? `http://localhost:${PORT}`
 const PRAVA_ENV = process.env.PRAVA_ENV ?? 'mock'
 const DB_PATH = process.env.DB_PATH ?? join(repoRoot, 'data', 'gmp.db')
 
+if (process.env.NODE_ENV === 'production' && !process.env.DB_PATH) {
+  throw new Error('DB_PATH is required in production. Mount a persistent Railway volume at /data and set DB_PATH=/data/gmp.db.')
+}
+
 function buildAdapter(): PravaAdapter {
   if (PRAVA_ENV === 'mock') return new MockPrava(APP_BASE_URL)
   const key = process.env.PRAVA_API_KEY
