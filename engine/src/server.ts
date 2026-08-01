@@ -7,6 +7,9 @@ import { EventHub } from './events.js'
 import { Poller } from './poller.js'
 import { ReceiptSigner } from './receipt.js'
 import { registerRoutes } from './routes.js'
+import { registerProductRoutes } from './routes-v2.js'
+import { Social, installSocialSchema } from './social.js'
+import { Catalog } from './catalog/index.js'
 import { GroupService } from './service.js'
 import { MockPrava } from './prava/mock.js'
 import { PravaClient } from './prava/client.js'
@@ -51,8 +54,23 @@ export async function main(): Promise<void> {
     appBaseUrl: APP_BASE_URL,
   })
 
-  // ---- web surfaces (zero-build static pages, spec §14) -------------------
-  const webDir = join(repoRoot, 'web', 'public')
+  installSocialSchema(db)
+  const social = new Social(db)
+  const catalog = new Catalog({
+    // Any Shopify storefront works; these are only the default shelf searched
+    // when the user does not scope the query to a merchant.
+    shopifyDomains: (process.env.SHOPIFY_DOMAINS ?? 'shop.polymer.co,gymshark.com,allbirds.com')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  })
+  registerProductRoutes(app, service, social, catalog)
+
+  // ---- legacy zero-build surfaces --------------------------------------
+  // The product UI is the Next.js app in /web (deployed separately). These
+  // stay because they need no build step: they are the offline fallback for
+  // the demo and the reference implementation of the /v1 contract.
+  const webDir = join(here, '..', 'public')
   const serve = (name: string, type = 'text/html; charset=utf-8') =>
     async (_req: unknown, reply: { type: (t: string) => { send: (b: string) => unknown } }) =>
       reply.type(type).send(readFileSync(join(webDir, name), 'utf8'))

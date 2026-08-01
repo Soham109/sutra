@@ -134,6 +134,8 @@ export const MemberInputSchema = z.object({
   weight: z.number().int().positive().default(1),
   backstop_cap: z.number().int().nonnegative().optional(), // minor units; required for role=backstop
   sponsor_for: z.string().optional(), // name of the member whose share this sponsor covers
+  /** links this seat to a sutra account, so it shows up in their groups */
+  user_id: z.string().optional(),
 })
 export type MemberInput = z.infer<typeof MemberInputSchema>
 
@@ -153,6 +155,11 @@ export const CreateGroupSchema = z.object({
   no_blame: z.boolean().default(false),
   deadline_minutes: z.number().int().positive().max(7 * 24 * 60).default(60),
   webhook_url: z.string().url().optional(),
+  /** who organized this, and which circle it came from */
+  created_by: z.string().optional(),
+  circle_id: z.string().optional(),
+  /** the resolved marketplace product this cart came from, for provenance */
+  product: z.record(z.unknown()).optional(),
   /** sealed-bid window for contested items (§21.1) */
   auction_window_seconds: z.number().int().positive().max(3600).default(60),
   /** ISO 4217 codes to snapshot for per-member display currency (§21.3) */
@@ -164,6 +171,8 @@ export interface MemberRow {
   id: string
   group_id: string
   display_name: string
+  /** the sutra account holding this seat, when one is linked */
+  user_id: string | null
   role: MemberRole
   weight: number
   share_amount: Minor
@@ -203,6 +212,9 @@ export interface GroupRow {
   decision_note: string | null
   webhook_url: string | null
   locked_json: string | null
+  created_by: string | null
+  circle_id: string | null
+  product_json: string | null
   /** sealed-bid window close for contested items; null = no auction */
   auction_close_at: string | null
   /** FX rate snapshot for display currencies: {base, rates, at, source} */

@@ -111,6 +111,9 @@ export class GroupService {
       decision_note: null,
       webhook_url: input.webhook_url ?? null,
       locked_json: null,
+      created_by: input.created_by ?? null,
+      circle_id: input.circle_id ?? null,
+      product_json: input.product ? JSON.stringify(input.product) : null,
       auction_close_at: auctionClose ? auctionClose.toISOString() : null,
       fx_json: null,
     })
@@ -125,6 +128,7 @@ export class GroupService {
         id: newMemberId(),
         group_id: gid,
         display_name: m.name,
+        user_id: m.user_id ?? null,
         role: m.role,
         weight: m.weight,
         share_amount: share,

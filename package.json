@@ -5,16 +5,23 @@
   "description": "GMP/1 — the Group Mandate Protocol. Multi-principal payment coordination engine built on Prava.",
   "workspaces": [
     "engine",
+    "web",
     "cli",
     "chaos",
     "mcp"
   ],
   "scripts": {
-    "dev": "npm run dev -w engine",
+    "dev": "concurrently -n engine,web -c magenta,cyan \"npm:dev:engine\" \"npm:dev:web\"",
+    "dev:engine": "npm run start -w engine",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w web",
     "start": "npm run start -w engine",
     "test": "npm run test -w engine",
     "chaos": "npm run chaos -w chaos",
     "demo": "npm run demo -w cli"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   },
   "engines": {
     "node": ">=22.5"

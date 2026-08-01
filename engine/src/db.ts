@@ -33,6 +33,9 @@ export class Db {
         decision_note TEXT,
         webhook_url TEXT,
         locked_json TEXT,
+        created_by TEXT,
+        circle_id TEXT,
+        product_json TEXT,
         auction_close_at TEXT,
         fx_json TEXT,
         version INTEGER NOT NULL DEFAULT 0,
@@ -49,6 +52,7 @@ export class Db {
         cap_amount INTEGER NOT NULL DEFAULT 0,
         backstop_cap INTEGER NOT NULL DEFAULT 0,
         sponsor_for TEXT,
+        user_id TEXT,
         status TEXT NOT NULL,
         prava_session_id TEXT,
         prava_approval_url TEXT,
@@ -105,13 +109,14 @@ export class Db {
       .prepare(
         `INSERT INTO groups (id, title, merchant_json, cart_json, cart_hash, currency, policy_json,
           tolerance_bps, straggler_policy, no_blame, deadline_at, status, decision_note, webhook_url,
-          locked_json, auction_close_at, fx_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          locked_json, created_by, circle_id, product_json, auction_close_at, fx_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         g.id, g.title, g.merchant_json, g.cart_json, g.cart_hash, g.currency, g.policy_json,
         g.tolerance_bps, g.straggler_policy, g.no_blame, g.deadline_at, g.status,
-        g.decision_note, g.webhook_url, g.locked_json, g.auction_close_at, g.fx_json,
+        g.decision_note, g.webhook_url, g.locked_json, g.created_by, g.circle_id,
+        g.product_json, g.auction_close_at, g.fx_json,
       )
   }
 
@@ -148,14 +153,14 @@ export class Db {
   insertMember(m: Omit<MemberRow, 'version'>): void {
     this.sql
       .prepare(
-        `INSERT INTO members (id, group_id, display_name, role, weight, share_amount, cap_amount,
+        `INSERT INTO members (id, group_id, display_name, user_id, role, weight, share_amount, cap_amount,
            backstop_cap, sponsor_for, status, prava_session_id, prava_approval_url, prava_mandate_id,
            prava_charge_txn_id, backstop_session_id, backstop_approval_url, backstop_mandate_id,
            backstop_absorbed, requote_round, failure_reason, charged_amount, on_hold)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
-        m.id, m.group_id, m.display_name, m.role, m.weight, m.share_amount, m.cap_amount,
+        m.id, m.group_id, m.display_name, m.user_id, m.role, m.weight, m.share_amount, m.cap_amount,
         m.backstop_cap, m.sponsor_for, m.status, m.prava_session_id, m.prava_approval_url,
         m.prava_mandate_id, m.prava_charge_txn_id, m.backstop_session_id, m.backstop_approval_url,
         m.backstop_mandate_id, m.backstop_absorbed, m.requote_round, m.failure_reason,
