@@ -8,6 +8,13 @@ import { useSession } from './session'
 import { InboxBell } from './InboxBell'
 import { EXTENSION_INSTALL_URL } from '@/lib/links'
 
+/**
+ * A real committed receipt — two payers, both charged, chain and Ed25519
+ * signature verified against the live engine key. Kept one click away so
+ * "here is one that actually happened" is never a hunt through Activity.
+ */
+const PROVEN_RECEIPT_ID = 'gs_01KZ1SW0EXN2V3N4Y1V0K5E4H4'
+
 const NAV = [
   { section: null, items: [
     { href: '/app', label: 'Today', icon: 'home' },
@@ -21,6 +28,7 @@ const NAV = [
   ] },
   { section: 'Records', items: [
     { href: '/app/receipts', label: 'Receipts', icon: 'receipt' },
+    { href: `/app/receipts/${PROVEN_RECEIPT_ID}`, label: 'Signed example', icon: 'seal' },
     { href: '/app/settings', label: 'Settings', icon: 'gear' },
   ] },
 ]
@@ -92,6 +100,12 @@ function Sidebar() {
   const path = usePathname()
   const { user, signOut } = useSession()
 
+  // Longest matching href wins, so /app/receipts/<id> highlights the specific
+  // receipt rather than lighting up Receipts as well.
+  const activeHref = NAV.flatMap((g) => g.items.map((i) => i.href))
+    .filter((h) => (h === '/app' ? path === '/app' : path?.startsWith(h)))
+    .sort((a, b) => b.length - a.length)[0]
+
   return (
     <aside className="sidebar">
       <div className="sidebar-head">
@@ -106,7 +120,7 @@ function Sidebar() {
           <div key={gi} className={group.section ? 'nav-section' : undefined}>
             {group.section && <div className="nav-section-label">{group.section}</div>}
             {group.items.map((item) => {
-              const active = item.href === '/app' ? path === '/app' : path.startsWith(item.href)
+              const active = item.href === activeHref
               return (
                 <Link
                   key={item.href}
@@ -272,6 +286,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     { label: 'People', hint: 'Friends and reliability records', href: '/app/people' },
     { label: 'Circles', hint: 'Groups you keep re-forming', href: '/app/circles' },
     { label: 'Receipts', hint: 'Signed consent chains', href: '/app/receipts' },
+    { label: 'Signed example', hint: 'A committed receipt, chain and signature verified', href: `/app/receipts/${PROVEN_RECEIPT_ID}` },
     { label: 'Settings', hint: 'Theme, identity, engine', href: '/app/settings' },
   ].filter((a) => !q || a.label.toLowerCase().includes(q.toLowerCase()) || a.hint.toLowerCase().includes(q.toLowerCase()))
 
@@ -361,6 +376,9 @@ export function Icon({ name }: { name: string }) {
       return <svg {...common}><circle cx="8" cy="8" r="5.5" {...s} /><circle cx="8" cy="8" r="2" fill="currentColor" /></svg>
     case 'receipt':
       return <svg {...common}><path d="M4 2.5h8v11l-2-1-2 1-2-1-2 1v-11Z" {...s} /><path d="M6.5 6h3M6.5 8.5h3" {...s} /></svg>
+    case 'seal':
+      // A stamped seal: signed, and checkable.
+      return <svg {...common}><circle cx="8" cy="6.6" r="4.1" {...s} /><path d="m6.3 6.6 1.2 1.2 2.2-2.4" {...s} /><path d="M5.9 10.4 5.2 14l2.8-1.4 2.8 1.4-.7-3.6" {...s} /></svg>
     case 'gear':
       return <svg {...common}><circle cx="8" cy="8" r="2.2" {...s} /><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1M12.4 12.4l-1.1-1.1M4.7 4.7 3.6 3.6" {...s} /></svg>
     case 'extension':
