@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { EXTENSION_INSTALL_URL } from '@/lib/links'
 
 // How it works, as a scroll-driven sequence of real devices.
 //
@@ -126,7 +127,14 @@ export function HowItWorks() {
                 <span className="how-n">{s.n}</span>
                 <h3>{s.title}</h3>
                 <p>{s.body}</p>
-                <span className="how-aside">{s.aside}</span>
+                <span className="how-aside">
+                  {s.aside}{' '}
+                  {i === 1 && (
+                    <a href={EXTENSION_INSTALL_URL} target="_blank" rel="noreferrer">
+                      Install from source <span className="sr-only">(opens in a new tab)</span> ↗
+                    </a>
+                  )}
+                </span>
               </li>
             ))}
           </ol>

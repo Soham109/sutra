@@ -9,6 +9,7 @@ import { Shell } from '@/components/shell'
 import { Avatar, Badge, ErrorNote, Skeleton } from '@/components/ui'
 import { api } from '@/lib/api'
 import { disablePush, enablePush, pushPermission, pushSupported } from '@/lib/push'
+import { EXTENSION_INSTALL_URL } from '@/lib/links'
 
 type ThemeChoice = 'light' | 'dark' | 'system'
 
@@ -266,8 +267,14 @@ export default function SettingsPage() {
           <Section title="Browser extension" hint="same people and circles, on any product page">
             <div className="card card-pad col" style={{ gap: 14 }}>
               <p className="small muted" style={{ margin: 0 }}>
-                Connect the browser extension to use your friends and circles on a product page. Payment approval stays in Sutra.
+                Import the product page open in Chrome, choose friends or a circle, and create a group without retyping it.
               </p>
+              <div className="row wrap" style={{ gap: 8, alignItems: 'center' }}>
+                <a className="btn btn-secondary" href={EXTENSION_INSTALL_URL} target="_blank" rel="noreferrer">
+                  Install from source <span aria-hidden>↗</span><span className="sr-only"> (opens in a new tab)</span>
+                </a>
+                <span className="tiny faint">Manual Chrome install; not yet in the Chrome Web Store.</span>
+              </div>
               {extensionToken ? (
                 <>
                   <Field label="One-time token">

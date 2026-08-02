@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { Avatar, Modal } from './ui'
 import { useSession } from './session'
 import { InboxBell } from './InboxBell'
+import { EXTENSION_INSTALL_URL } from '@/lib/links'
 
 const NAV = [
   { section: null, items: [
@@ -122,6 +123,12 @@ function Sidebar() {
         ))}
 
         <div className="nav-section">
+          <a className="nav-item" href={EXTENSION_INSTALL_URL} target="_blank" rel="noreferrer">
+            <Icon name="extension" />
+            Browser extension
+            <span className="sr-only"> (opens in a new tab)</span>
+            <span aria-hidden style={{ marginLeft: 'auto' }}>↗</span>
+          </a>
           <Link href="/app" className="btn btn-primary btn-block" style={{ marginTop: 4 }}>
             Start a group
           </Link>
@@ -356,6 +363,8 @@ export function Icon({ name }: { name: string }) {
       return <svg {...common}><path d="M4 2.5h8v11l-2-1-2 1-2-1-2 1v-11Z" {...s} /><path d="M6.5 6h3M6.5 8.5h3" {...s} /></svg>
     case 'gear':
       return <svg {...common}><circle cx="8" cy="8" r="2.2" {...s} /><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1M12.4 12.4l-1.1-1.1M4.7 4.7 3.6 3.6" {...s} /></svg>
+    case 'extension':
+      return <svg {...common}><path d="M3 5.5h3V3a2 2 0 1 1 4 0v2.5h3v3h-2.5V11a2.5 2.5 0 0 1-2.5 2.5H5.5A2.5 2.5 0 0 1 3 11V5.5Z" {...s} /></svg>
     default:
       return null
   }

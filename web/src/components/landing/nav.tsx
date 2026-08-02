@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Mark } from '@/components/shell'
+import { EXTENSION_INSTALL_URL } from '@/lib/links'
 
 // The nav detaches from the page and floats over it.
 //
@@ -46,6 +47,9 @@ export function LandingNav({ specUrl }: { specUrl: string }) {
           ))}
           <Link href="/docs">Architecture</Link>
           <Link href="/nanda">NANDA proof</Link>
+          <a href={EXTENSION_INSTALL_URL} target="_blank" rel="noreferrer">
+            Extension <span className="sr-only">(opens in a new tab)</span>
+          </a>
           <a href={specUrl}>Developers</a>
         </nav>
 

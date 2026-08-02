@@ -4,12 +4,16 @@ Imports the product, ticket, stay or cart open in the active tab into the same S
 
 Splits only seat **you or people you are already friends with**. The engine rejects strangers with a clear 403; add friends in the web app People page first.
 
-## Load and connect
+## Install from source
 
-1. Generate shared detector and icons: `npm run build:widget` and `node extension/icons/make-icons.mjs`.
-2. Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select this directory.
-3. Open the extension, then **Open account settings**.
-4. In Sutra settings (`https://sutra-gmp.vercel.app/app/settings`) create an extension token, copy it once, and paste it into the extension.
+There is currently no Chrome Web Store listing or packaged GitHub Release. To install the checked-in build:
+
+1. Clone or download the [Sutra repository](https://github.com/Soham109/sutra).
+2. Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the repository's `extension` directory.
+3. Open the extension and choose **Open account settings**.
+4. In [Sutra settings](https://sutra-gmp.vercel.app/app/settings), create an extension token, copy it once, and paste it into the extension.
+
+The generated detector and icons are committed, so installing does not require a build. Contributors changing the shared detector or artwork should regenerate them with `npm run build:widget` and `node extension/icons/make-icons.mjs` before loading the extension.
 
 Production defaults are `https://engine-production-e6fa.up.railway.app` (engine) and `https://sutra-gmp.vercel.app` (app). Local development can override the engine preference to `http://localhost:4100` (allowed in the manifest).
 

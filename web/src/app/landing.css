@@ -118,6 +118,7 @@
 .how-list h3 { margin-top: 12px; font-size: clamp(23px, 2.6vw, 33px); font-weight: 700; letter-spacing: -.04em; line-height: 1.1; }
 .how-list p { margin-top: 14px; max-width: 44ch; color: #55534d; font-size: 15.5px; line-height: 1.62; }
 .how-aside { display: inline-block; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--l-line); color: #85817a; font-size: 12.5px; }
+.how-aside a { color: var(--l-indigo); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 
 /* The sticky panel */
 .how-stage { position: relative; }
