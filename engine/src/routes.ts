@@ -213,8 +213,34 @@ export function registerRoutes(
    * approval — on this rail no card is charged, and the API must not let the
    * two acts be confused for one another.
    */
-  app.post('/v1/members/:id/accept', async (req) => {
+  app.post('/v1/members/:id/accept', async (req, reply) => {
     const { id } = req.params as { id: string }
+    const m = service.mustMember(id)
+
+    // Consent has to come from the person consenting.
+    //
+    // A member id is a bearer capability by design — you get a personal link
+    // and need no account — but the board at GET /v1/groups/:id hands out
+    // every member's id to anyone who can read it, so knowing one is not
+    // evidence of being that person. Anyone with the group link could record
+    // somebody else's agreement, and on this rail the output is a SIGNED
+    // RECEIPT stating that they agreed to owe money. A tamper-evident record
+    // of a consent that never happened is the one lie this codebase exists to
+    // refuse.
+    //
+    // So: if the seat belongs to an account, only that account may accept it.
+    // A seat with no account behind it stays link-only, which is the whole
+    // pass-the-phone design and cannot be tightened without deleting it.
+    if (m.user_id) {
+      const viewer = cfg.social?.userFor(req as { headers: Record<string, unknown> })
+      const holdsToken = (req.headers.authorization ?? '') === `Bearer ${cfg.apiToken}`
+      if (!holdsToken && viewer?.id !== m.user_id) {
+        return reply
+          .status(403)
+          .send({ error: 'only ' + m.display_name + ' can agree to their own share' })
+      }
+    }
+
     await service.acceptShare(id)
     return memberView(service, service.mustMember(id))
   })

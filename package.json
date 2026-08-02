@@ -28,7 +28,8 @@
     "e2e:product": "tsx e2e/product-flow.ts",
     "e2e:sandbox": "tsx e2e/sandbox-smoke.ts",
     "e2e:proof": "tsx e2e/sandbox-proof.ts",
-    "e2e:auth": "tsx e2e/auth-check.ts"
+    "e2e:auth": "tsx e2e/auth-check.ts",
+    "e2e:agent-mesh": "tsx e2e/agent-mesh.ts"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
