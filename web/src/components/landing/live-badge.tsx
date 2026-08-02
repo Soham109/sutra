@@ -42,22 +42,28 @@ export function LiveBadge() {
 
   // Nothing at all rather than a hopeful placeholder: a badge that claims a
   // connection while the connection is down is worse than no badge.
-  if (failed || !health?.prava_adapter) return null
-
-  const adapter = health.prava_adapter
+  //
+  // The slot below still reserves the badge's footprint even while empty —
+  // otherwise the health fetch resolving pops this in late and reflows
+  // everything centered against this column, including the orbit beside it.
+  const adapter = health?.prava_adapter
   const real = adapter === 'sandbox' || adapter === 'live'
 
   return (
-    <a
-      className={`l-live-badge${real ? '' : ' is-mock'}`}
-      href="https://engine-production-e6fa.up.railway.app/health"
-      target="_blank"
-      rel="noreferrer noopener"
-      title="Check it yourself — this is the engine’s own /health"
-    >
-      <span className="l-live-dot" aria-hidden />
-      {LABEL[adapter] ?? adapter}
-      <span className="l-live-check">verify ↗</span>
-    </a>
+    <div className="l-live-badge-slot">
+      {!failed && adapter ? (
+        <a
+          className={`l-live-badge${real ? '' : ' is-mock'}`}
+          href="https://engine-production-e6fa.up.railway.app/health"
+          target="_blank"
+          rel="noreferrer noopener"
+          title="Check it yourself — this is the engine’s own /health"
+        >
+          <span className="l-live-dot" aria-hidden />
+          {LABEL[adapter] ?? adapter}
+          <span className="l-live-check">verify ↗</span>
+        </a>
+      ) : null}
+    </div>
   )
 }
