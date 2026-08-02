@@ -814,13 +814,13 @@ a.list-row:hover { background: var(--surface-2); }
 .exposure-lead-label { color: var(--ink-2); font-size: 13px; max-width: 34ch; }
 .exposure-bar { display: flex; gap: 3px; height: 15px; margin: 18px 0 16px; }
 .exposure-seg { border-radius: 3px; min-width: 5px; }
-.exposure-authorized { background: repeating-linear-gradient(115deg, var(--brand) 0 5px, var(--brand-soft) 5px 10px); border: 1px solid var(--brand); }
-.exposure-charging { background: var(--brand); animation: expPulse 1.5s ease-in-out infinite; }
-.exposure-backstop { background: var(--surface); border: 1.5px dashed var(--ink-3); }
-.exposure-venue { background: repeating-linear-gradient(115deg, var(--ok) 0 5px, var(--ok-soft) 5px 10px); border: 1px solid var(--ok-line); }
-.exposure-settled { background: var(--ink); }
+.exp-authorized { background: repeating-linear-gradient(115deg, var(--brand) 0 5px, var(--brand-soft) 5px 10px); border: 1px solid var(--brand); }
+.exp-charging { background: var(--brand); animation: expPulse 1.5s ease-in-out infinite; }
+.exp-backstop { background: var(--surface); border: 1.5px dashed var(--ink-3); }
+.exp-venue { background: repeating-linear-gradient(115deg, var(--ok) 0 5px, var(--ok-soft) 5px 10px); border: 1px solid var(--ok-line); }
+.exp-settled { background: var(--ink); }
 @keyframes expPulse { 50% { opacity: .55; } }
-@media (prefers-reduced-motion: reduce) { .exposure-charging { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .exp-charging { animation: none; } }
 .exposure-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px 26px; }
 .exposure-legend-item dt { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
 .exposure-legend-item dd { margin-top: 3px; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
