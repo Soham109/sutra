@@ -8,6 +8,7 @@ import type {
 } from './types.js'
 import { travelCost } from './geo.js'
 import { bestCommonWindows, coversWindow, type ParticipantAvailability } from './time.js'
+import { isOpenDuring } from './opening-hours.js'
 
 // ---------------------------------------------------------------------------
 // The explainable scorer.
@@ -312,6 +313,23 @@ function rawTags(raw: Record<string, unknown>): Map<string, string[]> {
   return out
 }
 
+/**
+ * A venue's `opening_hours`, wherever the source put it. Overpass venues
+ * carry it both flattened onto the option (`raw.opening_hours`, already
+ * trimmed by places/overpass.ts) and inside the untouched tag dump
+ * (`raw.tags.opening_hours`); either is read, top-level first.
+ */
+function openingHoursSpecOf(raw: Record<string, unknown>): string | undefined {
+  const top = raw['opening_hours']
+  if (typeof top === 'string' && top.trim()) return top
+  const tags = raw['tags']
+  if (tags && typeof tags === 'object' && !Array.isArray(tags)) {
+    const nested = (tags as Record<string, unknown>)['opening_hours']
+    if (typeof nested === 'string' && nested.trim()) return nested
+  }
+  return undefined
+}
+
 interface ConstraintViolation {
   participant: string
   constraint: string
@@ -430,6 +448,24 @@ export function scoreOption(input: RankInput): OptionScore {
         why: `No fixed time on this option, so it is scored against the best common slot instead: ${fmtWindow(top.window)} (${fmtDuration(Date.parse(top.window.end) - Date.parse(top.window.start))}) suits ${top.count} of ${timed.length} who shared availability${silentNote}${whoSuffix}.`,
       }
     }
+  }
+
+  // ---- opening hours -------------------------------------------------------
+  // Not a weighted factor of its own — see the module doc on opening-hours.ts
+  // for why silence about a venue's hours must not become a guess. Instead it
+  // does two honest things with whatever it can determine: appends a checkable
+  // note to time_fit when the venue is only partly open across the proposed
+  // window, and — below, in hard exclusions — refuses to let an option win
+  // when it is provably closed for the WHOLE of that window. A recommendation
+  // for somewhere shut is the most common way this kind of feature loses trust.
+  const openingHoursSpec = openingHoursSpecOf(option.raw)
+  const openingCheck =
+    referenceWindow && openingHoursSpec ? isOpenDuring(openingHoursSpec, referenceWindow) : null
+  if (openingCheck?.known && !openingCheck.fullyOpen) {
+    const note = openingCheck.fullyClosed
+      ? ` This place looks closed the whole of that window — its listed hours are "${openingHoursSpec}".`
+      : ` It is only open ${fmtDuration(openingCheck.openMs)} of that ${fmtDuration(openingCheck.totalMs)} window — its listed hours are "${openingHoursSpec}".`
+    timeFactor = { ...timeFactor, why: timeFactor.why + note }
   }
 
   // ---- travel_fit --------------------------------------------------------
@@ -621,10 +657,20 @@ export function scoreOption(input: RankInput): OptionScore {
     excluded = `This is in the past — it ended ${fmtDuration(nowMs - endMs)} ago, at ${fmtWindow(when)}.`
   }
   if (!excluded && price && perPersonMinor !== null && comparable.length > 0 && withinBudget.length === 0) {
-    const highest = Math.max(
-      ...comparable.map((v) => (v.budget as { ceiling_minor: number }).ceiling_minor),
-    )
-    excluded = `${money(perPersonMinor, price.currency)} per person is above every budget shared so far — the highest is ${money(highest, price.currency)}, from ${list(comparable.filter((v) => (v.budget as { ceiling_minor: number }).ceiling_minor === highest).map((v) => v.name))}.`
+    // The price itself is public — it is the option's own listed number, the
+    // same one budget_fit's `why` already prints. The highest CEILING and
+    // whose it was are not: summarySignal keeps a budget off the timeline as
+    // "never the number", and an excluded reason that named "the highest is
+    // USD 40.00, from B" would leak exactly that number, attributed, through
+    // a channel nobody thought to check. Say what happened in aggregate only.
+    excluded = `${money(perPersonMinor, price.currency)} per person is above every budget shared so far — none of the ${comparable.length} shared budget${comparable.length === 1 ? '' : 's'} covers it.`
+  }
+  // Closed the WHOLE proposed window, per its own listed hours — not "might
+  // be shut", a confident zero-overlap read of a tag OSM actually published.
+  // Partial closure (open for some of the window) is a note on time_fit
+  // above, not an exclusion: the group can still meet in the part that's open.
+  if (!excluded && openingCheck?.known && openingCheck.fullyClosed && referenceWindow) {
+    excluded = `This is closed during ${fmtWindow(referenceWindow)} — its listed hours are "${openingHoursSpec}".`
   }
   if (!excluded) {
     const violation = findConstraintViolation(attending, option.raw)
@@ -709,4 +755,203 @@ export function rankOptions(
   })
 
   return scored.map(({ id, score }) => ({ id, score }))
+}
+
+// ---------------------------------------------------------------------------
+// Ties and near-misses.
+//
+// A ranked list always has a first row, whether or not the arithmetic behind
+// it is decisive. Two options within noise of each other should say so rather
+// than let one arbitrarily-earlier option in the input read as a clear
+// winner, and an option that lost only to a hard exclusion — not to being a
+// worse fit — deserves to be named rather than buried at the bottom of the
+// board next to options nobody would have picked anyway.
+// ---------------------------------------------------------------------------
+
+/**
+ * How close two scores have to be to call them a tie rather than a winner.
+ * Most factors are fractions over a handful of people — one more or fewer
+ * RSVP can swing a factor by 0.1–0.33 — so anything within 0.05 of the best
+ * live score is well inside the noise of a single participant's next answer,
+ * and presenting a definite rank order there overstates the arithmetic's
+ * precision.
+ */
+export const NEAR_TIE_EPSILON = 0.05
+
+export interface RankSummary {
+  /** ids of live options within NEAR_TIE_EPSILON of the best live score — length 0 or ≥2 */
+  near_ties: string[]
+  /** the best-scoring option that got hard-excluded, if any, and the one reason it lost */
+  strongest_rejected: { id: string; score: number; reason: string } | null
+}
+
+/** Pure post-processing over rankOptions' output — adds nothing rankOptions itself must compute. */
+export function summariseRanking(scored: { id: string; score: OptionScore }[]): RankSummary {
+  const live = scored.filter(
+    (s): s is { id: string; score: OptionScore & { score: number } } =>
+      s.score.excluded === null && s.score.score !== null,
+  )
+  let near_ties: string[] = []
+  if (live.length >= 2) {
+    const best = Math.max(...live.map((s) => s.score.score))
+    const tied = live.filter((s) => best - s.score.score <= NEAR_TIE_EPSILON)
+    if (tied.length >= 2) near_ties = tied.map((s) => s.id)
+  }
+
+  const excludedScored = scored.filter(
+    (s): s is { id: string; score: OptionScore & { score: number; excluded: string } } =>
+      s.score.excluded !== null && s.score.score !== null,
+  )
+  let strongest_rejected: RankSummary['strongest_rejected'] = null
+  if (excludedScored.length > 0) {
+    const top = excludedScored.reduce((a, b) => (b.score.score > a.score.score ? b : a))
+    strongest_rejected = { id: top.id, score: top.score.score, reason: top.score.excluded }
+  }
+
+  return { near_ties, strongest_rejected }
+}
+
+// ---------------------------------------------------------------------------
+// Explaining a re-rank.
+//
+// ranked() recomputes from scratch on every read, so the board is always
+// correct — but "correct" and "explained" are different things. A group that
+// refreshes the page to find Sablewood has quietly climbed from 3rd to 1st
+// has no way to know whether that is a bug or Maya just became free. This
+// section is the diff that turns a silent reshuffle into a sentence:
+// diffRankings compares a snapshot taken before a signal against one taken
+// after, and reasonForMove tries to name the SPECIFIC thing that changed for
+// the participant who just answered before falling back to a generic,
+// still-honest description of what kind of signal arrived.
+//
+// Pure. Both inputs are ordinary rankOptions() output; nothing here reads a
+// clock or touches storage — the caller (plan/service.ts) owns the snapshots.
+// ---------------------------------------------------------------------------
+
+export interface RankSnapshotEntry {
+  id: string
+  title: string
+  score: OptionScore
+}
+
+export interface RankMove {
+  option_id: string
+  title: string
+  /** 1-based board position, matching what a person actually sees */
+  from_rank: number
+  to_rank: number
+  reason: string
+}
+
+/** How far into the board a move has to touch before it is worth narrating. */
+const HEADLINE_RANK = 3
+/** A burst of small shuffles from one signal is noise, not news. */
+const MAX_MOVES_REPORTED = 3
+
+/**
+ * Did this participant's answer to THIS option flip in a way that explains
+ * the move? Checked against the concrete per_participant row rather than the
+ * aggregate score, so the sentence names a fact ("Maya can now make it") a
+ * person can check, not a guess about which factor moved the needle.
+ */
+function reasonForMove(
+  participantId: string,
+  participantName: string,
+  kind: SignalPayload['kind'],
+  before: OptionScore,
+  after: OptionScore,
+): string {
+  const b = before.per_participant.find((p) => p.participant_id === participantId)
+  const a = after.per_participant.find((p) => p.participant_id === participantId)
+  if (b && a) {
+    if (b.time_ok !== true && a.time_ok === true) return `${participantName} can now make it`
+    if (b.time_ok === true && a.time_ok !== true) return `${participantName} can no longer make it`
+    if (b.budget_ok !== true && a.budget_ok === true) return `${participantName}’s budget now covers this`
+    if (b.budget_ok === true && a.budget_ok !== true) return `${participantName}’s budget no longer covers this`
+    if (b.vote !== a.vote && a.vote === 1) return `${participantName} voted for it`
+    if (b.vote !== a.vote && a.vote === -1) return `${participantName} voted against it`
+  }
+  // No specific flip explains it (the move is a side effect on a factor this
+  // participant doesn't have a per-participant row for, e.g. travel when
+  // someone else's location changed) — fall back to the honest, generic
+  // description of what actually arrived rather than inventing a cause.
+  switch (kind) {
+    case 'availability':
+      return `${participantName} shared when they can make it`
+    case 'rsvp':
+      return `${participantName} responded`
+    case 'budget':
+      return `${participantName} set a budget`
+    case 'location':
+      return `${participantName} shared where they’re coming from`
+    case 'vote':
+      return `${participantName} voted`
+    case 'constraint':
+      return `${participantName} added a constraint`
+    default:
+      return `${participantName} updated their answer`
+  }
+}
+
+/**
+ * Compare two ordered boards and report the moves worth telling the group
+ * about. An option that exists in only one snapshot (the board was
+ * regenerated, not reordered) is not a "move" — that case already gets its
+ * own `options.generated` event. An option that was unranked (`score: null`)
+ * on either side is skipped for the same reason `rankOptions` sorts
+ * unscorable options last instead of first: jumping out of "we know nothing
+ * yet" is the INITIAL ranking, not something that moved.
+ */
+export function diffRankings(
+  before: RankSnapshotEntry[],
+  after: RankSnapshotEntry[],
+  who: { participantId: string; participantName: string; kind: SignalPayload['kind'] },
+): RankMove[] {
+  const beforeRank = new Map(before.map((o, i) => [o.id, i + 1]))
+  const beforeById = new Map(before.map((o) => [o.id, o]))
+
+  const moves: RankMove[] = []
+  after.forEach((o, i) => {
+    const fromRank = beforeRank.get(o.id)
+    if (fromRank === undefined) return
+    const toRank = i + 1
+    if (fromRank === toRank) return
+    const b = beforeById.get(o.id)!
+    if (b.score.score === null || o.score.score === null) return
+    if (fromRank > HEADLINE_RANK && toRank > HEADLINE_RANK) return
+
+    moves.push({
+      option_id: o.id,
+      title: o.title,
+      from_rank: fromRank,
+      to_rank: toRank,
+      reason: reasonForMove(who.participantId, who.participantName, who.kind, b.score, o.score),
+    })
+  })
+
+  // Biggest jumps first — the headline move, not whatever happened to be
+  // first in the input order.
+  moves.sort((x, y) => Math.abs(y.from_rank - y.to_rank) - Math.abs(x.from_rank - x.to_rank))
+  return moves.slice(0, MAX_MOVES_REPORTED)
+}
+
+const ORDINAL_SUFFIX = (n: number): string => {
+  const mod100 = n % 100
+  if (mod100 >= 11 && mod100 <= 13) return 'th'
+  switch (n % 10) {
+    case 1:
+      return 'st'
+    case 2:
+      return 'nd'
+    case 3:
+      return 'rd'
+    default:
+      return 'th'
+  }
+}
+
+/** "Sablewood moved from 3rd to 1st — Maya can now make it." Ready to render verbatim. */
+export function describeMove(m: RankMove): string {
+  const ord = (n: number) => `${n}${ORDINAL_SUFFIX(n)}`
+  return `${m.title} moved from ${ord(m.from_rank)} to ${ord(m.to_rank)} — ${m.reason}.`
 }

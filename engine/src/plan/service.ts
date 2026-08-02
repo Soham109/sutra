@@ -7,7 +7,14 @@ import type { GroupService } from '../service.js'
 import { UserError } from '../service.js'
 import type { Social } from '../social.js'
 import { boundingRadiusM, centroid, haversineKm } from './geo.js'
-import { rankOptions, type RankParticipant } from './rank.js'
+import {
+  describeMove,
+  diffRankings,
+  rankOptions,
+  summariseRanking,
+  type RankParticipant,
+  type RankSnapshotEntry,
+} from './rank.js'
 import { bestCommonWindows } from './time.js'
 import { optionId as newOptionId, participantId as newParticipantId, planId as newPlanId, PlanStore } from './store.js'
 import {
@@ -144,6 +151,16 @@ export class PlanService {
     const plan = this.mustPlan(p.plan_id)
     if (PLAN_TERMINAL.has(plan.status)) throw new UserError('this plan is closed')
 
+    // A snapshot of the board's order BEFORE this signal lands. ranked()
+    // recomputes from scratch on every read, so the board is always correct
+    // — but a group that refreshes the page to find Sablewood quietly climbed
+    // from 3rd to 1st has no way to know whether that is a bug or Maya just
+    // became free. Comparing this snapshot against the one after is how a
+    // silent reshuffle becomes a sentence on the timeline (diffRankings, in
+    // rank.ts). Skipped when there is no board yet — an empty-to-empty diff
+    // is not a move, it is the absence of one.
+    const before = this.d.store.options(plan.id).length > 0 ? this.rankSnapshot(plan.id) : null
+
     this.d.store.appendSignal(plan.id, p.id, parsed.kind, parsed)
     if (!p.responded_at) {
       this.d.store.casParticipant(p.id, p.version, { responded_at: this.now().toISOString() })
@@ -154,6 +171,18 @@ export class PlanService {
       name: p.display_name,
       ...summarySignal(parsed),
     })
+
+    if (before) {
+      const after = this.rankSnapshot(plan.id)
+      const moves = diffRankings(before, after, {
+        participantId: p.id,
+        participantName: p.display_name,
+        kind: parsed.kind,
+      })
+      for (const move of moves) {
+        this.d.store.appendEvent(plan.id, p.id, 'options.reranked', { ...move, summary: describeMove(move) })
+      }
+    }
 
     // Ranking is recomputed on every read, so most signals need nothing here.
     // A LOCATION is different: it moves the centroid the venue search runs
@@ -361,12 +390,41 @@ export class PlanService {
     const options = this.d.store.options(planId).map(toOptionInput)
     const participants = this.rankParticipants(planId)
     const scores = rankOptions(options, participants, { now: this.now() })
+    const summary = summariseRanking(scores)
     const byId = new Map(this.d.store.options(planId).map((o) => [o.id, o]))
     return {
       plan,
       best_windows: this.commonWindows(planId),
-      options: scores.map((s) => ({ option: viewOption(byId.get(s.id)!), score: s.score })),
+      options: scores.map((s) => ({
+        option: viewOption(byId.get(s.id)!),
+        score: s.score,
+        // Two or more options within noise of the best score — flagged
+        // per-option so a UI can render "tied for first" without recomputing
+        // NEAR_TIE_EPSILON itself.
+        near_tie: summary.near_ties.includes(s.id),
+      })),
+      near_ties: summary.near_ties,
+      // The best option that got hard-excluded — "you'd have loved this, but
+      // it's closed" is more useful than letting it vanish to the bottom of
+      // the board next to options nobody would have picked anyway.
+      strongest_rejected: summary.strongest_rejected
+        ? {
+            option: viewOption(byId.get(summary.strongest_rejected.id)!),
+            score: summary.strongest_rejected.score,
+            reason: summary.strongest_rejected.reason,
+          }
+        : null,
     }
+  }
+
+  /** A frozen copy of the board's current order, for diffRankings to compare against later. */
+  private rankSnapshot(planId: string): RankSnapshotEntry[] {
+    const rows = this.d.store.options(planId)
+    const options = rows.map(toOptionInput)
+    const participants = this.rankParticipants(planId)
+    const scored = rankOptions(options, participants, { now: this.now() })
+    const byId = new Map(rows.map((o) => [o.id, o]))
+    return scored.map((s) => ({ id: s.id, title: byId.get(s.id)?.title ?? '', score: s.score }))
   }
 
   private rankParticipants(planId: string): RankParticipant[] {

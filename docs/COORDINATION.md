@@ -9,9 +9,9 @@ again. See [`spec/PROTOCOL.md`](../spec/PROTOCOL.md) §11 for the boundary and
 the handover contract.
 
 Source: [`engine/src/plan/`](../engine/src/plan/) (`types.ts`, `service.ts`,
-`store.ts`, `rank.ts`, `time.ts`, `geo.ts`), with venue discovery in
-[`engine/src/places/`](../engine/src/places/) and intent extraction in
-[`engine/src/agent/extract.ts`](../engine/src/agent/extract.ts).
+`store.ts`, `rank.ts`, `time.ts`, `geo.ts`, `opening-hours.ts`), with venue
+discovery in [`engine/src/places/`](../engine/src/places/) and intent
+extraction in [`engine/src/agent/extract.ts`](../engine/src/agent/extract.ts).
 
 ---
 
@@ -222,16 +222,17 @@ neither, **no search runs at all** and the plan says so: *"Nobody has shared a
 location yet, and the plan has no anchor — so there is nowhere to search
 around."*
 
-**A caveat on the radius, since this document is meant to be checkable.**
-`searchAnchor` also computes a spread-aware radius —
-`max(slots.radius_m, round(boundingRadiusM(locations) × 1.3))`, big enough to
-reach everybody's neighbourhood — but `generateOptions` then takes
-`slots.radius_m ?? anchor.radius_m`, and `radius_m` carries a schema default of
-**8000 m**, so it is never undefined and the spread-aware value never wins. In
-practice every venue search today runs at the slot radius (8 km unless the plan
-overrides it via `POST /v1/plans/:id/options/refresh`). The intended behaviour
-is the `max`; the shipped behaviour is the slot. Both are in
-[`plan/service.ts`](../engine/src/plan/service.ts).
+**On the radius, since this document is meant to be checkable.** `searchAnchor`
+computes a spread-aware radius — `max(slots.radius_m, round(boundingRadiusM(locations)
+× 1.3))`, big enough to reach everybody's neighbourhood — and `generateOptions`
+uses that value (`anchor.radius_m`) directly rather than re-reading
+`slots.radius_m`. That distinction matters because `radius_m` carries a schema
+default of **8000 m**: re-reading it as `slots.radius_m ?? anchor.radius_m`
+would never fall through to the spread-aware value (the default fills in
+first), silently searching a city-spread group at the default 8 km. Both are
+in [`plan/service.ts`](../engine/src/plan/service.ts), with a comment at the
+call site recording exactly this reasoning so the next person who "simplifies"
+it does not reintroduce the bug.
 
 ---
 
@@ -479,9 +480,56 @@ order, first match wins:
    freshness score alone would still let a dead option outrank a live one on
    the other four factors, so this is an exclusion rather than a penalty.
 2. **Above every shared budget** — only when at least one comparable budget
-   exists and none of them covers the per-person price. The sentence names the
-   highest ceiling and whose it is.
-3. **Contradicts a stated constraint** — see below.
+   exists and none of them covers the per-person price. The sentence prints
+   the option's own (public) price and how many budgets were compared, and
+   deliberately stops there: it never names the highest individual ceiling or
+   whose it was, because that would leak the exact number `summarySignal`
+   keeps off the timeline elsewhere ("never the number"). An earlier version
+   of this sentence did print it, attributed to a named participant — found
+   and fixed while auditing this file for the same leak.
+3. **Closed the whole proposed window** — see "Opening hours" below.
+4. **Contradicts a stated constraint** — see below.
+
+### Opening hours
+
+[`engine/src/plan/opening-hours.ts`](../engine/src/plan/opening-hours.ts). A
+venue that is provably shut for the entire time a group is proposing to meet
+must not win — this is the single most common way a "great recommendation"
+turns out to be useless, and OSM's `opening_hours` tag is exactly the fact
+that would have caught it.
+
+The module is a small hand-written parser, not a dependency: the full OSM
+grammar covers public holidays, month/week ranges, sunrise/sunset, quoted
+comments and a fallback-rule operator, and getting the uncommon 5% subtly
+wrong is a worse outcome than admitting we don't understand it. It confidently
+handles day selectors (`Mo-Fr`, `Sa,Su`, wrapping ranges like `Fr-Mo`), time
+ranges including split shifts (`11:00-15:00,19:00-23:00`), overnight spans
+(`18:00-02:00`), `24/7`, and `off`/`closed` overriding a general rule for one
+day (`Mo-Su 09:00-18:00; Su off`). Anything it does not confidently recognise
+— `PH off`, a stray comment, a typo'd time — makes the **whole spec** unknown
+rather than trusting the half it parsed; a half-understood schedule is not
+meaningfully safer to act on than an unread one.
+
+**Timezone.** OSM's `opening_hours` is wall-clock time at the venue, with no
+timezone of its own. Like the rest of `plan/`, this module works entirely in
+UTC instants, so the proposed window's UTC clock time is read *as* the
+venue's local time — correct when the group and the venue share a timezone
+(the overwhelming common case), silently off by the UTC offset otherwise.
+Nothing in this codebase tracks a per-place timezone today; that is an
+inherited limitation, not a new one.
+
+**What it does with the result.** Checked against the *reference window* —
+the same window `time_fit` above scores against, whether that is the option's
+own fixed `when` or the group's best common slot. Zero overlap between the
+venue's stated hours and that window is a hard exclusion: *"This is closed
+during 2026-08-08 19:00–21:00 UTC — its listed hours are 'Mo-Fr
+09:00-22:00'."* Partial overlap (open for some of the window, not all of it)
+is **not** excluded — the group can still meet in the part that is open — but
+appends a checkable note to `time_fit`'s own sentence: *"It is only open 1h of
+that 2h window — its listed hours are 'Sa 19:00-22:00'."* An option with no
+`opening_hours` tag, or one whose spec could not be parsed, gets neither the
+note nor the exclusion — silence about a venue's hours is honest; a wrong
+guess about them is not.
 
 ### Constraint matching, deliberately timid
 
@@ -530,7 +578,66 @@ nearest-first. Excluded options are **returned, never dropped**.
 
 ---
 
-## 7. Per-participant detail
+## 7. Ties, near-misses, and what changed
+
+A ranked list always has a first row, whether or not the arithmetic behind it
+is decisive. Three small, pure, separately-tested functions in `rank.ts` exist
+so the board says that plainly instead of implying a confidence it does not
+have.
+
+### Near-ties
+
+`summariseRanking(scored)` flags live (non-excluded, scored) options within
+**`NEAR_TIE_EPSILON` (0.05)** of the best live score. Most factors are
+fractions over a handful of people — one more or fewer RSVP can swing a factor
+by 0.1–0.33 — so anything within 0.05 of the top score is well inside the
+noise of a single participant's next answer; presenting a definite winner
+there overstates the arithmetic's precision. `ranked()` returns both a
+plan-level `near_ties: string[]` (option ids) and a per-option `near_tie:
+boolean`, so a client can render "tied for first" without recomputing the
+threshold itself. A tie is never reported for fewer than two options.
+
+### The strongest rejected option
+
+The same function finds the best-**scoring** option among those that got hard
+excluded, and returns it as `strongest_rejected: { id, score, reason }`. "You
+would have loved this, but it's closed" is a more useful answer than letting
+that option quietly settle to the bottom of the board next to places nobody
+would have picked anyway — excluded options are already sorted last (see
+Ordering, above), so without this a genuinely strong runner-up is
+indistinguishable in position from the worst option on the list.
+
+### Explaining a re-rank
+
+`ranked()` recomputes from scratch on every read — the board is always
+correct — but "correct" and "explained" are different things. A group that
+refreshes the page to find an option has quietly climbed from 3rd to 1st has
+no way to know whether that is a bug or somebody just became free.
+
+`PlanService.submitSignal` takes a snapshot of the board's order (`rankSnapshot`)
+**before** the new signal is recorded and another one **after**, and
+`diffRankings` (pure, in `rank.ts`) compares them. A move is only reported
+when: the option existed in both snapshots (a wholesale board regeneration is
+a new board, already narrated by its own `options.generated` event, not a
+"move"); it was genuinely scored (non-`null`) on both sides (going from
+"unranked" to "ranked" is the *initial* ranking, not something that moved);
+and either its old or new rank is within the top 3 — a shuffle entirely below
+the fold is not worth narrating. At most 3 moves are reported per signal,
+biggest jump first.
+
+For each move, `reasonForMove` tries to name the *specific* thing that changed
+for the participant who just answered — checked against their own
+`per_participant` row on that option (did `time_ok`, `budget_ok` or their
+`vote` flip?) before falling back to an honest, generic description of what
+kind of signal arrived ("Maya shared when they can make it"). The result is
+appended to the plan's timeline as an `options.reranked` event carrying
+`option_id`, `title`, `from_rank`, `to_rank`, `reason`, and a ready-to-render
+`summary` from `describeMove`: *"Sablewood moved from 3rd to 1st — Maya can
+now make it."*
+
+---
+
+## 8. Per-participant detail
 
 Alongside the aggregate, every option carries a row per participant:
 `time_ok`, `travel_km`, `budget_ok`, `vote` — each of which is `null` when
@@ -543,7 +650,7 @@ the row and the sentence above it always agree.
 
 ---
 
-## 8. What this layer refuses to do
+## 9. What this layer refuses to do
 
 - It never invents a coordinate, a price, or a venue.
 - It never counts silence as agreement.
@@ -553,3 +660,5 @@ the row and the sentence above it always agree.
   sentence on the board, not an empty list pretending to be an answer.
 - It never decides. `chooseOption` is a human action, and `convertToGroup`
   needs a real number from a human before a single mandate is minted.
+- It never guesses a venue's opening hours, or half-trusts a schedule it only
+  partly understood — see "Opening hours" in §6.

@@ -219,6 +219,11 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
       plan_id: id,
       best_windows: r.best_windows,
       options: r.options,
+      // Options within noise of each other, and the best option a hard rule
+      // ruled out — see rank.ts's summariseRanking. Neither carries a
+      // participant id, so nothing here needs the redaction above.
+      near_ties: r.near_ties,
+      strongest_rejected: r.strongest_rejected,
       note,
     }
   })
@@ -237,7 +242,14 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     await d.plans.generateOptions(id)
     const plan = d.plans.mustPlan(id)
     const r = redactRanked(d.plans.ranked(id), viewerFor(d, req, plan))
-    return { plan_id: id, best_windows: r.best_windows, options: r.options, note: lastOptionsNote(d, id) }
+    return {
+      plan_id: id,
+      best_windows: r.best_windows,
+      options: r.options,
+      near_ties: r.near_ties,
+      strongest_rejected: r.strongest_rejected,
+      note: lastOptionsNote(d, id),
+    }
   })
 
   app.post('/v1/plans/:id/choose', async (req) => {

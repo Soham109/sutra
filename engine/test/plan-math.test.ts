@@ -10,8 +10,18 @@ import {
   totalDurationMs,
 } from '../src/plan/time.js'
 import { boundingRadiusM, centroid, haversineKm, travelCost } from '../src/plan/geo.js'
-import { DEFAULT_WEIGHTS, rankOptions, scoreOption, type RankParticipant } from '../src/plan/rank.js'
-import type { OptionInput, Place, SignalPayload, TimeWindow } from '../src/plan/types.js'
+import {
+  DEFAULT_WEIGHTS,
+  NEAR_TIE_EPSILON,
+  describeMove,
+  diffRankings,
+  rankOptions,
+  scoreOption,
+  summariseRanking,
+  type RankParticipant,
+  type RankSnapshotEntry,
+} from '../src/plan/rank.js'
+import type { OptionInput, OptionScore, Place, SignalPayload, TimeWindow } from '../src/plan/types.js'
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -758,9 +768,33 @@ describe('scoreOption: hard exclusions', () => {
       now: NOW,
     })
     expect(s.excluded).toContain('above every budget shared so far')
-    expect(s.excluded).toContain('USD 40.00')
-    expect(s.excluded).toContain('B')
+    expect(s.excluded).toContain('USD 90.00') // the option's own PUBLIC price — fine to print
     expect(factor(s, 'budget_fit').value).toBe(0)
+  })
+
+  it('never prints a private ceiling or whose it was in the excluded reason', () => {
+    // A live audit reproduced this: the exclusion message named the highest
+    // INDIVIDUAL ceiling and the participant it belonged to — exactly the
+    // number summarySignal (plan/service.ts) goes out of its way to keep off
+    // the timeline ("never the number"). budget_fit's own `why` already gets
+    // this right (it prints a fraction, never a ceiling); the excluded
+    // reason must match that convention, not undercut it.
+    const s = scoreOption({
+      option: option({
+        id: 'o1',
+        price: { amount_minor: 9000, currency: 'USD', basis: 'per_person' },
+      }),
+      participants: [
+        P('a', [rsvpIn, budget(3000)], 'Priyanka'),
+        P('b', [rsvpIn, budget(4000)], 'Bikram'),
+      ],
+      now: NOW,
+    })
+    expect(s.excluded).not.toBeNull()
+    expect(s.excluded).not.toContain('USD 30.00') // Priyanka's ceiling
+    expect(s.excluded).not.toContain('USD 40.00') // Bikram's ceiling
+    expect(s.excluded).not.toContain('Priyanka')
+    expect(s.excluded).not.toContain('Bikram')
   })
 
   it('does not exclude when at least one ceiling clears it', () => {
@@ -876,6 +910,87 @@ describe('scoreOption: hard exclusions', () => {
       now: NOW,
     })
     expect(s.excluded).toContain('wheelchair=no')
+  })
+})
+
+describe('scoreOption: opening hours', () => {
+  const withHours = (spec: string, over: Partial<OptionInput> = {}) =>
+    option({ id: 'o1', raw: { opening_hours: spec }, ...over })
+
+  it('excludes an option closed for the whole of a fixed window', () => {
+    const s = scoreOption({
+      // Saturday 19:00-21:00, but the tag says weekdays only.
+      option: withHours('Mo-Fr 09:00-22:00', { when: W('19', '21') }),
+      participants: [P('a', [rsvpIn, avail([W('18', '22')])])],
+      now: NOW,
+    })
+    expect(s.excluded).toContain('closed')
+    expect(s.excluded).toContain('Mo-Fr 09:00-22:00')
+  })
+
+  it('does not exclude, and adds no note, when the venue is open the whole window', () => {
+    const s = scoreOption({
+      option: withHours('Sa-Su 10:00-23:00', { when: W('19', '21') }),
+      participants: [P('a', [rsvpIn, avail([W('18', '22')])])],
+      now: NOW,
+    })
+    expect(s.excluded).toBeNull()
+    expect(factor(s, 'time_fit').why).not.toContain('closed')
+    expect(factor(s, 'time_fit').why).not.toContain('only open')
+  })
+
+  it('a partial overlap is a checkable note, not an exclusion', () => {
+    const s = scoreOption({
+      // Open 19:00-22:00; the proposed window runs 21:00-23:00 — one hour overlaps.
+      option: withHours('Sa 19:00-22:00', { when: W('21', '23') }),
+      participants: [P('a', [rsvpIn, avail([W('20', '23')])])],
+      now: NOW,
+    })
+    expect(s.excluded).toBeNull()
+    const why = factor(s, 'time_fit').why
+    expect(why).toContain('only open')
+    expect(why).toContain('1h')
+    expect(why).toContain('Sa 19:00-22:00')
+  })
+
+  it('also excludes against the FALLBACK best-common-window when the option has no fixed time', () => {
+    // The venue is timeless (every OSM option is), but the group's best
+    // common slot lands squarely inside a day it is shut.
+    const s = scoreOption({
+      option: withHours('Mo-Fr 09:00-22:00'), // no `when`
+      participants: [P('a', [rsvpIn, avail([W('19', '21')])])], // Saturday
+      now: NOW,
+    })
+    expect(s.excluded).toContain('closed')
+  })
+
+  it('never excludes on a tag it cannot parse — unknown stays unknown', () => {
+    const s = scoreOption({
+      option: withHours('every day basically, ask the owner', { when: W('19', '21') }),
+      participants: [P('a', [rsvpIn, avail([W('18', '22')])])],
+      now: NOW,
+    })
+    expect(s.excluded).toBeNull()
+    expect(factor(s, 'time_fit').why).not.toContain('closed')
+  })
+
+  it('reads the tag from raw.tags as well as the flattened top-level field', () => {
+    const s = scoreOption({
+      option: option({ id: 'o1', when: W('19', '21'), raw: { tags: { opening_hours: 'Mo-Fr 09:00-22:00' } } }),
+      participants: [P('a', [rsvpIn, avail([W('18', '22')])])],
+      now: NOW,
+    })
+    expect(s.excluded).toContain('closed')
+  })
+
+  it('is silent (no note, no exclusion) when the option carries no opening_hours tag at all', () => {
+    const s = scoreOption({
+      option: option({ id: 'o1', when: W('19', '21'), raw: {} }),
+      participants: [P('a', [rsvpIn, avail([W('18', '22')])])],
+      now: NOW,
+    })
+    expect(s.excluded).toBeNull()
+    expect(factor(s, 'time_fit').why).not.toContain('open')
   })
 })
 
@@ -1021,6 +1136,165 @@ describe('rankOptions', () => {
     const b = option({ id: 'b', when: W('19', '21') })
     expect(rankOptions([a, b], participants, { now: NOW }).map((r) => r.id)).toEqual(['a', 'b'])
     expect(rankOptions([b, a], participants, { now: NOW }).map((r) => r.id)).toEqual(['b', 'a'])
+  })
+})
+
+describe('summariseRanking: ties and the strongest rejected option', () => {
+  it('reports no ties when one option is clearly ahead', () => {
+    const scored = [
+      { id: 'a', score: { score: 0.9, factors: [], excluded: null, confidence: 1, per_participant: [] } },
+      { id: 'b', score: { score: 0.5, factors: [], excluded: null, confidence: 1, per_participant: [] } },
+    ]
+    expect(summariseRanking(scored).near_ties).toEqual([])
+  })
+
+  it('flags options within NEAR_TIE_EPSILON of the best live score', () => {
+    // Kept well clear of the epsilon boundary on both sides — this is testing
+    // the tie logic, not floating-point rounding at an exact threshold.
+    expect(NEAR_TIE_EPSILON).toBe(0.05)
+    const scored = [
+      { id: 'a', score: { score: 0.8, factors: [], excluded: null, confidence: 1, per_participant: [] } },
+      { id: 'b', score: { score: 0.77, factors: [], excluded: null, confidence: 1, per_participant: [] } }, // within 0.05
+      { id: 'c', score: { score: 0.6, factors: [], excluded: null, confidence: 1, per_participant: [] } }, // well outside
+    ]
+    expect(summariseRanking(scored).near_ties.sort()).toEqual(['a', 'b'])
+  })
+
+  it('never calls a single option a "tie"', () => {
+    const scored = [{ id: 'a', score: { score: 1, factors: [], excluded: null, confidence: 1, per_participant: [] } }]
+    expect(summariseRanking(scored).near_ties).toEqual([])
+  })
+
+  it('excluded options are never counted toward a tie', () => {
+    const scored = [
+      { id: 'a', score: { score: 0.9, factors: [], excluded: null, confidence: 1, per_participant: [] } },
+      { id: 'b', score: { score: 0.9, factors: [], excluded: 'closed', confidence: 1, per_participant: [] } },
+    ]
+    expect(summariseRanking(scored).near_ties).toEqual([])
+  })
+
+  it('surfaces the best-scoring excluded option and its one reason', () => {
+    const scored = [
+      { id: 'winner', score: { score: 0.6, factors: [], excluded: null, confidence: 1, per_participant: [] } },
+      {
+        id: 'strong-loser',
+        score: { score: 0.95, factors: [], excluded: 'closed right now', confidence: 1, per_participant: [] },
+      },
+      {
+        id: 'weak-loser',
+        score: { score: 0.1, factors: [], excluded: 'too far', confidence: 1, per_participant: [] },
+      },
+    ]
+    const s = summariseRanking(scored)
+    expect(s.strongest_rejected).toEqual({ id: 'strong-loser', score: 0.95, reason: 'closed right now' })
+  })
+
+  it('is null when nothing was excluded, or every exclusion is unscored', () => {
+    const noExclusions = [
+      { id: 'a', score: { score: 0.5, factors: [], excluded: null, confidence: 1, per_participant: [] } },
+    ]
+    expect(summariseRanking(noExclusions).strongest_rejected).toBeNull()
+
+    const unscoredExclusion = [
+      { id: 'a', score: { score: null, factors: [], excluded: 'past', confidence: 1, per_participant: [] } },
+    ]
+    expect(summariseRanking(unscoredExclusion).strongest_rejected).toBeNull()
+  })
+})
+
+describe('diffRankings and describeMove: explaining a re-rank', () => {
+  const snap = (id: string, title: string, score: number | null, extra: Partial<OptionScore> = {}): RankSnapshotEntry => ({
+    id,
+    title,
+    score: { score, factors: [], excluded: null, confidence: 1, per_participant: [], ...extra },
+  })
+
+  it('reports nothing when nobody moved', () => {
+    const before = [snap('a', 'A', 0.9), snap('b', 'B', 0.5)]
+    const after = [snap('a', 'A', 0.9), snap('b', 'B', 0.5)]
+    expect(diffRankings(before, after, { participantId: 'p1', participantName: 'Maya', kind: 'availability' })).toEqual([])
+  })
+
+  it('reports a genuine rank flip with a from/to and a reason', () => {
+    // Swapping ranks 1 and 2 genuinely moves BOTH options; assert on the one
+    // under test rather than the exact count, since 'a' (1st -> 2nd) is a
+    // real, reportable move too.
+    const before = [snap('a', 'A', 0.9), snap('b', 'B', 0.5)]
+    const after = [snap('b', 'B', 0.95), snap('a', 'A', 0.9)]
+    const moves = diffRankings(before, after, { participantId: 'p1', participantName: 'Maya', kind: 'availability' })
+    const bMove = moves.find((m) => m.option_id === 'b')
+    expect(bMove).toMatchObject({ option_id: 'b', title: 'B', from_rank: 2, to_rank: 1 })
+    expect(describeMove(bMove!)).toBe('B moved from 2nd to 1st — Maya shared when they can make it.')
+  })
+
+  it('a brand-new option (not present before) is never itself reported as a move', () => {
+    // 'new' has no prior rank to move FROM, so it cannot appear as a move
+    // source — that is a fresh board (options.generated), not a re-rank.
+    const before = [snap('a', 'A', 0.9)]
+    const after = [snap('new', 'New venue', 0.95), snap('a', 'A', 0.9)]
+    const moves = diffRankings(before, after, { participantId: 'p1', participantName: 'Maya', kind: 'vote' })
+    expect(moves.find((m) => m.option_id === 'new')).toBeUndefined()
+  })
+
+  it('going from unranked (null score) to ranked is the initial ranking, not a move', () => {
+    const before = [snap('a', 'A', null), snap('b', 'B', 0.9)]
+    const after = [snap('b', 'B', 0.9), snap('a', 'A', 0.7)]
+    const moves = diffRankings(before, after, { participantId: 'p1', participantName: 'Maya', kind: 'rsvp' })
+    // 'a' went from unranked to ranked — never reported, however far it slid.
+    expect(moves.find((m) => m.option_id === 'a')).toBeUndefined()
+  })
+
+  it('ignores shuffles entirely outside the headline top 3', () => {
+    const before = [snap('a', 'A', 0.9), snap('b', 'B', 0.8), snap('c', 'C', 0.7), snap('d', 'D', 0.4), snap('e', 'E', 0.3)]
+    const after = [snap('a', 'A', 0.9), snap('b', 'B', 0.8), snap('c', 'C', 0.7), snap('e', 'E', 0.5), snap('d', 'D', 0.4)]
+    // d and e swapped (rank 4 <-> 5): outside the top 3, not worth narrating.
+    expect(diffRankings(before, after, { participantId: 'p1', participantName: 'Maya', kind: 'vote' })).toEqual([])
+  })
+
+  it('names the specific flip when the responding participant\'s own fit changed', () => {
+    const beforeScore = {
+      score: 0.5,
+      factors: [],
+      excluded: null,
+      confidence: 1,
+      per_participant: [{ participant_id: 'maya', name: 'Maya', time_ok: false, travel_km: null, budget_ok: null, vote: null }],
+    }
+    const afterScore = {
+      score: 0.9,
+      factors: [],
+      excluded: null,
+      confidence: 1,
+      per_participant: [{ participant_id: 'maya', name: 'Maya', time_ok: true, travel_km: null, budget_ok: null, vote: null }],
+    }
+    const otherScore: OptionScore = { score: 0.6, factors: [], excluded: null, confidence: 1, per_participant: [] }
+    // Array order IS rank order (diffRankings trusts the caller's ordering,
+    // the same way it trusts rankOptions' own output) — Other leads before,
+    // Sablewood leads after, which is the rank-2-to-1 flip under test.
+    const before: RankSnapshotEntry[] = [
+      { id: 'other', title: 'Other', score: otherScore },
+      { id: 'sablewood', title: 'Sablewood', score: beforeScore },
+    ]
+    const after: RankSnapshotEntry[] = [
+      { id: 'sablewood', title: 'Sablewood', score: afterScore },
+      { id: 'other', title: 'Other', score: otherScore },
+    ]
+    const moves = diffRankings(before, after, { participantId: 'maya', participantName: 'Maya', kind: 'availability' })
+    expect(moves[0]?.reason).toBe('Maya can now make it')
+    expect(describeMove(moves[0]!)).toBe('Sablewood moved from 2nd to 1st — Maya can now make it.')
+  })
+
+  it('caps the number of reported moves and leads with the biggest jump', () => {
+    const before = Array.from({ length: 6 }, (_, i) => snap(`o${i}`, `Opt${i}`, 1 - i * 0.1))
+    // Reverse the whole order — every option "moves", but only the top-3-touching
+    // ones qualify, and at most MAX_MOVES_REPORTED are returned.
+    const after = [...before].reverse().map((e, i) => ({ ...e, id: e.id, title: e.title }))
+    const moves = diffRankings(before, after, { participantId: 'p1', participantName: 'Maya', kind: 'vote' })
+    expect(moves.length).toBeLessThanOrEqual(3)
+    for (let i = 1; i < moves.length; i++) {
+      expect(Math.abs(moves[i - 1]!.from_rank - moves[i - 1]!.to_rank)).toBeGreaterThanOrEqual(
+        Math.abs(moves[i]!.from_rank - moves[i]!.to_rank),
+      )
+    }
   })
 })
 
