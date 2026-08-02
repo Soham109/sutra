@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { humanError } from '@/components/approve/model'
 import { shortHash, type Receipt } from '@/components/receipt/model'
 import { GroupStatusBadge } from '@/components/receipt/parts'
+import { ProvenChargeNote } from '@/components/receipt/proven-charge'
 import { useSession } from '@/components/session'
 import { Shell } from '@/components/shell'
 import { Empty, ErrorNote, Money, Skeleton } from '@/components/ui'
@@ -77,6 +78,8 @@ export default function ReceiptsPage() {
             needs a merchant checkout or till.
           </p>
         </div>
+
+        <ProvenChargeNote />
 
         {error && <ErrorNote>{error}</ErrorNote>}
 
