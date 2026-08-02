@@ -1,9 +1,8 @@
 # Runbook — running, deploying and operating sutra
 
-Operations only. For the state of the project read [`../AUDIT.md`](../AUDIT.md); for what to do
-next read [`../TASKS.md`](../TASKS.md). For the rules and traps that must not be broken, read
-[`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md). For the hackathon submission, read
-[`HACKATHON.md`](HACKATHON.md).
+Operations only. For the rules and traps that must not be broken, read
+[`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md). For track-by-track judging evidence, read
+[`TRACK-EVIDENCE.md`](TRACK-EVIDENCE.md).
 
 The repository is at `c:\Users\acer\sutra`. Every command below assumes you are in that
 directory unless it says otherwise.
@@ -37,12 +36,9 @@ puts the production database in the wrong place. Set it from PowerShell.
 
 ### 0.2 Never print a secret
 
-Secrets live outside the repository, in:
-
-```
-C:\Users\acer\AppData\Local\Temp\claude\c--Users-acer-sutra\4c8b49f0-b384-4e78-813a-a6faef19542a\scratchpad\secrets.env
-C:\Users\acer\AppData\Local\Temp\claude\c--Users-acer-sutra\4c8b49f0-b384-4e78-813a-a6faef19542a\scratchpad\vapid.env
-```
+Secrets live outside the repository entirely, in local, gitignored files (`secrets.env` and
+`vapid.env`) kept off the machine's working tree, and are set directly on the hosting
+provider (Railway, Vercel) rather than checked in anywhere.
 
 `secrets.env` holds `ENGINE_SIGNING_SEED`, `ENGINE_API_TOKEN` and `WEBHOOK_SECRET`.
 `vapid.env` holds `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`.
@@ -114,17 +110,17 @@ Useful local URLs once `npm run dev` is running:
 | `npm run dev` | `concurrently` engine + web | Both halves, ports 4100 and 3000. | nothing |
 | `npm run dev:engine` | `npm run start -w engine` | Engine only, port 4100. | nothing |
 | `npm run dev:web` | `npm run dev -w web` | Next.js dev server, port 3000. | nothing |
-| `npm run build` | `npm run build -w web` | Next.js production build. Observed: succeeds, **19 routes, 14 static pages**. | nothing |
+| `npm run build` | `npm run build -w web` | Next.js production build. Observed: succeeds, **21 routes, 14 static pages** — this count moves as routes are added; believe what the build prints. | nothing |
 | `npm start` | `npm run start -w engine` | Engine in the foreground. This is Railway's start command. | nothing |
 | `npm test` | `npm run test -w engine` | Vitest. Believe the count it prints; every number written into a doc here has gone stale within hours. | **PowerShell** |
-| `npm run test:widget` | `node --test widget/detect.test.mjs` | The page detector against captured real pages. Observed: **30 pass, 0 fail**. Includes a test that `widget/widget.js` and `extension/detect.js` carry an identical copy of `widget/detect.js`. | nothing |
+| `npm run test:widget` | `node --test widget/detect.test.mjs` | The page detector against captured real pages. Observed: **33 pass, 0 fail** — believe the count it prints. Includes a test that `widget/widget.js` and `extension/detect.js` carry an identical copy of `widget/detect.js`. | nothing |
 | `npm run build:widget` | `node widget/build-bookmarklet.mjs` | Regenerates the bookmarklet and `extension/detect.js` from `widget/detect.js`. Run it after editing the detector. | nothing |
 | `npm run chaos` | `npm run chaos -w chaos` | 60 randomized fault-injection runs. Observed: seed base 42, terminal states `{"partial":9,"committed":38,"aborted":13}`, six invariants pass, prints `GREEN WALL`. Runs the engine **in process** — no HTTP, no server to start. Mock adapter only. Tune with `CHAOS_ITERS` and `SEED`. | nothing |
 | `npm run demo` | `npm run demo -w cli` | Full commit run against the mock adapter. Observed: `COMMITTED`, four members charged $46.50 each, `receipt: ✓ chain + signature verified`. **Drives the engine over HTTP — start one first.** | a running engine on `GMP_API` (default `http://localhost:4100`) |
 | `npm run e2e:plan` | `tsx e2e/plan-flow.ts` | Coordination end to end against **live OpenStreetMap**: real geocode, real venues, real ranking, then a group. | a running engine; `GMP_API`, `ENGINE_API_TOKEN` |
 | `npm run e2e:product` | `tsx e2e/product-flow.ts` | Resolves a real merchant URL, builds a cart, commits through the mock ceremony, checks every surface renders. Never touches the sandbox. | a running engine and web app; `ENGINE_API_TOKEN` |
 | `npm run e2e:sandbox` | `tsx e2e/sandbox-smoke.ts` | Exactly **one** mandate setup, one charge and one report against the real Prava sandbox, pausing for a human at the passkey step. Budget-aware by design. Refuses to run unless the key starts `sk_test_`. | `PRAVA_API_KEY` |
-| `npm run e2e:proof` | `tsx e2e/sandbox-proof.ts` | Creates a group and mints **real** Prava mandate sessions, printing the hosted approval URLs. Add `-- --watch` to poll until terminal. **This is the script for the number-one open task.** | `GMP_API`, `ENGINE_API_TOKEN` |
+| `npm run e2e:proof` | `tsx e2e/sandbox-proof.ts` | Creates a group and mints **real** Prava mandate sessions, printing the hosted approval URLs. Add `-- --watch` to poll until terminal. **This is the script that produces real, on-network payment evidence.** | `GMP_API`, `ENGINE_API_TOKEN` |
 | `npm run e2e:auth` | `tsx e2e/auth-check.ts` | Registers a throwaway account against a deployed engine, follows the session cookie, reads a protected route. Proves sign-in works on a live host in one command. | `GMP_API` |
 
 ### 2.2 Workspace scripts
@@ -361,7 +357,7 @@ Rotating `OPENAI_API_KEY` or `PRAVA_API_KEY` (engine only, nothing else needs to
 3. Wait for the redeploy, then `curl.exe -s https://engine-production-e6fa.up.railway.app/health`
    and check `uptime_s` is small.
 4. Revoke the old key in the provider's dashboard.
-5. Update the scratchpad file if the key is recorded there. Do not write it into the repo.
+5. Update the local secrets file if the key is recorded there. Do not write it into the repo.
 
 Rotating `ENGINE_API_TOKEN` (**both** hosts must change together):
 
@@ -370,7 +366,7 @@ Rotating `ENGINE_API_TOKEN` (**both** hosts must change together):
 3. Set it on Vercel with `npx vercel env rm ENGINE_API_TOKEN production` then
    `npx vercel env add ENGINE_API_TOKEN production`.
 4. Redeploy the web app with the two-step process in section 3.1.
-5. Update `secrets.env` in the scratchpad directory.
+5. Update the local `secrets.env` file.
 
 Between steps 2 and 4 the web app is broken, because the token it sends no longer matches the
 one the engine expects. Do this quickly, and not during a demo.
@@ -566,7 +562,7 @@ npx --yes @railway/cli logs --service engine --lines 200
 ```
 
 **Always pass `--lines` to `logs`.** Without it, `railway logs` *streams* and never exits,
-which will hang a terminal or an agent indefinitely. `--lines 200` fetches history and returns.
+which will hang the terminal session indefinitely. `--lines 200` fetches history and returns.
 
 ### 7.2 Railway says "Multiple services found"
 
@@ -754,16 +750,10 @@ cd /c/Users/acer/sutra/engine && npx vitest run
 
 Both report the same passing count. **Do not edit a test file in response to this error.**
 
-### 7.12 Several parallel agents died at once and `main` looks wrong
+### 7.12 After an interrupted session, verify before trusting the tree
 
-**Symptom.** Work you did not finish is committed on `main`, and the suite is failing.
-
-**Cause.** When several agents are cut off simultaneously — an API session limit will do it —
-an auto-commit sweeps whatever was on disk into `main`. It does not care whether the work was
-finished. This has landed a tree with a dozen failing tests and, worse, a half-applied change
-that read as a deliberate tightening.
-
-**Fix, in this order, before writing any new code:**
+Before continuing work after an interruption of any kind, verify the state of `main` rather
+than assuming it is what you left it as:
 
 ```powershell
 git status
@@ -771,13 +761,14 @@ git log --oneline -5
 npm test -w engine
 ```
 
-Read the diff of the sweeping commit before judging any individual failure. The dangerous case
-is not a failing test — it is a change that passes and is wrong. The real example: a check was
-rewritten to refuse any seat without a `user_id`, which reads like a tightened security rule
-and actually deleted the commonest real case the product has, the person at the table who will
-never sign up. The narrower rule that replaced it is `assertSeatable`: attaching somebody
-else's **account** without their agreement stays refused; a **bare name** is allowed and makes
-a link-only participant.
+Read the diff of the most recent commit before trusting it, especially anything touching
+validation or security-relevant checks. The dangerous case is not a failing test — it is a
+change that passes and is wrong. As a concrete example of what to look for: a seat-attachment
+check should refuse attaching somebody else's **account** without their agreement, while still
+allowing a **bare name** to make a link-only participant — the commonest real case the product
+has, the person at the table who will never sign up. A rewrite that refuses any seat without a
+`user_id` reads like a tightened security rule but silently deletes that case; `assertSeatable`
+is the narrower rule that keeps both properties true at once.
 
 ---
 
@@ -801,7 +792,7 @@ Then the local suites:
 
 ```powershell
 npm test -w engine        # expect all files passing; believe the count it prints
-npm run test:widget       # expect 30 pass, 0 fail
+npm run test:widget       # expect all passing; believe the count it prints
 npm run chaos             # expect GREEN WALL
-npm run build             # expect a successful build, 19 routes
+npm run build             # expect a successful build; route count moves as routes are added
 ```

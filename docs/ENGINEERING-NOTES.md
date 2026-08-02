@@ -5,10 +5,9 @@ by shipping something wrong, by reading a live API response that contradicted it
 documentation, or by watching a "harmless improvement" turn a truthful product into a lying
 one. It is the part of the old handover documents that does not go stale.
 
-There is no status here, no dates, no to-do list. Current state lives in
-[`../AUDIT.md`](../AUDIT.md), the work queue lives in [`../TASKS.md`](../TASKS.md), and
-operations live in [`RUNBOOK.md`](RUNBOOK.md). What is below is meant to still be true long
-after all three of those have been rewritten.
+There is no status here, no dates, no to-do list. Operations live in
+[`RUNBOOK.md`](RUNBOOK.md). What is below is meant to still be true long after
+everything else in this repository has been rewritten.
 
 Line citations were re-verified against the source when this file was written. Code moves;
 if a citation has drifted, search for the quoted code rather than trusting the number.

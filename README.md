@@ -203,7 +203,7 @@ The detailed built/partial/not-built inventory is in [`docs/PRODUCT_AND_MOBILE_R
 | [`docs/PRODUCT_ARCHITECTURE.md`](docs/PRODUCT_ARCHITECTURE.md) | Web, extension, merchant checkout, accounts, and mobile boundaries |
 | [`docs/NANDA-EVIDENCE.md`](docs/NANDA-EVIDENCE.md) | NANDA plugin transcripts, baseline diff, registry evidence |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Local operation, deployment, keys, recovery, production invariants |
-| [`docs/HACKATHON.md`](docs/HACKATHON.md) | Track positioning, judging evidence, submission checklist |
+| [`docs/TRACK-EVIDENCE.md`](docs/TRACK-EVIDENCE.md) | Track-by-track judging evidence, every claim sourced to a file, line, or live URL |
 
 ## Team
 

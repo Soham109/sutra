@@ -72,11 +72,17 @@ const DEMO_EMAIL = process.env.DEMO_EMAIL
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD
 // Supporting accounts only. Deliberately not the judge account's password, and
 // the judge account's credentials are never written into this repository.
-const SEED_PASSWORD = process.env.SEED_PASSWORD ?? 'sutra-demo-passphrase-2026'
+const SEED_PASSWORD = process.env.SEED_PASSWORD
 
 if (!DEMO_EMAIL || !DEMO_PASSWORD) {
   console.error('Set DEMO_EMAIL and DEMO_PASSWORD for the account being seeded.')
   console.error('  DEMO_EMAIL=... DEMO_PASSWORD=... node scripts/seed-demo.mjs')
+  process.exit(2)
+}
+
+if (!SEED_PASSWORD) {
+  console.error('Set SEED_PASSWORD, the password used for the supporting demo accounts.')
+  console.error('  SEED_PASSWORD=... DEMO_EMAIL=... DEMO_PASSWORD=... node scripts/seed-demo.mjs')
   process.exit(2)
 }
 

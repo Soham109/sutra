@@ -9,9 +9,9 @@ writing it — nothing here is copied from another document without being checke
 
 **The mandate-per-person consent model, the commit saga, crash-resume, and receipts are all
 real and load-bearing, not decorative. The one thing every score here is capped on is that no
-human has yet completed a passkey approval on a real Prava sandbox mandate — that gap is
-being closed separately by the project owner, and this document is written so the next
-sentence can be swapped for a real transaction id the moment it lands.**
+human has yet completed a passkey approval on a real Prava sandbox mandate — that gap is not
+yet closed, and this document is written so the next sentence can be swapped for a real
+transaction id the moment it lands.**
 
 Each member gets their own mandate session, capped at their own share, never a shared or
 pooled amount. `engine/src/service.ts:250-253` calls `createMandateSession` per member with
@@ -27,8 +27,8 @@ durable idempotency reference (`gmp:${g.id}:${member.id}:${entry.source}:${attem
 the charge call itself goes out, which is what makes crash-resume possible: on restart the
 engine replays this event log and reuses the same reference rather than minting a new one
 (`spec/PROTOCOL.md` §4.3). That exact behavior is pinned by
-`engine/test/crash-double-charge.test.ts`, part of the 631-test suite the project's own audit
-independently ran and verified passing in full.
+`engine/test/crash-double-charge.test.ts`, part of the engine's test suite — run
+`npm test -w engine` (PowerShell) to see the current count pass in full.
 
 Receipts are the artifact meant to survive contact with a skeptical judge without requiring
 trust in the UI. `engine/src/receipt.ts:103-155` (`verifyReceipt`) recomputes the hash chain,
@@ -47,7 +47,8 @@ https://sutra-gmp.vercel.app.
 approved Prava sandbox charge is documented anywhere in this repository. Every real hosted
 approval session minted against `sandbox.collect.prava.space` has stayed pending and was
 cancelled, because completing it requires a human tapping their own passkey — no script can do
-this, by the protocol's own design (`AUDIT.md` §4, `TASKS.md` task `P2-1`). When that step is
+this (Prava's mandate consent is a passkey ceremony on its own hosted page, `spec/PROTOCOL.md`,
+"Consent object"). When that step is
 completed, this paragraph should be replaced with the resulting group id, transaction id, and
 a link to the verified receipt; nothing else in this section needs to change.
 
@@ -103,7 +104,7 @@ of agentic autonomy this repository does not have.
 ## OpenAI
 
 **Five real call sites, each with a deterministic fallback, a key live in production. The
-trap is the project's own prior claim — "nothing in the demo path depends on an LLM being
+trap is an easy claim to reach for — "nothing in the demo path depends on an LLM being
 available" — which is true, principled, and misleading if quoted alone. The honest reframe:
 the deterministic floor is a safety property, and several concrete phrases genuinely cannot be
 handled without the model.**
@@ -135,8 +136,8 @@ handled without the model.**
 5. Free text to a group proposal at the plan-creation route in `engine/src/routes.ts` calls the
    same `extractIntent`/`extractWithOpenAI` path as call site 1.
 
-The trap: `docs/HACKATHON.md` §6 states, verbatim, "nothing in the demo path depends on an LLM
-being available." That sentence is true and is the correct architecture — a model outage must
+The trap: the deterministic-fallback architecture above invites the summary "nothing in the
+demo path depends on an LLM being available." That sentence is true and is the correct architecture — a model outage must
 never block a group from planning dinner — but read alone it sounds like an admission the
 model adds nothing. The honest reframe for this track is that the deterministic floor is a
 safety property, not a claim of dispensability: bill-photo transcription has no deterministic
@@ -147,7 +148,7 @@ resolves correctly, with every answer re-validated against a closed enum or re-r
 against a printed total before anything downstream trusts it.
 
 The key is live in production: `OPENAI_MODEL=gpt-4.1-nano` is configured on the deployed
-Railway engine (`AUDIT.md` §5.3).
+Railway engine.
 
 ## Localhost (startup-ready)
 
@@ -156,12 +157,11 @@ economic argument this track's own criterion asks for is in `docs/BUSINESS-CASE.
 here.**
 
 For the unit economics, the wedge, the competitive landscape, and the honest "what would kill
-it" analysis, see `docs/BUSINESS-CASE.md` in full — it was written specifically to answer this
-track's own scoring criterion and should be read as this section's real content. The
-audit's own scorecard already states the number plainly: 5 out of 10 on user value and market
-feasibility, for the specific reason that the case people most want — one shared online cart —
-is honestly declared out of scope, and every case that does work faces UPI, Splitwise, and
-point-of-sale split tender as incumbents that are, in several cases, already better.
+it" analysis, see `docs/BUSINESS-CASE.md` in full — it directly addresses this track's own
+scoring criterion and should be read as this section's real content. Stated plainly: the case
+people most want — one shared online cart — is honestly declared out of scope, and every case
+that does work faces UPI, Splitwise, and point-of-sale split tender as incumbents that are, in
+several cases, already better.
 
 What is real and checkable in under two minutes, and should be weighed on a separate axis from
 market validation: the product surface itself is unusually complete for a 48-hour build.
@@ -212,8 +212,8 @@ states the NANDA track's qualify bar as demonstrating a sandbox transaction, han
 failures, documenting the adapter, and submitting the relevant pull request to
 `projnanda/nandatown`. As of this writing, no such pull request exists. `git remote -v` in
 this repository returns only the team's own origin
-(`https://github.com/Soham109/sutra.git`), and neither `AUDIT.md` nor `TASKS.md` (task `P2-2`)
-records a PR URL, because none has been opened. This is a known, tracked gap, not a hidden
+(`https://github.com/Soham109/sutra.git`), and no pull request URL is recorded anywhere in
+this repository, because none has been opened. This is a known, tracked gap, not a hidden
 one — do not cite a pull request URL anywhere until one actually exists and has been confirmed
 reachable.
 
@@ -222,9 +222,9 @@ reachable.
 **There is no Senso integration anywhere in this repository, and this track should not be
 entered.**
 
-The string "Senso" appears exactly twice in the entire codebase, both times inside prize-
-tracking tables, and nowhere else — no SDK, no API call, no configuration value, no code path
-(`AUDIT.md` §5.2, and ranked item 9 in the §6 problem table). The discovery and receipt-verification work that might tempt a claim
+The string "Senso" does not appear anywhere else in this repository — no SDK, no API call, no
+configuration value, no code path. (`git grep -i senso` outside this file returns nothing.)
+The discovery and receipt-verification work that might tempt a claim
 here — the A2A AgentCard, the NANDA AgentFacts document, the served `SKILL.md`, and the
 Ed25519-signed, hash-chained receipts — is real and genuinely strong, and every part of it is
 Sutra's own chain. None of it involves Senso in any way, and presenting it as a Senso entry

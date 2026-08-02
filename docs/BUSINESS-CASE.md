@@ -1,11 +1,10 @@
 # The business case, argued honestly
 
-This document exists because a judging audit scored the project 5/10 on user value and
-market feasibility and 6/10 on "what happens next," and named the exact gaps: no unit
-economics, no answer to UPI collect, no honest treatment of the Splitwise overlap, no
-chargeback story, and no answer to who pays Sutra. It tries to answer all five without
-inventing anything the codebase, the market, or the team's own experience does not
-support. There are zero registered users of this product outside the team, zero paying
+This is the commercial case for Sutra, argued without inventing anything the codebase,
+the market, or the team's own experience does not support. It addresses five things
+directly: unit economics, the competitive answer to UPI Collect, an honest treatment of
+the Splitwise overlap, the chargeback and refund story, and who actually pays Sutra.
+There are zero registered users of this product outside the team, zero paying
 customers, zero merchant partners beyond one configured Shopify development store, and no
 traction data of any kind. That fact is not hidden anywhere in what follows; it is the
 starting condition every other claim in this document has to survive.
@@ -99,9 +98,9 @@ not happen, Sutra's addressable market stays at zero regardless of execution qua
 
 ### UPI Collect — the most dangerous incumbent, and it deserves to be
 
-This is the most dangerous unanswered question a Bangalore-based team can face from a panel
-that includes a former Head of Stripe India, and the honest answer starts with a concession.
-UPI Collect is real-time, carries no meaningful marginal cost to the consumer, works across
+This is the most dangerous unanswered question a Bangalore-based team can face, and the
+honest answer starts with a concession. UPI Collect is real-time, carries no meaningful
+marginal cost to the consumer, works across
 nearly every Indian bank account, and is not credit-limit-constrained the way a card decline
 is — it draws from account balance, not a credit line. For the exact scenario this product
 demos — four friends splitting a Koramangala dinner bill — UPI Collect, or even a plain
@@ -109,10 +108,10 @@ UPI transfer after one person pays, is strictly better than Sutra's own `at_venu
 today: it moves real money, instantly, for close to free, into an app every participant
 already trusts. Sutra's `at_venue` rail, by contrast, records the exact split and a signed
 acceptance, and charges nothing at all — `charged_amount` is always zero on that rail by
-protocol design (`spec/PROTOCOL.md` §10.1, §7.3 rule 6). A judge who has used UPI Collect
+protocol design (`spec/PROTOCOL.md` §10.1, §7.3 rule 6). Anyone who has used UPI Collect
 will correctly notice that, on the single question of whether money moved, Sutra's flagship
-demo scenario is a regression from something already free on every Indian phone. That should
-be said in the submission before a judge has to say it first.
+demo scenario is a regression from something already free on every Indian phone. That is a
+genuine, structural limitation of the demo scenario, not a hidden one.
 
 Where UPI Collect does not reach is where Sutra's actual protocol contribution lives. UPI
 Collect has no concept of a shared cart hash, no cross-principal commit policy (quorum, veto,
@@ -128,7 +127,7 @@ manual and entirely on the organizer.
 
 The honest positioning, stated plainly: for low-stakes, high-trust, single-jurisdiction,
 pay-a-person-back scenarios, UPI Collect is a better product than anything Sutra ships
-today, and Sutra should not claim otherwise in front of this panel. Sutra's case is for the
+today, and this document does not claim otherwise. Sutra's case is for the
 narrower slice where the purchase must bind to one specific merchant checkout rather than a
 peer transfer, where group consent needs real structure beyond "has everyone paid yet," or
 where the transaction crosses a currency or a payment rail UPI does not touch. That slice is
@@ -143,7 +142,7 @@ between members, no ledger of who owes whom." That is a genuine structural diffe
 Splitwise, because on `prava_mandates` everybody pays the merchant directly through their own
 capped mandate — nobody owes anybody, because nobody borrowed anything.
 
-The complication the audit is right to raise: the `at_venue` rail is, in substance, a
+The complication worth raising honestly: the `at_venue` rail is, in substance, a
 single-event ledger entry. It records `owed_amount` per person against a merchant total,
 charges nothing, and issues a receipt (`spec/PROTOCOL.md` §10.3). That is materially a
 subset of what Splitwise already does, without the feature that actually makes Splitwise
@@ -335,8 +334,8 @@ out to be real but simply too small to be a venture-scale business on its own.
 
 ## The chargeback and refund story: what the three charged humans actually do next
 
-This is Manjot Pahwa's exact scenario, and it deserves a direct answer rather than a
-redirection to how well the mechanics are tested.
+This is a scenario a payments-literate reader will ask about directly, and it deserves a
+direct answer rather than a redirection to how well the mechanics are tested.
 
 **What is genuinely well handled, and should be said first.** Most of the ways a group
 purchase could go wrong are caught before any card is charged at all. Policy evaluation locks
@@ -351,10 +350,10 @@ is never treated as a failure; the engine asks Prava for the idempotency referen
 deciding anything, specifically so a retry never becomes a double charge
 (`spec/PROTOCOL.md` §4.2, `engine/src/prava/client.ts:182-216` `chargeMandate`, which
 distinguishes a terminal 4xx refusal from a transport failure by design). All of this is
-tested, not merely asserted, per the crash-resume suite the audit independently verified
-(`engine/test/crash-double-charge.test.ts`).
+tested, not merely asserted, per the crash-resume suite in
+`engine/test/crash-double-charge.test.ts`.
 
-**Where the well-handled mechanics stop.** The scenario the judge describes — card four
+**Where the well-handled mechanics stop.** The scenario this section is about — card four
 declines after cards one through three have already captured — is specifically the case that
 survives all of the above: it is a genuine card-network failure (a frozen card, insufficient
 funds, a fraud block) striking during the sequential charge loop itself, after the committed

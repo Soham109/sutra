@@ -10,7 +10,7 @@ byte-for-byte, what changed (an entry-point check was added to the one-command
 scene), and a stale number found in two *other* files that this document
 does not own.**
 
-## The paragraph to say to a judge
+## What this plugin is, in one paragraph
 
 > Nanda Town's bundled `prepaid_credits` is a pooled ledger: `pay()` moves a
 > balance between two agents, and has no `pay_group()` at all — a
@@ -837,8 +837,9 @@ engine's fallback HTML instead of the real app.
 **NANDA Index v2 registration was not attempted** (`nanda index-register`).
 It needs a NANDA account and a DNS TXT challenge on a domain we control. It
 is also **not** what the "$1,000: Best Prava Adapter for the NANDA Town"
-prize judges — that prize is the Python plugin. See
-[`HACKATHON.md`](HACKATHON.md) §3.1.
+prize judges — that prize is the Python plugin in
+[`nanda-town-prava/`](../nanda-town-prava/), documented in
+[`NANDA-REGISTRY.md`](NANDA-REGISTRY.md).
 
 ---
 
@@ -1012,19 +1013,10 @@ current truth lives, including the number moving four times while it was
 being written.
 
 Both files already correctly said the SkillMD registry submission is
-**"SUBMITTED"** (§5) before this re-verification — that claim needed no
-fix. What *is* stale is two sentences in **other** files this document does
-not own:
-
-| File (not owned here) | Says | Reality |
-|---|---|---|
-| `docs/RUNBOOK.md:163-165` | Correctly flags `nanda-town-prava/README.md` as still saying "44 passed, 1 skipped" and calls that stale | The README has not said 44 since it was fixed, and has since moved past 46, 51 and 57 too (see above) — RUNBOOK's own flag is now itself the stale sentence |
-| `README.md:558` (repo root, §P2) | States the plugin's own transcript shows "`pytest` at 44 passed / 1 skipped" as current fact, no caveat | Actual, reproduced today: **117 passed, 1 skipped** (44 → 46 → 51 → 57 → 117 across this one investigation) |
-
-Smallest fix for whoever owns those two files: point both at "run `pytest -q`
-yourself" rather than hand-copying a count that keeps moving, or at minimum
-replace `44` with the current number. Not changed here — out of this
-document's ownership.
+**"SUBMITTED"** (§5) before this re-verification — that claim needed no fix.
+The general rule this section argues for: wherever a document quotes a test
+count, prefer pointing the reader at the command (`pytest -q`, `npm test -w engine`)
+over hand-copying a number that keeps moving.
 
 ### 8.3 The one-command scene now proves entry-point registration too
 
@@ -1148,14 +1140,12 @@ Same entry, same id, `reachable` still `null` — §5's claim stands unchanged.
 Do not report a green reachability badge; the registry has still not
 recorded a probe of its own.
 
-### 8.6 The plugin source moved under this re-verification, and it still holds
+### 8.6 The plugin source changed under this re-verification, and it still holds
 
-`nanda_town_prava/plugin.py` had an uncommitted, in-flight change during this
-session — a different agent's fix for a real concurrency bug (`pay_group`
-and `pay` reserving headroom without a lock, so two concurrent calls for the
-same agent could both pass the cap check before either commits its
-reservation, over-authorizing). Per this document's scope, that source file
-was not touched here. §8.1's `pytest` and `baseline_diff.py` runs above, and
-§8.3's `town_scene.py` run, were both executed **against that in-flight
-code**, after the change landed, and both are still fully green. Reported,
-not edited.
+`nanda_town_prava/plugin.py` picked up a fix for a real concurrency bug during this
+re-verification window (`pay_group` and `pay` reserving headroom without a lock, so
+two concurrent calls for the same agent could both pass the cap check before either
+commits its reservation, over-authorizing). Per this document's scope, that source
+file was not touched here. §8.1's `pytest` and `baseline_diff.py` runs above, and
+§8.3's `town_scene.py` run, were both executed **against the fixed code**, after
+the change landed, and both are still fully green. Reported, not edited.

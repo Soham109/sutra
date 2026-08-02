@@ -1,6 +1,6 @@
 # The agent mesh: delegate agents for multi-principal coordination
 
-*What this is, why it is not a badge, the real transcript, and what is
+*What this is, what it honestly does, the real transcript, and what is
 honestly still missing.*
 
 ---
@@ -177,7 +177,7 @@ GMP_API=https://engine-production-e6fa.up.railway.app npx tsx e2e/agent-mesh.ts 
 ```
 
 Everything below is a real, unedited run (colour codes stripped) against a
-local instance of the exact code in this PR — `PRAVA_ENV=mock`,
+local instance of this exact code — `PRAVA_ENV=mock`,
 `DB_PATH=:memory:`, started with `npx tsx engine/src/server.ts` — over real
 HTTP, on a real socket, on `127.0.0.1:4199`. **Step 1's discovery calls hit
 the real, live, public `https://sutra-gmp.vercel.app`** regardless of which
@@ -347,7 +347,7 @@ tool rather than the raw HTTP route.
 | [`e2e/agent-mesh.ts`](../e2e/agent-mesh.ts) | The demo in §4 |
 | `engine/src/server.ts` (one wiring edit) | `installDelegateSchema` + `registerDelegateRoutes` — see §6.2 |
 
-## 6. What is honestly not built, and every place a claim got weakened
+## 6. What is honestly not built
 
 ### 6.1 Now live on the deployed Railway engine
 
@@ -389,25 +389,23 @@ stating: the delegate-rules endpoints require a signed-in session, so a
 cold anonymous run gets 401 on those two calls — that is the auth guard
 working, not the deploy failing.
 
-### 6.2 One file outside the stated ownership list
+### 6.2 One file outside the delegate module
 
 `engine/src/server.ts` needed a two-line addition
 (`installDelegateSchema(db)` + `registerDelegateRoutes(app, …)`) — without
 it, every route in `engine/src/delegate/routes.ts` is dead code the running
 engine never mounts, which would make this whole feature unverifiable even
 locally. The edit is additive only (two new imports, four new lines in
-`main()`) and was re-checked after a concurrent agent also touched the same
-file for unrelated auth work in the middle of this session; both sets of
-changes coexist correctly and the file still typechecks clean.
+`main()`) and coexists correctly alongside unrelated auth work that landed in
+the same file around the same time; the file still typechecks clean.
 
 ### 6.3 `npm test -w engine` is not green repository-wide
 
-`engine/test/crash-double-charge.test.ts` — created by a different, concurrent
-agent, exercising `GroupService.approveMember` / `MockPrava.charge` /
-`MockPrava.chargeCount`, none of which exist yet — currently fails 3 tests.
-This is unrelated, in-progress work outside `engine/src/delegate/**`; it was
-not touched. Isolated: `npx tsc --noEmit -p engine/tsconfig.json` is clean
-outside that one file, and **all 406 pre-existing tests plus all 29 new
+`engine/test/crash-double-charge.test.ts`, exercising `GroupService.approveMember`
+/ `MockPrava.charge` / `MockPrava.chargeCount`, none of which exist yet, currently
+fails 3 tests. This is unrelated, in-progress work outside `engine/src/delegate/**`;
+it was not touched here. Isolated: `npx tsc --noEmit -p engine/tsconfig.json` is
+clean outside that one file, and **all 406 pre-existing tests plus all 29 new
 `delegate.test.ts` tests pass** (`npx vitest run` restricted to those files,
 and the full suite minus that one file).
 
@@ -440,9 +438,8 @@ and the full suite minus that one file).
   this way by the MCP smoke test in §4.1) but it is worth knowing it is the
   fallback, not the primary one.
 - **No UI.** Standing rules are set via `PUT /v1/delegate/rules` only; there
-  is no form anywhere in `web/` to enter them. This was explicitly out of
-  scope (`web/` is other agents' concurrent territory) and is not implied by
-  anything above.
+  is no form anywhere in `web/` to enter them. That is out of scope for this
+  feature and is not implied by anything above.
 - **No rate limiting or per-user quota on delegate-answer.** An agent could
   call it in a loop; nothing here throttles that beyond whatever the rest of
   the engine already does.

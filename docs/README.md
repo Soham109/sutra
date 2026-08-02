@@ -1,16 +1,14 @@
 # Documentation index
 
-Start with [`../AUDIT.md`](../AUDIT.md) for where the project actually stands, then
-[`../TASKS.md`](../TASKS.md) for what to do next.
+Start with [`../README.md`](../README.md) for what this is and how the money moves, then
+[`TRACK-EVIDENCE.md`](TRACK-EVIDENCE.md) for the judging evidence, track by track.
 
 ## Start here
 
 | Document | One line |
 |---|---|
-| [`../AUDIT.md`](../AUDIT.md) | The complete audit and the current state: what is built, what is broken, what is claimed versus what is true, with the evidence for each. |
-| [`../TASKS.md`](../TASKS.md) | The prioritised work queue. One task at a time, in order. |
 | [`../README.md`](../README.md) | The front door: what this is, how the money moves, what the product does, where it honestly stops, and a 60-second quickstart. |
-| [`HACKATHON.md`](HACKATHON.md) | The event, the deadline with timezone arithmetic, the tracks and prizes, what each judging criterion wants, the submission checklist, and the pre-existing work disclosure. |
+| [`TRACK-EVIDENCE.md`](TRACK-EVIDENCE.md) | Track-by-track judging evidence, every claim sourced to a file, line, or live URL. |
 | [`RUNBOOK.md`](RUNBOOK.md) | Operations: every npm script, how to deploy each half, every environment variable, how to rotate a key, and what to do when something breaks. |
 | [`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md) | Permanent engineering knowledge: the nine invariants that must not break, the Prava integration traps, and the file ownership map. Read before changing anything in `engine/src/`. |
 
@@ -27,11 +25,11 @@ Start with [`../AUDIT.md`](../AUDIT.md) for where the project actually stands, t
 | [`PRODUCT_AND_MOBILE_ROADMAP.md`](PRODUCT_AND_MOBILE_ROADMAP.md) | Product, platform and mobile roadmap, each item marked built / partly built / not built. |
 | [`SHOPIFY_FLOW.md`](SHOPIFY_FLOW.md) | The Shopify path end to end: storefront search, the POS split-tender rail, and the checkout handoff boundary. |
 
-## Pitch and evidence
+## Evidence
 
 | Document | One line |
 |---|---|
-| [`PITCH.md`](PITCH.md) | The argument, compressed: the problem, the demo beats, and the lines worth saying out loud. |
+| [`BUSINESS-CASE.md`](BUSINESS-CASE.md) | The commercial argument, argued honestly: unit economics, the wedge, the competitive landscape, and what would kill it. |
 | [`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md) | The NANDA Town evidence pack: live-mode transcripts, the baseline diff against `prepaid_credits`, the SkillMD submission, and what was not verified. |
 | [`NANDA-REGISTRY.md`](NANDA-REGISTRY.md) | What the two NANDA registries actually are, what we submitted where, and why Index v2 registration is not the prize. |
 | [`AGENT-MESH.md`](AGENT-MESH.md) | The agent mesh: delegate answering, open questions, and the MCP tools that expose them. |

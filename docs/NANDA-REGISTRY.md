@@ -6,12 +6,11 @@ claim is marked **VERIFIED** (I ran the command myself, pasted below) or
 document is scoped to the NANDA **Index/registry/AgentFacts** surface only.
 
 **This is not the $1,000 prize track.** The prize is titled "Best Prava Adapter
-for the NANDA Town" and, per [`HACKATHON.md`](HACKATHON.md) section 3.1 and
-[`../AUDIT.md`](../AUDIT.md), is judged on the Python plugin in
-[`nanda-town-prava/`](../nanda-town-prava/) (owned by a different agent on this
-repo, not touched here). This document exists so the team has an honest,
-pre-checked answer if Prof. Raskar asks "are you in the Index?" — the answer is
-no, and this is exactly what we are and are not in instead.
+for the NANDA Town" and is judged on the Python plugin in
+[`nanda-town-prava/`](../nanda-town-prava/), documented separately in
+[`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md). This document answers a different, honest
+question directly: is sutra in the NANDA Index? The answer is no, and this is exactly
+what sutra is and is not in instead.
 
 ---
 
@@ -78,7 +77,7 @@ below scores sutra against each.
 |---|---|---|---|
 | 1 | **NANDA Index** — the canonical org-level registry the arXiv paper describes | `https://api.nandaindex.org` | Reachable, OpenAPI title "NANDA Index Server 2.0.0" |
 | 2 | **NANDA Town SkillMD registry** — a lighter, no-auth listing (site copy references a "NandaHack x HCLTech" hackathon and an "Audience Choice Award," suggesting this is a hackathon-adjacent directory, not the formal Index) | `https://nandatown.projectnanda.org/api/skills` | Reachable, we have one entry here |
-| 3 | **NANDA Town, the Python agent simulator** (`nest-core` / `nandatown` package) — the actual thing the $1,000 prize judges | `nanda-town-prava/` in this repo | Out of scope for this document; a different agent owns it |
+| 3 | **NANDA Town, the Python agent simulator** (`nest-core` / `nandatown` package) — the actual thing the $1,000 prize judges | `nanda-town-prava/` in this repo | Out of scope for this document — see [`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md) |
 
 This document is about **#1 and #2 only**. Do not read anything below as a
 claim about #3.
@@ -177,14 +176,13 @@ GET https://sutra-gmp.vercel.app/health                         200  application
 ```
 
 `/health` at time of check: `{"ok":true,"prava_adapter":"sandbox","uptime_s":72}`
-— a recent restart, consistent with other agents actively deploying today; not
-a concern for this document.
+— a recent restart, consistent with active deployment today; not a concern for this
+document.
 
 ### 3d. NANDA Town simulator — out of scope
 
-Owned by a different agent working on `nanda-town-prava/**`. Not investigated
-here, per the brief's instruction to stay in lane. See
-[`docs/NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md) for that track's own evidence.
+`nanda-town-prava/**` is not investigated here — it is its own track with its own
+evidence. See [`docs/NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md).
 
 ---
 
@@ -328,17 +326,16 @@ not reach NANDA's actual differentiator — verifiable, federated identity
 anchored by the Index — and the codebase's own comments already say this
 plainly (see the `x-payments` docstring in `agent-facts.ts`, which is
 unusually candid about exactly this limitation). The genuine, deep engagement
-with NANDA's vision in this repo is in `nanda-town-prava/` (a different
-agent's territory) and in GMP/1 itself, not in the registry paperwork
-documented here.
+with NANDA's vision in this repo is in `nanda-town-prava/` and in GMP/1
+itself, not in the registry paperwork documented here.
 
 ---
 
 ## 6. Prioritised gap list — what fits in the rest of the day
 
 Context that shapes every recommendation below: this track is judged on the
-Python plugin, not Index registration ([`HACKATHON.md`](HACKATHON.md) section 3.1), and
-NANDA Index registration requires a DNS TXT record on a domain we control,
+Python plugin, not Index registration, and NANDA Index registration requires
+a DNS TXT record on a domain we control,
 which does not exist in the time remaining even before considering it isn't
 what's judged.
 
@@ -362,8 +359,8 @@ what's judged.
    a `.well-known/did.json` on the same domain), not a synthetic identifier.
    This is the cheapest change that closes an actual, verified gap (§4) rather
    than a cosmetic one. Low priority given the prize criterion, but the
-   highest-value item on this list if there is slack time left after
-   everything in [`../TASKS.md`](../TASKS.md) is done.
+   highest-value item on this list if there is slack time left before
+   submission.
 
 4. **Do not populate `evaluations` or `certification` with invented numbers.**
    The schema invites a `performanceScore` / `auditTrail` / certification
@@ -375,14 +372,13 @@ what's judged.
    filling this slot with a plausible-looking synthetic number. If pursued at
    all, it should wait for a real measurement window, not the next few hours.
 
-5. **For the conversation with Prof. Raskar specifically**: volunteer, before
-   he asks, that sutra is not in the NANDA Index and not part of the
-   ARD/quilt federation (both verified absent, live, today), that it **is**
-   listed in the lighter SkillMD directory with an honestly-`null` reachable
-   badge, and that the real engagement with what he's building is in the
-   Python `nanda-town-prava` plugin — a different piece of this repo — not in
-   this registry surface. Saying this first, accurately, is worth more than
-   any registry field this document could add in the remaining hours.
+5. **The honest summary of this whole registry surface, stated plainly**: sutra is
+   not in the NANDA Index and not part of the ARD/quilt federation (both verified
+   absent, live, today). It **is** listed in the lighter SkillMD directory with an
+   honestly-`null` reachable badge. The real engagement with what Project NANDA is
+   building is in the Python `nanda-town-prava` plugin, not in this registry
+   surface — stating that plainly is worth more than any registry field this
+   document could add.
 
 ---
 

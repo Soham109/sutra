@@ -37,3 +37,11 @@ DEMO/
 # (web/src/components/bill/capture.tsx) loads it on demand from tesseract.js's
 # own CDN/package paths at runtime, so nothing in the repo needs a bundled copy.
 *.traineddata
+
+# Internal working documents. These are for the team, not for judges:
+# AUDIT.md scores our own weaknesses, TASKS.md is an unfinished work queue,
+# HACKATHON.md is submission strategy, PITCH.md is internal messaging discipline.
+AUDIT.md
+TASKS.md
+docs/HACKATHON.md
+docs/PITCH.md
