@@ -10,9 +10,18 @@ import { api, type User } from '@/lib/api'
 // Every flow that used to hand you a blank box labelled "Person 2" now offers
 // your friends first — ranked by who you actually split something with most
 // recently, not A→Z — then your circles, then the rest of the directory if
-// you search. Finding a stranger offers a friend request right there; they
-// only become addable once they accept (or you accept theirs). Typed names
-// without an account are gone: circles, bills and plans only seat friends.
+// you search for someone who isn't a friend yet. Finding a stranger offers a
+// friend request right there, inline, with its pending state visible; it
+// never silently re-sends one that is already outstanding, because
+// `requestFriend` on the engine resolves a crossing request to friendship
+// instead of deadlocking (see engine/test/social-privacy.test.ts).
+//
+// A typed name with no account stays possible — splitting a restaurant bill
+// with a stranger at the table is a real case the protocol is built for
+// (Social.assertSeatable allows any bare name; it only refuses attaching
+// someone else's ACCOUNT without their agreement) — but it is visibly the
+// lesser option here: dashed, uncoloured, below the friends, and it says
+// plainly what it costs them.
 
 export interface PickedPerson {
   /** Stable identity: used for de-dup and as the chip's react key. */
@@ -74,14 +83,24 @@ export function PeoplePicker({
   }
   const remove = (key: string) => onChange(value.filter((p) => p.key !== key))
 
-  // Enter adds a friend whose name matches exactly — never a nameless seat.
+  const friendMatching = (name: string) =>
+    friends.find((f) => f.name.trim().toLowerCase() === name.trim().toLowerCase())
+
+  // Enter always adds — but if the exact text you typed is a friend's name,
+  // link their real account rather than creating a second, unlinked "person"
+  // who happens to share a name with someone the app already knows. This is
+  // the fast path for the common case (you know exactly who you're adding);
+  // anything that doesn't match a friend becomes a bare-name, link-only seat
+  // — engine/src/social.ts Social.assertSeatable allows that unconditionally.
   const addTyped = (raw: string) => {
     const name = raw.trim()
     if (!name) return
-    const match = friends.find((f) => f.name.trim().toLowerCase() === name.toLowerCase())
+    const match = friendMatching(name)
     if (match) {
       add({ userId: match.id, name: match.name, handle: match.handle, accent: match.accent })
+      return
     }
+    add({ name })
   }
 
   // Friends ranked "who did I just split something with", not alphabetical —
@@ -170,7 +189,11 @@ export function PeoplePicker({
     if (next !== value) onChange(next)
   }
 
-  const showFriendHint = query.trim() !== '' && rankedFriends.length === 0 && strangers.length === 0 && !searching
+  // The lesser option, on purpose: only offered once there's no friend whose
+  // name matches exactly (that case has a better answer — link the account),
+  // and only while you're still typing something that isn't already a chip.
+  const showTypedFallback =
+    query.trim() !== '' && !friendMatching(query) && !selectedKeys.has(personKey({ name: query }))
 
   return (
     <div className="field picker">
@@ -185,7 +208,7 @@ export function PeoplePicker({
               {!p.userId && (
                 <span
                   className="picker-chip-flag"
-                  title="No account — remove them and add a friend instead."
+                  title="No account — they’ll get a link, but no notifications and no history."
                 >
                   no account
                 </span>
@@ -211,8 +234,8 @@ export function PeoplePicker({
             }
             if (e.key === 'Backspace' && !query && value.length) remove(value[value.length - 1]!.key)
           }}
-          placeholder={value.length ? 'Search friends…' : 'Search friends, or find someone to request'}
-          aria-label="Find a friend"
+          placeholder={value.length ? 'Search friends, or add someone else…' : 'Search your friends, or type a name'}
+          aria-label="Find or add a person"
         />
       </div>
 
@@ -279,17 +302,19 @@ export function PeoplePicker({
         </div>
       )}
 
-      {showFriendHint && (
-        <p className="tiny faint">
-          No friend matches “{query.trim()}”. Search a bit more, or open People to send a request — splits only seat
-          friends.
-        </p>
+      {showTypedFallback && (
+        <button type="button" className="picker-fallback" onClick={() => addTyped(query)}>
+          <span>
+            Add <b>“{query.trim()}”</b> without an account
+          </span>
+          <span>They’ll get a link — no notifications, no history, and you’ll retype them next time.</span>
+        </button>
       )}
 
       {friends.length === 0 && circles.length === 0 && query.trim() === '' && (
         <p className="tiny faint">
-          No friends yet — search above to find someone and send a request. They have to accept before you can put them
-          on a split.
+          No friends added yet — search above to find them and send a request, right here. A typed name still works
+          for anyone with no account.
         </p>
       )}
     </div>

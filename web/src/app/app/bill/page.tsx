@@ -175,8 +175,9 @@ export default function BillPage() {
           <span className="eyebrow">Split a bill</span>
           <h1>Itemise the receipt</h1>
           <p className="muted">
-            Paste or type the lines. We check maths against the printed total. Seats are friends only —
-            everyone agrees their amount here, then pays the venue on their own card. Sutra does not charge.
+            Paste or type the lines. We check maths against the printed total. Add friends by account, or
+            just their name if they’re not on sutra — everyone agrees their amount here, then pays the
+            venue on their own card. Sutra does not charge.
           </p>
         </header>
 
