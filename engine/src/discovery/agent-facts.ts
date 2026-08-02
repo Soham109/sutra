@@ -154,6 +154,14 @@ export interface PaymentsExtension {
     signature: string
     verifiable_offline: boolean
     endpoint: string
+    /**
+     * The independent source to PIN a receipt's embedded public_key
+     * against — fetch separately and refuse a mismatch, or a forged
+     * receipt signed with an attacker's own keypair verifies "ok" against
+     * itself. See engine/src/receipt.ts's verifyReceipt({ expectedPublicKey }).
+     */
+    public_key_endpoint: string
+    public_key_field: string
   }
   protocol: { name: string; specification: string }
 }
@@ -203,6 +211,8 @@ function paymentsExtension(cfg: DiscoveryConfig): PaymentsExtension {
       signature: 'ed25519',
       verifiable_offline: true,
       endpoint: abs(cfg, '/v1/groups/:id/receipt'),
+      public_key_endpoint: abs(cfg, WELL_KNOWN.health),
+      public_key_field: 'receipt_public_key',
     },
     protocol: {
       name: PROTOCOL,

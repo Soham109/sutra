@@ -7,10 +7,18 @@
 //     spec and the current v1.0 spec.
 //   - Capability extensions are declared as
 //     `capabilities.extensions[{uri, description, required, params}]`.
-//   - The header that ACTIVATES an extension on a request was renamed between
-//     versions: v0.3.0 says `X-A2A-Extensions`, v1.0 registers it with IANA as
-//     `A2A-Extensions` (no `X-` prefix). Our routes accept and expose both, and
-//     the card names both so a client of either vintage can act on it.
+//   - The activation header. Verified against the actual spec text, not
+//     assumed: the v0.3.0 specification (github.com/a2aproject/A2A, tag
+//     v0.3.0, docs/specification.md §5.5.2.1) defines the `AgentExtension`
+//     object but names NO activation header at all — the mechanism was
+//     unspecified. The header `A2A-Extensions` is a v1.0 addition, confirmed
+//     in the current released spec (tag v1.0.1, docs/specification.md
+//     §14.2.2). There is no version of the real spec that ever said
+//     `X-A2A-Extensions`. Our routes still accept and echo that spelling
+//     defensively — it costs one header and matches a naming convention some
+//     early client libraries used before the header was standardised — but
+//     it is not something either spec says, and the card's prose below no
+//     longer claims it is.
 //
 // Shape decision. A2A v1.0 replaced the v0.3 triple
 // (`protocolVersion` + `url` + `preferredTransport` + `additionalInterfaces`)
@@ -89,7 +97,18 @@ export interface AgentCard {
   defaultInputModes: string[]
   defaultOutputModes: string[]
   securitySchemes: Record<string, unknown>
+  /** v0.3.0 field name and shape (verified: types/src/types.ts at tag v0.3.0). */
   security: Record<string, string[]>[]
+  /**
+   * v1.0.1 renamed this (verified: specification/a2a.proto, AgentCard field 9)
+   * to `securityRequirements: SecurityRequirement[]`, each a `{schemes:
+   * map<string, StringList>}`. Emitted alongside `security` — empty either
+   * way, since most of this API is deliberately open to whoever holds the
+   * id — so a strict v1.0 reader looking for the field under its real
+   * current name still finds it, the same reasoning that makes us dual-emit
+   * additionalInterfaces/supportedInterfaces above.
+   */
+  securityRequirements: { schemes: Record<string, string[]> }[]
   skills: AgentSkill[]
 }
 
@@ -125,6 +144,12 @@ export const SKILL_ENDPOINTS: Record<string, readonly string[]> = {
   watch_a_group: ['GET /v1/groups/:id', 'GET /v1/groups/:id/events', 'GET /v1/groups/:id/joinable'],
   verify_group_receipt: ['GET /v1/groups/:id/receipt'],
   find_something_to_buy: ['GET /v1/discover/search', 'POST /v1/discover/resolve'],
+  coordinate_as_delegate: [
+    'PUT /v1/delegate/rules',
+    'GET /v1/delegate/rules',
+    'GET /v1/plans/:planId/questions',
+    'POST /v1/participants/:id/delegate-answer',
+  ],
 }
 
 function skills(): AgentSkill[] {
@@ -209,6 +234,19 @@ function skills(): AgentSkill[] {
       inputModes: ['application/json'],
       outputModes: ['application/json'],
     },
+    {
+      id: 'coordinate_as_delegate',
+      name: 'Coordinate as a delegate',
+      description:
+        'Act as a coordination delegate for one human, using standing rules they set in advance (a budget ceiling, recurring availability, home location, constraints): read what one plan participant is still being asked, then answer whatever those rules actually cover as ordinary signals. Anything the rules never anticipated is returned unanswered rather than guessed. This is coordination only — it can never approve a payment or move money; that step is a passkey ceremony on the human’s own device, off this surface entirely, the same way Prava itself keeps charging off MCP.',
+      tags: ['coordination', 'delegate', 'standing-rules', 'agent-mesh', 'mcp'],
+      examples: [
+        'My rules say I’m free after 7pm and under ₹800 — answer whatever this plan is asking me on that basis.',
+        'What is participant pp_4f still being asked, before I answer for them?',
+      ],
+      inputModes: ['application/json'],
+      outputModes: ['application/json'],
+    },
   ]
 }
 
@@ -236,7 +274,7 @@ export function gmpExtension(cfg: DiscoveryConfig): AgentExtension {
   return {
     uri: paymentsExtensionUri(cfg),
     description:
-      'GMP/1 — the Group Mandate Protocol. This agent coordinates a purchase authorised by N principals at once: one cart, one mandate per person on that person’s own card, each merchant-locked and amount-capped, bound by a commit policy and committed together. Funds are never pooled and never touch this engine. Activate with the A2A-Extensions header (A2A v1.0) or X-A2A-Extensions (A2A v0.3.0).',
+      'GMP/1 — the Group Mandate Protocol. This agent coordinates a purchase authorised by N principals at once: one cart, one mandate per person on that person’s own card, each merchant-locked and amount-capped, bound by a commit policy and committed together. Funds are never pooled and never touch this engine. Activate with the A2A-Extensions header (the mechanism A2A v1.0 standardises); we also accept the unstandardised X-A2A-Extensions spelling defensively, but no version of the A2A spec actually names it.',
     required: false,
     params: {
       protocol: PROTOCOL,
@@ -269,6 +307,19 @@ export function gmpExtension(cfg: DiscoveryConfig): AgentExtension {
         hash_chain: 'sha256',
         signature: 'ed25519',
         verifiable_offline: true,
+        /**
+         * The receipt embeds its own public_key, which proves internal
+         * consistency (the chain was signed by SOME key) but not that the
+         * key is really this engine's — anyone can sign a forged receipt
+         * with their own keypair and embed that key. This is the
+         * independent source to pin against: fetch it separately, over a
+         * separate connection, and refuse a receipt whose public_key
+         * differs. See engine/src/receipt.ts's verifyReceipt({
+         * expectedPublicKey }) and cli/src/gmp.ts's `gmp verify`, which
+         * already does exactly this.
+         */
+        public_key_endpoint: abs(cfg, WELL_KNOWN.health),
+        public_key_field: 'receipt_public_key',
       },
       /** The real call map. Machine-readable, so nobody has to parse prose. */
       api: {
@@ -295,9 +346,21 @@ function describeEndpoint(e: ApiEndpoint): Record<string, unknown> {
 
 export function buildAgentCard(cfg: DiscoveryConfig): AgentCard {
   const version = cfg.version ?? ENGINE_VERSION
+  // `protocolBinding`/`preferredTransport` are, per the real spec, an "open
+  // form string, to be easily extended for other protocol bindings"
+  // (specification/a2a.proto, AgentInterface.protocol_binding) — but
+  // `HTTP+JSON` specifically names one of A2A's three CORE bindings, which
+  // implies the canonical method surface mapped onto REST
+  // (`POST {url}/message:send`, etc. — confirmed live: this engine 404s
+  // that). Since the card's own description says outright that the
+  // canonical method set is NOT implemented, calling this interface
+  // `HTTP+JSON` would tell a spec-literal client the opposite of the truth.
+  // `sutra-rest-v1` is spec-legal (open string) and does not imply
+  // conformance this engine does not have.
+  const REST_BINDING = 'sutra-rest-v1'
   const rest: AgentInterface = {
     url: abs(cfg, '/v1'),
-    protocolBinding: 'HTTP+JSON',
+    protocolBinding: REST_BINDING,
     protocolVersion: '0.3.0',
   }
 
@@ -307,7 +370,7 @@ export function buildAgentCard(cfg: DiscoveryConfig): AgentCard {
     description:
       'Group checkout for agents. sutra turns one cart and N humans into N card-network-enforced payment mandates — one per person, on that person’s own card, locked to the merchant and capped at their share — and commits them together under a policy: everyone is charged in one window, or every mandate is cancelled and nobody was ever charged. It also does the part before the cart (who is in, when everyone is free, which real venue wins) and the part where there is no chargeable merchant at all (splitting a physical restaurant bill exactly, with a signed record and no false claim of payment). No pooled funds, nobody fronts money, and the engine never sees a card number. Implements GMP/1, the Group Mandate Protocol. Note: this agent speaks its own REST API, described at /skill.md and in the GMP/1 capability extension below — it does not implement the A2A canonical method set.',
     url: rest.url,
-    preferredTransport: 'HTTP+JSON',
+    preferredTransport: REST_BINDING,
     additionalInterfaces: [rest],
     supportedInterfaces: [rest],
     provider: {
@@ -335,7 +398,10 @@ export function buildAgentCard(cfg: DiscoveryConfig): AgentCard {
     // No global requirement: most of the surface is intentionally open to
     // whoever holds the id. Listing bearer here would be a lie about the read
     // path and would make agents ask users for a token they do not need.
+    // Emitted under both the v0.3.0 field name (`security`) and the current
+    // v1.0.1 name (`securityRequirements`) — see the type comment above.
     security: [],
+    securityRequirements: [],
     skills: skills(),
   }
 }
@@ -349,8 +415,14 @@ export function buildExtensionDocument(cfg: DiscoveryConfig): Record<string, unk
     version: cfg.version ?? ENGINE_VERSION,
     description: ext.description,
     activation: {
+      // The real, spec-defined mechanism (A2A v1.0.1, docs/specification.md
+      // §14.2.2). Use this one.
       'a2a-1.0': { header: 'A2A-Extensions', value: ext.uri },
-      'a2a-0.3.0': { header: 'X-A2A-Extensions', value: ext.uri },
+      // Accepted and echoed defensively, NOT because any version of the A2A
+      // spec defines it — v0.3.0 named no activation header at all. Present
+      // only in case a client library adopted this spelling before the
+      // header was standardised.
+      'unstandardised-legacy-fallback': { header: 'X-A2A-Extensions', value: ext.uri },
     },
     declared_in: abs(cfg, WELL_KNOWN.agentCard),
     specification: abs(cfg, WELL_KNOWN.skillMd),

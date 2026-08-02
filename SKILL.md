@@ -71,9 +71,9 @@ GET /v1/groups/{group_id}/events?after={seq}
     { "seq": 8, "group_id": "gs_9c1f4a2b", "member_id": "mi_d4", "type": "member.approved", "payload": { "cap_amount": 4697 }, "at": "2026-08-01T18:41:02.000Z" }
 
 POST /v1/groups/{group_id}/cancel
-  Cancel the whole group before it commits. Every outstanding mandate is cancelled and nobody is charged. Has no effect once the group is terminal.
+  Cancel the whole group before it commits. Every outstanding mandate is cancelled and nobody is charged. Has no effect once the group is terminal. Gated: needs the engine bearer token, a session that created the group, or — for a group with no account behind it — `{"as_member":"<first member's own id>"}` as proof. Anyone else gets `403`.
   Example:
-    curl -X POST "http://localhost:4100/v1/groups/gs_9c1f4a2b/cancel"
+    curl -X POST "http://localhost:4100/v1/groups/gs_9c1f4a2b/cancel" -H "Authorization: Bearer dev-token"
   Response:
     { "group_id": "gs_9c1f4a2b", "status": "aborted", "terminal": true, "decision_note": "cancelled by the organizer" }
 
@@ -95,6 +95,13 @@ GET /v1/groups/{group_id}/receipt
       "public_key": "4a7e..."
     }
 
+GET /v1/groups/{group_id}/joinable
+  Public join view: which member seats are still claimable, for a shared link or an NFC totem. Does not reveal anyone's cap or share.
+  Example:
+    curl "http://localhost:4100/v1/groups/gs_9c1f4a2b/joinable"
+  Response:
+    { "group_id": "gs_9c1f4a2b", "title": "Ratatat - 4 tickets", "open_seats": [{ "member_id": "mi_d4", "role": "payer" }] }
+
 GET /v1/members/{member_id}
   One member's own view: their share, their cap, and the approval URL they must open themselves.
   Example:
@@ -108,6 +115,20 @@ POST /v1/members/{member_id}/decline
     curl -X POST "http://localhost:4100/v1/members/mi_d4/decline"
   Response:
     { "member_id": "mi_d4", "name": "Maya", "status": "declined", "share_amount": 4650 }
+
+POST /v1/members/{member_id}/hold
+  Pause a member's mandate. A held share counts as not-approved when the commit policy is evaluated.
+  Example:
+    curl -X POST "http://localhost:4100/v1/members/mi_d4/hold"
+  Response:
+    { "member_id": "mi_d4", "name": "Maya", "status": "held" }
+
+POST /v1/members/{member_id}/resume
+  Resume a held member.
+  Example:
+    curl -X POST "http://localhost:4100/v1/members/mi_d4/resume"
+  Response:
+    { "member_id": "mi_d4", "name": "Maya", "status": "awaiting_approval" }
 
 POST /v1/members/{member_id}/bid
   Sealed priority bid on a contested item (more claimants than slots). Bids decide who gets a slot; they never change what anyone pays. Winners pay the merchant price.
@@ -137,6 +158,34 @@ POST /v1/agent/plan
       }
     }
 
+POST /v1/plans
+  Create a coordination plan explicitly, with your own slots, participants and asks — for when you already know the shape of the plan and do not need POST /v1/agent/plan to work it out from a sentence.
+  Example:
+    curl -X POST "http://localhost:4100/v1/plans" \
+      -H "Content-Type: application/json" \
+      -d '{ "title": "Dinner in Bandra", "kind": "dining", "ask": ["rsvp", "availability"], "participants": [{ "name": "Soham" }, { "name": "Arsh" }] }'
+  Response:
+    { "plan_id": "pl_4d7e", "status": "collecting", "participants": [{ "participant_id": "pp_1", "name": "Soham" }] }
+
+GET /v1/plans/{plan_id}
+  Plan state: who has answered, what is still being asked, and the current option list.
+  Example:
+    curl "http://localhost:4100/v1/plans/pl_4d7e"
+  Response:
+    { "plan_id": "pl_4d7e", "title": "Dinner in Bandra", "status": "collecting", "responded_count": 1, "participants": [{ "participant_id": "pp_1", "name": "Soham", "answered": ["rsvp"] }] }
+
+GET /v1/plans/{plan_id}/events?after={seq}
+  Server-sent event stream of the plan timeline, same shape as the group event stream.
+  Example:
+    curl -N "http://localhost:4100/v1/plans/pl_4d7e/events?after=0"
+
+GET /v1/participants/{participant_id}
+  One participant's own view: their name, what the plan still wants from them, and their own answers so far. The id itself is the credential — no further proof is asked.
+  Example:
+    curl "http://localhost:4100/v1/participants/pp_1"
+  Response:
+    { "participant_id": "pp_1", "name": "Soham", "asked": ["availability"], "my_signals": [{ "kind": "rsvp", "in": true }] }
+
 POST /v1/participants/{participant_id}/signal
   Record one person's answer: `rsvp`, `availability`, `location` or `budget`. Answers stay private to the ranker; only the ranking is shared with the group.
   Example:
@@ -158,7 +207,7 @@ GET /v1/plans/{plan_id}/options
     }
 
 POST /v1/plans/{plan_id}/choose
-  Lock one option as the group's choice.
+  Lock one option as the group's choice. Only the plan's own organiser may call this: the signed-in principal whose session created the plan, or the engine's own bearer token standing in for one. Anyone else gets `403 {"error":"only the person who started this plan can do that"}` — this is the one step in the coordination flow a stranger agent cannot self-serve past without either a session or the token.
   Example:
     curl -X POST "http://localhost:4100/v1/plans/pl_4d7e/choose" \
       -H "Content-Type: application/json" \
@@ -167,13 +216,42 @@ POST /v1/plans/{plan_id}/choose
     { "plan_id": "pl_4d7e", "status": "chosen", "chosen_option_id": "op_2" }
 
 POST /v1/plans/{plan_id}/convert
-  The handover: turn the chosen plan into a real group checkout with real per-member mandates.
+  The handover: turn the chosen plan into a real group checkout with real per-member mandates. Same organiser requirement as `choose`, above.
   Example:
     curl -X POST "http://localhost:4100/v1/plans/pl_4d7e/convert" \
       -H "Content-Type: application/json" \
       -d '{ "unit_amount": 80000, "qty": 4, "currency": "INR" }'
   Response:
     { "group_id": "gs_2b8c", "rail": "prava_mandates", "members": [{ "member_id": "mi_e5", "name": "Soham", "share_amount": 80000 }] }
+
+PUT /v1/delegate/rules
+  Set the standing rules a delegate agent may act on for the signed-in caller: budget ceiling, recurring availability, home location, constraints. Requires being signed in as the human whose rules these are.
+  Example:
+    curl -X PUT "http://localhost:4100/v1/delegate/rules" \
+      -H "Content-Type: application/json" -H "Cookie: sutra_uid=..." \
+      -d '{ "budget_ceiling": 80000, "availability": ["evenings"], "location": { "lat": 19.0596, "lng": 72.8295 } }'
+  Response:
+    { "user_id": "u_1", "rules": { "budget_ceiling": 80000 } }
+
+GET /v1/delegate/rules
+  Read the signed-in caller's own standing rules, or null if none are on file.
+  Example:
+    curl "http://localhost:4100/v1/delegate/rules" -H "Cookie: sutra_uid=..."
+
+GET /v1/plans/{plan_id}/questions?participant_id={participant_id}
+  What one plan participant still needs to answer before the group can rank real options. Call before `delegate-answer` so a delegate agent knows what is actually being asked rather than guessing. Never exposes anything about money.
+  Example:
+    curl "http://localhost:4100/v1/plans/pl_4d7e/questions?participant_id=pp_1"
+  Response:
+    { "plan_id": "pl_4d7e", "participant_id": "pp_1", "open_questions": ["availability", "budget"], "answered": ["rsvp"] }
+
+POST /v1/participants/{participant_id}/delegate-answer
+  Act as a delegate for one participant: apply their human's standing rules and submit whatever those rules actually cover, as ordinary coordination signals. Anything the rules never anticipated comes back in `skipped` with a plain-English `why`, rather than being guessed at. This can never approve a payment or move money — there is no route it calls into that does. Pass `rules` in the body to use rules held in-process instead of whatever is on file via `PUT /v1/delegate/rules`.
+  Example:
+    curl -X POST "http://localhost:4100/v1/participants/pp_1/delegate-answer" \
+      -H "Content-Type: application/json" -d '{}'
+  Response:
+    { "participant_id": "pp_1", "plan_id": "pl_4d7e", "via": "delegate", "answered": [{ "kind": "budget", "amount": 80000 }], "skipped": [] }
 
 POST /v1/bill/parse
   Parse a restaurant bill from pasted text into itemised lines that reconcile against the printed total. Send `image_base64` instead of `text` for a photo, which needs the engine to be configured with a vision key.
@@ -187,16 +265,17 @@ POST /v1/bill/parse
       "currency": "USD",
       "items": [{ "name": "Margherita", "qty": 2, "line_amount": 2400 }, { "name": "Pasta", "qty": 1, "line_amount": 1600 }],
       "fees": [{ "name": "Service 10%", "amount": 400 }],
-      "reconciliation": { "printed_total": 4400, "computed_total": 4400, "ok": true },
+      "reconciliation": { "printed_total": 4400, "computed_total": 4400, "balanced": true },
       "warnings": [],
       "unparsed_lines": []
     }
 
 POST /v1/bill/split
-  A parsed bill plus who claimed what becomes a group on the `at_venue` rail: exact per-person amounts, explicit acceptance from each person, and a signed record. No card is charged through this engine on this rail, and the response says so.
+  A parsed bill plus who claimed what becomes a group on the `at_venue` rail: exact per-person amounts, explicit acceptance from each person, and a signed record. No card is charged through this engine on this rail, and the response says so. Needs a signed-in caller — `401 {"error":"sign in to continue"}` otherwise. POST /v1/bill/parse above needs no auth; this step, the one that actually creates a group, does.
   Example:
     curl -X POST "http://localhost:4100/v1/bill/split" \
       -H "Content-Type: application/json" \
+      -H "Cookie: sutra_uid=..." \
       -d '{
         "title": "Sunday lunch",
         "venue": "Trattoria",
@@ -218,18 +297,33 @@ POST /v1/bill/split
     }
 
 GET /v1/discover/search?q={query}
-  Search real merchant catalogs for something buyable, or paste a product URL to resolve it. Prices come from the merchant, never from a model.
+  Search real merchant catalogs for something buyable. Prices come from the merchant, never from a model.
   Example:
     curl "http://localhost:4100/v1/discover/search?q=projector&limit=2"
   Response:
     { "query": "projector", "took_ms": 412, "products": [{ "title": "Mini Projector", "price": 24900, "currency": "USD", "url": "https://shop.example/p/mini-projector", "merchant": "shop.example" }], "sources": [{ "kind": "shopify", "label": "shop.example", "count": 1, "ms": 412 }] }
 
+POST /v1/discover/resolve
+  Resolve one pasted product URL into a structured, priced cart line.
+  Example:
+    curl -X POST "http://localhost:4100/v1/discover/resolve" \
+      -H "Content-Type: application/json" -d '{ "url": "https://shop.example/p/mini-projector" }'
+  Response:
+    { "title": "Mini Projector", "price": 24900, "currency": "USD", "url": "https://shop.example/p/mini-projector", "merchant": "shop.example" }
+
+GET /health
+  Liveness, and the trust anchor for every receipt: `receipt_public_key`, the hex Ed25519 public key every consent receipt is signed with right now. Fetch this yourself, over your own connection, before trusting a receipt's embedded `public_key` — see step 8.
+  Example:
+    curl "http://localhost:4100/health"
+  Response:
+    { "ok": true, "service": "sutra-gmp-engine", "receipt_public_key": "4a7e...", "uptime_s": 137 }
+
 ## How the agent should use this
-1. Work out what the group is buying. If they already know, skip to step 3. If they do not, call POST /v1/agent/plan with their sentence, collect each person's answer with POST /v1/participants/{participant_id}/signal, read GET /v1/plans/{plan_id}/options, and call POST /v1/plans/{plan_id}/choose.
-2. If it is a restaurant bill rather than an online cart, call POST /v1/bill/split instead of POST /v1/groups and stop at step 6. That rail settles at the venue: it produces exact amounts and a signed record, and no card is charged through this engine. Never tell the user they were charged on it.
-3. Create the checkout: POST /v1/groups with the cart, the members and a policy. Use `{"type":"all_of"}` when everyone must be in, `{"type":"quorum","m":N}` when the rest can proceed without a straggler, and `{"type":"deadline","at":"<iso>","primary":...,"fallback":...}` when time decides. Amounts are integer minor units.
+1. Work out what the group is buying. If they already know, skip to step 3. If they do not, call POST /v1/agent/plan with their sentence, collect each person's answer with POST /v1/participants/{participant_id}/signal, read GET /v1/plans/{plan_id}/options, and call POST /v1/plans/{plan_id}/choose. If you are answering on a human's behalf rather than asking them directly, GET /v1/plans/{plan_id}/questions and POST /v1/participants/{participant_id}/delegate-answer are the delegate path — see PUT /v1/delegate/rules above. `choose` and `convert` need you to be the plan's own organiser (signed in as whoever created it, or holding the engine's bearer token) — a stranger agent with neither can read a plan and its ranked options but cannot lock a choice or spend on it, by design.
+2. If it is a restaurant bill rather than an online cart, call POST /v1/bill/split instead of POST /v1/groups and stop at step 6. That rail settles at the venue: it produces exact amounts and a signed record, and no card is charged through this engine. Never tell the user they were charged on it. POST /v1/bill/parse needs no credential; POST /v1/bill/split needs a signed-in caller, same as the plan organiser requirement in step 1 — there is no route in this API that creates a group, of either rail, without one of: the engine bearer token, a session, or (cancel only) proof of being the group's first member.
+3. Create the checkout: POST /v1/groups with the cart, the members and a policy. Needs `Authorization: Bearer <ENGINE_API_TOKEN>` — this is a server-to-server integration credential, not something published here, the same way an API key is never published alongside the docs that describe what it unlocks. Use `{"type":"all_of"}` when everyone must be in, `{"type":"quorum","m":N}` when the rest can proceed without a straggler, and `{"type":"deadline","at":"<iso>","primary":...,"fallback":...}` when time decides. Amounts are integer minor units.
 4. Give every member their own `approval_page_url` from the response, and nobody else's. Each person approves on their own device with their own passkey on the payment provider's page. You cannot approve for them, and you must not try — that approval is the only thing that makes the mandate theirs.
 5. Watch GET /v1/groups/{group_id}/events?after={seq}, or poll GET /v1/groups/{group_id}. Stop when `terminal` is true. `committed` means every locked member was charged, `partial` means some were, `aborted` and `expired` mean nobody was charged.
 6. Report the outcome with the exact per-person amounts from the members array. If someone declined or was dropped, say so plainly.
-7. If plans change before it commits, call POST /v1/groups/{group_id}/cancel. Every outstanding mandate is cancelled and nobody is charged.
-8. To prove what happened, fetch GET /v1/groups/{group_id}/receipt. It is hash-chained and Ed25519-signed and carries its own public key, so anyone can verify it offline without trusting this engine or you.
+7. If plans change before it commits, call POST /v1/groups/{group_id}/cancel. Every outstanding mandate is cancelled and nobody is charged. Same organiser gate as everything else that changes a group: bearer token, the creating session, or `{"as_member": "..."}` proof for an account-less group.
+8. To prove what happened, fetch GET /v1/groups/{group_id}/receipt. It is hash-chained and Ed25519-signed and carries its own public key. Recomputing the chain and checking the signature proves internal consistency — that SOME key signed a self-consistent chain — but not that the key is really this engine's: anyone can forge a receipt with their own keypair and embed that key. To actually verify it without trusting this engine or the agent that handed it to you, separately fetch GET /health and compare its `receipt_public_key` against the receipt's `public_key` field before trusting the signature — reject the receipt if they differ. `gmp verify <file>` (in this repo's cli/) does exactly this.

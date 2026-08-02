@@ -30,7 +30,7 @@ export interface DiscoveryConfig {
   now?: string
 }
 
-export type HttpMethod = 'GET' | 'POST'
+export type HttpMethod = 'GET' | 'POST' | 'PUT'
 
 /** How a caller authenticates to an endpoint. */
 export type EndpointAuth =
@@ -40,6 +40,15 @@ export type EndpointAuth =
   | 'none'
   /** needs a signed-in principal (cookie `sutra_uid` or header `x-sutra-user`) */
   | 'session'
+  /**
+   * Needs to be the resource's own organiser: a signed-in principal whose
+   * session created it, OR the engine's bearer token standing in for one
+   * (server-to-server callers). See `requirePlanOrganiser` in
+   * routes-plan.ts. Distinct from plain `'session'` because holding a
+   * session that is NOT the organiser's still gets refused — this is not
+   * "any logged-in user", it is "the one who started this".
+   */
+  | 'session-organiser'
 
 export interface ApiEndpoint {
   method: HttpMethod
@@ -89,8 +98,9 @@ export const ENGINE_ENDPOINTS: readonly ApiEndpoint[] = [
   {
     method: 'POST',
     path: '/v1/groups/:id/cancel',
-    summary: 'Cancel the whole group before commit. Every outstanding mandate is cancelled; nobody is charged.',
-    auth: 'none',
+    summary:
+      'Cancel the whole group before commit. Every outstanding mandate is cancelled; nobody is charged. Gated: needs the engine bearer token, a session that created the group, OR — for a group with no account behind it — proof of being the first member via `{"as_member": "<their member_id>"}`. Anyone else gets 403 "only the person who started this group can call it off". Verified live: an anonymous, unauthenticated call 403s.',
+    auth: 'session-organiser',
   },
   {
     method: 'GET',
@@ -165,6 +175,13 @@ export const ENGINE_ENDPOINTS: readonly ApiEndpoint[] = [
     streaming: true,
   },
   {
+    method: 'GET',
+    path: '/v1/participants/:id',
+    summary:
+      "One participant's own view: their name, what the plan still wants from them, their own answers so far, and the plan as they are entitled to see it. The id itself is the credential — the same unguessable link that got them here.",
+    auth: 'none',
+  },
+  {
     method: 'POST',
     path: '/v1/participants/:id/signal',
     summary:
@@ -180,13 +197,52 @@ export const ENGINE_ENDPOINTS: readonly ApiEndpoint[] = [
   {
     method: 'POST',
     path: '/v1/plans/:id/choose',
-    summary: 'Lock one option as the group choice.',
-    auth: 'none',
+    summary:
+      'Lock one option as the group choice. Only the plan’s own organiser may call this — the signed-in principal who created it, or the engine bearer token standing in for one. Anyone else gets 403.',
+    auth: 'session-organiser',
   },
   {
     method: 'POST',
     path: '/v1/plans/:id/convert',
-    summary: 'The handover: turn the chosen plan into a real GMP/1 group with real per-member mandates.',
+    summary:
+      'The handover: turn the chosen plan into a real GMP/1 group with real per-member mandates. Only the plan’s own organiser may call this, same as choose.',
+    auth: 'session-organiser',
+  },
+
+  // -- coordination delegates (standing rules; MCP's delegate tools) -------
+  //
+  // AP2, ACP, Visa IC and Prava itself all assume one principal granting one
+  // mandate. These four endpoints are the primitive for the phase before
+  // that: a human sets standing rules in advance (a budget ceiling, recurring
+  // availability, home location, constraints), and any MCP-capable agent can
+  // then answer coordination questions on their behalf using those rules —
+  // never a payment. See mcp/src/server.ts (list_open_questions,
+  // answer_as_delegate, get_plan_status) and docs/AGENT-MESH.md.
+  {
+    method: 'PUT',
+    path: '/v1/delegate/rules',
+    summary:
+      "Set the standing rules a delegate agent may act on for the signed-in caller: budget ceiling, recurring availability, home location, constraints. Requires being signed in as the human whose rules these are — nobody else may write another person's rules.",
+    auth: 'session',
+  },
+  {
+    method: 'GET',
+    path: '/v1/delegate/rules',
+    summary: "Read the signed-in caller's own standing rules, or null if none are on file.",
+    auth: 'session',
+  },
+  {
+    method: 'GET',
+    path: '/v1/plans/:planId/questions',
+    summary:
+      'What one plan participant still needs to answer before the group can rank real options — rsvp, availability, location, budget, constraints. Call before delegate-answer so a delegate knows what is actually being asked. Never exposes anything about money changing hands.',
+    auth: 'none',
+  },
+  {
+    method: 'POST',
+    path: '/v1/participants/:id/delegate-answer',
+    summary:
+      "Apply a human's standing rules and submit whatever those rules actually cover as ordinary coordination signals (rsvp / availability / location / budget / constraint). Anything the rules never anticipated comes back in `skipped` with a plain-English reason, never guessed at. Can never approve a payment or move money — there is no route this can call into that does.",
     auth: 'none',
   },
 
@@ -202,8 +258,8 @@ export const ENGINE_ENDPOINTS: readonly ApiEndpoint[] = [
     method: 'POST',
     path: '/v1/bill/split',
     summary:
-      'Turn a parsed bill plus who-claimed-what into a group on the at_venue rail: exact per-person amounts, explicit acceptance, signed record — and no card charged through this engine.',
-    auth: 'none',
+      'Turn a parsed bill plus who-claimed-what into a group on the at_venue rail: exact per-person amounts, explicit acceptance, signed record — and no card charged through this engine. Needs a signed-in caller (routes-v2.ts throws 401 "sign in to continue" otherwise) — verified live. POST /v1/bill/parse just above needs no auth; only this second step, the one that actually creates a group, does.',
+    auth: 'session',
   },
 
   // -- discovery of things to buy -------------------------------------------
@@ -217,6 +273,15 @@ export const ENGINE_ENDPOINTS: readonly ApiEndpoint[] = [
     method: 'POST',
     path: '/v1/discover/resolve',
     summary: 'Resolve one product URL into a structured, priced cart line.',
+    auth: 'none',
+  },
+
+  // -- trust anchor -----------------------------------------------------------
+  {
+    method: 'GET',
+    path: '/health',
+    summary:
+      'Liveness, the Prava adapter this deployment is wired to, and — the field that matters for trust — receipt_public_key: the hex Ed25519 public key every consent receipt is signed with right now. This is the independent source a verifier pins a receipt’s embedded public_key against; without fetching this separately, verifying a receipt only proves internal consistency, not that the key is really this engine’s.',
     auth: 'none',
   },
 ] as const
@@ -293,6 +358,8 @@ export const WELL_KNOWN = {
   catalog: '/api/agents',
   /** The SkillMD, served as text/markdown for the Nanda Town registry and OpenClaw agents. */
   skillMd: '/skill.md',
+  /** Liveness + the trust anchor: `receipt_public_key`, the key to pin a receipt's signature to. */
+  health: '/health',
 } as const
 
 /** The URI that identifies our A2A capability extension. Dereferenceable. */

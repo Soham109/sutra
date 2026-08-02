@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import Fastify from 'fastify'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildAgentCard, SKILL_ENDPOINTS } from '../src/discovery/agent-card.js'
@@ -308,19 +308,51 @@ describe('URLs', () => {
 // ---------------------------------------------------------------------------
 
 describe('the A2A card against the real route list', () => {
-  /** Every route this engine actually registers, parsed out of the route files. */
+  /**
+   * Every `.ts` file under engine/src, walked recursively — NOT a hand-kept
+   * list of "the route files". A hand-kept list is exactly what let the
+   * delegate surface (delegate/routes.ts: /v1/delegate/rules,
+   * /v1/plans/:planId/questions, /v1/participants/:id/delegate-answer — the
+   * very endpoints mcp/src/server.ts's delegate tools call) register real,
+   * callable routes with zero representation in ENGINE_ENDPOINTS: the
+   * original version of this test only read routes.ts / routes-v2.ts /
+   * routes-plan.ts, so a fourth route file was invisible to it and nobody
+   * found out until this comment was written. Walking the directory means a
+   * future fifth route file cannot repeat that silently.
+   */
+  const allTsFiles = (dir: string): string[] => {
+    const out: string[] = []
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) out.push(...allTsFiles(full))
+      else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) out.push(full)
+    }
+    return out
+  }
+
+  const routeFiles = allTsFiles(join(engineRoot, 'src'))
+
   const registered = (() => {
-    const files = ['routes.ts', 'routes-v2.ts', 'routes-plan.ts'].map((f) =>
-      readFileSync(join(engineRoot, 'src', f), 'utf8'),
-    )
     const found = new Set<string>()
-    for (const src of files) {
+    for (const file of routeFiles) {
+      const src = readFileSync(file, 'utf8')
       for (const m of src.matchAll(/app\.(get|post|put|delete)\(\s*'([^']+)'/g)) {
         found.add(`${m[1]!.toUpperCase()} ${m[2]!}`)
       }
     }
     return found
   })()
+
+  it('walked every route-registering file, not just the ones ENGINE_ENDPOINTS already knows about', () => {
+    // A regression guard on the walk itself: these are real routes that live
+    // outside routes.ts/routes-v2.ts/routes-plan.ts. If this ever goes red,
+    // the walk broke, not the routes.
+    expect(registered.has('GET /v1/plans/:planId/questions')).toBe(true)
+    expect(registered.has('POST /v1/participants/:id/delegate-answer')).toBe(true)
+    expect(registered.has('PUT /v1/delegate/rules')).toBe(true)
+    expect(registered.has('GET /health')).toBe(true)
+  })
 
   it('parsed a plausible route table', () => {
     expect(registered.size).toBeGreaterThan(20)
@@ -380,10 +412,16 @@ describe('the A2A card against the real route list', () => {
   it('does not claim an A2A method surface it has not implemented', () => {
     const card = buildAgentCard(cfg)
     expect(card.description).toMatch(/does not implement the A2A canonical method set/i)
-    expect(card.preferredTransport).toBe('HTTP+JSON')
+    // Deliberately NOT 'HTTP+JSON': that names one of A2A's three core
+    // bindings and implies the canonical method surface mapped onto REST
+    // (POST {url}/message:send etc — this engine 404s that, confirmed live).
+    // protocolBinding is spec'd as an open string precisely so an
+    // implementation can say "REST, but not THAT REST" without lying.
+    expect(card.preferredTransport).toBe('sutra-rest-v1')
     // v0.3 shape and v1.0 shape both present, describing the same interface.
     expect(card.additionalInterfaces).toEqual(card.supportedInterfaces)
-    expect(card.supportedInterfaces[0]!.protocolBinding).toBe('HTTP+JSON')
+    expect(card.supportedInterfaces[0]!.protocolBinding).toBe('sutra-rest-v1')
+    expect(card.supportedInterfaces[0]!.protocolBinding).not.toBe('HTTP+JSON')
   })
 })
 
@@ -541,6 +579,29 @@ describe('served routes', () => {
     for (const d of documented) {
       expect(inventory.has(shape(d.method, d.path)), `${d.method} ${d.path}`).toBe(true)
     }
+  })
+
+  // The other direction. SKILL.md is hand-written prose, not generated from
+  // ENGINE_ENDPOINTS the way the JSON documents (agent card, AgentFacts,
+  // catalog) are — this is the closest a hand-written document can get to
+  // "cannot drift from the API" without an actual generator: it goes red the
+  // moment ENGINE_ENDPOINTS grows a route this file forgot to prose-document,
+  // the exact way the delegate endpoints (PUT/GET /v1/delegate/rules,
+  // GET /v1/plans/:planId/questions, POST /v1/participants/:id/delegate-answer)
+  // and GET /health went undocumented here for as long as they did.
+  it('every endpoint in ENGINE_ENDPOINTS is documented in SKILL.md — the reverse direction', () => {
+    const md = readFileSync(join(repoRoot, 'SKILL.md'), 'utf8')
+    const documented = [...md.matchAll(/^(GET|POST|PUT|DELETE) (\/\S*)$/gm)].map((m) => ({
+      method: m[1]!,
+      path: m[2]!,
+    }))
+    const shape = (method: string, path: string): string =>
+      `${method} ${path.split('?')[0]!.replace(/\{[^}]+\}/g, ':p').replace(/:[A-Za-z_]+/g, ':p')}`
+    const documentedShapes = new Set(documented.map((d) => shape(d.method, d.path)))
+    const undocumented = ENGINE_ENDPOINTS.map((e) => shape(e.method, e.path)).filter(
+      (s) => !documentedShapes.has(s),
+    )
+    expect(undocumented).toEqual([])
   })
 
   it('404s the SkillMD honestly rather than serving something else', async () => {
