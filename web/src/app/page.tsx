@@ -20,9 +20,8 @@ export default function Landing() {
     <main>
       <section className="l-wrap l-hero"><div className="l-hero-copy">
         <h1>Split it before<br />you <span>pay it.</span></h1>
-        <p>Every checkout has one card field. A group is never one person — so normally, whoever’s card is on file fronts the whole bill and spends the next two weeks chasing everyone else back. Sutra gives each person their own exact share to approve and pay, and always says plainly whether the money actually moved or you still need to finish paying yourself.</p>
+        <p>Every checkout has one card field. A group is never one person — so someone fronts the bill, then spends two weeks chasing everyone back. Sutra gives each person their own share on their own card, and always says plainly whether the money moved.</p>
         <div className="l-hero-actions"><Link className="l-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link><Link className="l-button l-button-quiet" href="/app/bill">Split a bill</Link></div>
-        <div className="l-hero-proof"><span>Nobody holds the group’s money</span><span>Always says how you’ll pay</span><span>Nothing invented</span></div>
         <LiveBadge />
       </div>
       <MandateOrbit />

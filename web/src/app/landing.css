@@ -238,8 +238,6 @@
 .l-hero h1 span { color: var(--l-orange); }
 .l-hero-copy > p { max-width: 580px; margin-top: 30px; color: #55534d; font-size: clamp(17px, 1.45vw, 21px); line-height: 1.55; letter-spacing: -.018em; }
 .l-hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
-.l-hero-proof { display: flex; flex-wrap: wrap; gap: 12px 26px; margin-top: 31px; font-size: 11.5px; font-weight: 650; color: #77746c; }
-.l-hero-proof span::before { content: ''; display: inline-block; width: 6px; height: 6px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--l-green); }
 
 /* The code-native 3D mandate object. Pointer movement only updates CSS vars. */
 .orbit-shell { --orbit-rx: 0deg; --orbit-ry: 0deg; position: relative; min-height: 620px; margin-top: -60px; perspective: 1200px; isolation: isolate; }
