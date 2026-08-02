@@ -141,7 +141,7 @@ class RequotingEngine:
     ``_simulator.py`` deliberately does not implement requote rounds, so this
     path was invisible until ``live`` mode was pointed at the deployed engine
     and the group stalled forever in ``collecting`` — see
-    ``docs/NANDA-EVIDENCE.md``. This is the regression test's engine.
+    ``docs/NANDA.md`` §2. This is the regression test's engine.
 
     The cascade it models is the real one (GMP/1 §4.1): a quorum locks a
     subset, the unlocked member is dropped, the remaining shares are

@@ -6,78 +6,12 @@ The front door is [`../README.md`](../README.md); this file is where the depth w
 
 Contents: [full endpoint inventory](#endpoints) · [the 36-case failure
 taxonomy](#the-failure-taxonomy--every-way-this-dies-and-the-answer) ·
-[architecture diagram](#architecture-diagram) · [full verification
+[full verification
 output](#full-verification-output) · [built vs designed-not-built](#built-vs-designed-not-built)
 · [honest notes on the Prava integration](#honest-notes-on-the-prava-integration)
 · [NANDA, honestly](#nanda-honestly) · [pre-existing work disclosure](#pre-existing-work-disclosure)
 
----
-
-## Architecture diagram
-
-```
-                       free text: "dinner saturday with Arsh and Maya
-                        near Koramangala, under 900 each"
-                                     │
-   ┌─────────────────────────────────▼──────────────────────────────────┐
-   │  COORDINATION LAYER  (engine/src/plan/, agent/extract.ts)          │
-   │  not part of GMP/1 — it decides WHAT, then hands over              │
-   │                                                                    │
-   │   extract slots ──► invite participants ──► typed SIGNALS          │
-   │   (LLM optional;    (people, circles)       rsvp · availability    │
-   │    deterministic                            location · budget      │
-   │    floor always                             vote · constraint      │
-   │    runs)                                          │                │
-   │                                                   ▼                │
-   │   OPTION SOURCES                          ┌───────────────┐        │
-   │    overpass  ── OpenStreetMap venues ────►│  rank.ts      │        │
-   │    shopify   ── storefront search    ────►│  pure scorer  │        │
-   │    url       ── resolved product page ───►│  5 weighted   │        │
-   │    manual    ── typed in by a human  ────►│  factors, each│        │
-   │                                           │  with a human-│        │
-   │   Nominatim geocoding + Overpass venues   │  checkable    │        │
-   │   (keyless, global, rate-gated, cached)   │  sentence     │        │
-   │                                           └───────┬───────┘        │
-   │                              group picks one ◄────┘                │
-   └────────────────────────────────┬───────────────────────────────────┘
-                                    │  convertToGroup(): cart + members
-                                    │  + policy + RAIL
-   ┌────────────────────────────────▼───────────────────────────────────┐
-   │  GMP/1 PROTOCOL ENGINE  (engine/src/service.ts)                    │
-   │                                                                    │
-   │   computeShares ─► per-member cap = share × (1 + tolerance)        │
-   │        │                                                           │
-   │        ├─ rail = prava_mandates ──► Prava session per member       │
-   │        │                            │  member passkeys on          │
-   │        │                            │  Prava's hosted page         │
-   │        │                            ▼                              │
-   │        │                          poller (no webhooks exist)       │
-   │        │                            │                              │
-   │        └─ rail = at_venue ────► explicit per-member acceptance     │
-   │                                     │  (no card, no mandate)       │
-   │                                     ▼                              │
-   │   decide(policy) ──► satisfied ──► lock set ──► COMMIT             │
-   │        │              unsatisfiable ──► abort, cancel everything   │
-   │        │                                                           │
-   │   commit: sequential · idempotent · crash-resumable                │
-   │      shortfall ──► armed backstops ──► else requote (cap 2 rounds) │
-   │      charge(reference) ──► 4xx = terminal refusal                  │
-   │                       ──► transport error = ASK charges[] first    │
-   │                       ──► unknown is NEVER failed                  │
-   │        │                                                           │
-   │        ▼                                                           │
-   │   Ed25519-signed, hash-chained RECEIPT (rail, owed, charged)       │
-   └────────────────────────────────────────────────────────────────────┘
-        │                    │                      │
-   append-only          SSE streams            verifyReceipt()
-   event log            /v1/*/events           offline, anywhere
-   (replay, recovery)
-```
-
-Storage is `node:sqlite`; every mutation is a compare-and-swap on a row
-version, so two people answering at the same instant cannot corrupt a
-decision. Money is integer minor units everywhere inside the engine; decimal
-strings appear only at the Prava boundary.
+For the end-to-end architecture — coordination layer through the commit saga to the receipt — see the root [`README.md`](../README.md) diagram and [`ARCHITECTURE.md`](ARCHITECTURE.md) §5. Storage is `node:sqlite`; every mutation is a compare-and-swap on a row version, so two people answering at the same instant cannot corrupt a decision. Money is integer minor units everywhere inside the engine; decimal strings appear only at the Prava boundary.
 
 ## Endpoints
 
@@ -232,7 +166,7 @@ is `MockPrava`. Point anything at an engine holding a real key and they 404.
 | 21 | Overpass rate-limits us (429) or times out (504) | the mirror is tried within a shared 40 s budget; if both refuse, the board is empty with the reason rendered verbatim (*"Overpass is rate-limiting us; try again in a minute"*) |
 | 22 | Overpass answers HTTP 200 with a `remark` and no elements | treated as a **failure**, not as "nothing near you". An incomplete answer rendered as an empty neighbourhood is the one lie that module must not tell |
 | 23 | Nobody has shared a location and the plan has no anchor | no search is run, and the plan says why: *"…there is nowhere to search around."* Status stays `gathering` |
-| 24 | Only some people share a location | the search centres on the spherical centroid of those who did (radius: see the caveat in [`COORDINATION.md`](COORDINATION.md) §4), and `travel_fit` prints how many did not answer |
+| 24 | Only some people share a location | the search centres on the spherical centroid of those who did (radius: see the caveat in [`ARCHITECTURE.md`](ARCHITECTURE.md) §10), and `travel_fit` prints how many did not answer |
 | 25 | Nobody has shared availability | `time_fit` is scored at **weight 0** with a stated reason, not at a guessed 0.5 — silence never contributes a number |
 | 26 | Someone's budget is in a different currency from the price | dropped from the arithmetic and named in the sentence; currency is never coerced without a rate we do not have |
 | 27 | The chosen venue has no price (OSM knows the restaurant, not the bill) | `convert` refuses: *"this option has no price attached — enter the amount, or split the real bill once you have it"* |
@@ -282,78 +216,11 @@ the receipt chain plus this suite are the proof we treated it that way.
 
 ### `npm run e2e:plan` — the coordination layer, against live OpenStreetMap
 
-Nothing is mocked here. The geocoder is Nominatim, the venues are real OSM
-places with real coordinates, the ranking is the same pure code the UI renders.
-
-```
-2. One sentence → a structured plan (no LLM key needed)
-   "dinner saturday with Arsh and Maya near Koramangala, under 900 each"
-   extractor:  deterministic
-   category:   restaurant
-   budget:     INR 900.00 each
-   anchor:     Koramangala (IN) 12.9357,77.6241
-   invited:    Soham, Arsh, Maya
-   · Amounts read as INR because Koramangala is in IN. Change it if that is wrong.
-
-3. Everyone answers: in / when / where
-   Soham  in · Koramangala  · free 19:00–23:00
-   Arsh   in · Indiranagar  · free 20:00–23:30
-   Maya   in · Jayanagar    · free 19:30–22:30
-
-4. Real venues, ranked against those answers
-   best common window: 20:00–22:30 UTC, 3 of 3 can make it
-   7 options on the board
-
-    1.  93%  Sukh Sagar
-         time_fit    100%  No fixed time on this option, so it is scored against the
-                           best common slot instead: 2026-08-08 20:00–22:30 UTC
-                           (2h 30m) suits 3 of 3 who shared availability.
-         travel_fit   84%  Average trip 2.73 km, longest 5.36 km (Arsh), over 3 who
-                           shared a location. Scored against a 25 km ceiling, half on
-                           the average trip and half on the longest one.
-         budget_fit   50%  This option has no price, so there is nothing to compare.
-         preference   50%  Nobody has voted on this option yet.
-         freshness    50%  This option has no fixed time, so it cannot be stale.
-
-5. Pick one and hand it to the protocol
-   chose: Sukh Sagar
-   rail:   at_venue
-     Soham  owes INR 850.00
-     Arsh   owes INR 850.00
-     Maya   owes INR 850.00
-```
-
-Note the rail: the winning option came from Overpass, so the group is on
-`at_venue` and no card is charged through sutra. Note also that `budget_fit`
-and `preference` show 50% at **weight 0** — the score is the weighted mean over
-factors that carry weight, and an uncomputable factor contributes nothing
-rather than a fabricated middle. See [`COORDINATION.md`](COORDINATION.md).
+Nothing is mocked: the geocoder is Nominatim, the venues are real OSM places, the ranking is the same pure code the UI renders. A real run on "dinner saturday with Arsh and Maya near Koramangala, under 900 each" resolves deterministically to category `restaurant`, anchor Koramangala (12.9357, 77.6241), and ₹900/head (read as INR because of the geocoded country); after three participants answer in/when/where, it returns 7 real venues, best common window 20:00–22:30 UTC (3 of 3 can make it), and a top pick — Sukh Sagar at 93% — whose `time_fit` (100%) and `travel_fit` (84%, average 2.73 km / longest 5.36 km) are both backed by a printed sentence, while `budget_fit` and `preference` sit at 50% and **weight 0**, since neither has data to score against and an uncomputable factor contributes nothing rather than a fabricated middle. The winning option came from Overpass, so the group lands on `at_venue` — no card is charged — and each of the three owes ₹850.00. See [`ARCHITECTURE.md`](ARCHITECTURE.md) §10.
 
 ### `POST /v1/bill/split`, observed
 
-```json
-{
-  "rail": "at_venue",
-  "disclosure": "No card is charged through sutra on this split. …",
-  "reconciliation": {
-    "items_sum": 100000, "fees_sum": 5000,
-    "computed_total": 105000, "printed_total": 105000,
-    "delta": 0, "balanced": true,
-    "note": "3 item(s) INR 1000.00 + 2 charge(s) INR 50.00 = INR 1050.00, matching the printed total."
-  },
-  "members": [
-    { "name": "Soham", "share_amount": 35001 },
-    { "name": "Arsh",  "share_amount": 35000 },
-    { "name": "Maya",  "share_amount": 34999 }
-  ]
-}
-```
-
-35001 + 35000 + 34999 = 105000 exactly. Largest remainder, integer minor units,
-no rounding leak. Each member then accepts their own number at
-`POST /v1/members/:id/accept`, and once the policy is satisfied the group
-reaches `committed` with a signed receipt that says `settled at the venue` and
-claims no charge.
+A parsed ₹1,050.00 bill (3 items + 2 charges, reconciled exactly against the printed total) splits three ways to `35001 / 35000 / 34999` minor units — largest-remainder, integer arithmetic, no rounding leak — on the `at_venue` rail, with the response's own `disclosure` field stating plainly that no card is charged through sutra on this split. Each member then accepts their own number at `POST /v1/members/:id/accept`, and once the policy is satisfied the group reaches `committed` with a signed receipt reading `settled at the venue`.
 
 ## Built vs designed-not-built
 
@@ -431,9 +298,9 @@ permanently in public.
   the plan link, which is wider than it should be. The payment layer is not
   affected: spending needs the member's own passkey on Prava's page.
 - **Mobile clients.** Recommended architecture only; see
-  [`PRODUCT_AND_MOBILE_ROADMAP.md`](PRODUCT_AND_MOBILE_ROADMAP.md).
+  [`ARCHITECTURE.md`](ARCHITECTURE.md) §12.
 - **Postgres, workers, transactional outbox.** The engine is one process with
-  SQLite. The roadmap above describes the production shape.
+  SQLite; [`ARCHITECTURE.md`](ARCHITECTURE.md) §12 describes the production target.
 - **Standing rules and trust lines on recurring mandates.** L4 in
   `../spec/PROTOCOL.md` §9. Nothing is implemented.
 - **AP2 interoperability.** `../spec/AP2-EXTENSION.md` is a positioning memo
@@ -441,47 +308,7 @@ permanently in public.
 
 ## Honest notes on the Prava integration
 
-Checked against `openapi.json` in this repository, which the client's header
-comment records as byte-identical to
-`https://docs.prava.space/api-reference/openapi.json`, re-verified 2026-08-01
-([`../engine/src/prava/client.ts`](../engine/src/prava/client.ts)).
-
-- **No webhooks.** Polling is the design, not a shortcut.
-- **A session carries its own `expires_at`** and the spec states no fixed
-  lifetime. Sessions are therefore created **lazily**, on the member's first
-  open, so whatever the clock is it starts when the human is actually looking
-  at the page rather than when the organizer created the group.
-- **There is no server-side session→mandate correlation**, so approval is
-  detected by listing mandates for our per-member `customer_id`, with
-  `standing_only=true` — the spec's own words for that flag are *"Set
-  `standing_only=true` to exclude transient per-checkout mandates"*, and
-  picking one of those up would read as an approval that never happened.
-- **`callback_url` must be https**, so a non-https base URL omits it entirely
-  rather than sinking the whole session request. The poller, not the callback,
-  is what detects approval.
-- **A failed charge clears its idempotency key at Prava.** Reference replay
-  protects the in-flight case, not the post-failure retry — which is exactly
-  why a failure must be *classified* rather than retried blindly. Our mock was
-  made *less* strict to match this.
-- **We check `authorizeOnly === true` on the session response.** It is the only
-  signal that the session really became a mandate setup; without it we may have
-  created an ordinary checkout that charges immediately, so we refuse rather
-  than assume.
-- **Two ambiguities we did not resolve, recorded rather than guessed at.**
-  `mandate_setup.valid_until` is documented as *"Ignored for one_time (clamped
-  to 7 days)"*, while `purchase_context[].effective_until_minutes` is
-  documented as *"How long the mandate remains effective, in minutes. Positive
-  integer, no maximum."* — the spec does not say how the second interacts with
-  the first for a one-time mandate, and we send 60. Separately, nothing states
-  what revoking a session does to a still-pending mandate, so
-  `cleanupMemberAuthorizations` attempts **both** the session revoke and the
-  mandate cancel and never relies on a side effect.
-- **The charge response's `credentials` field is read nowhere.** Verified
-  2026-08-02: `grep credentials engine/src/prava/client.ts` matches nothing.
-  `chargeMandate()`'s return type only carries `status` and `transactionId` —
-  Prava mints a single-use, merchant-scoped card credential per charge and
-  this code drops it on the floor. Wiring it up is a decision about PCI scope,
-  not a UI tweak, which is why it has not been made under a deadline.
+The traps, fixes, and unresolved ambiguities in the Prava API contract — no webhooks, the `authorizeOnly` check, session lazy-creation, the `standing_only` flag, idempotency-on-failure — are permanent engineering knowledge and live in one place: [`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md) §2. One addition worth stating here since it's a scope decision rather than a trap: **the charge response's `credentials` field is read nowhere.** `chargeMandate()`'s return type carries only `status` and `transactionId` — Prava mints a single-use, merchant-scoped card credential per charge and this code drops it on the floor. Wiring it up is a PCI-scope decision, not a UI tweak, which is why it hasn't been made under a deadline.
 
 ## NANDA, honestly
 

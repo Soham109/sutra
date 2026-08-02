@@ -74,7 +74,7 @@ MockPrava)`, `engine/src/routes.ts:468`) — against a real sandbox or productio
 route does not exist. Independently, from the NANDA plugin's side: `approve_member()` looks
 for a `/mock/pay/` marker in the approval URL and returns `False` without sending a request at
 all when it is missing, which is exactly what happens against a real
-`sandbox.collect.prava.space` URL — demonstrated live in `docs/NANDA-EVIDENCE.md` §3.2
+`sandbox.collect.prava.space` URL — demonstrated live in `docs/NANDA.md` §2
 (`approve_member(mi_01KYYD9JBBA03254W5E5X0N0M6) -> False`).
 
 One differentiator is honestly narrated rather than exercised: Prava's charge response can
@@ -183,18 +183,18 @@ pull request.**
 (`nanda_town_prava.plugin:PravaMandates`, declared in `nanda-town-prava/pyproject.toml`), and
 that registration is verified at runtime — not merely asserted — by reading
 `importlib.metadata.entry_points` directly in `python scripts/town_scene.py`'s first act
-(`docs/NANDA-EVIDENCE.md` §8.3). The strongest single piece of evidence in the whole pack: the
+(`docs/NANDA.md` §4). The strongest single piece of evidence in the whole pack: the
 same 100-agent, 10,000-tick marketplace scenario run once against the bundled `prepaid_credits`
 plugin and once against `prava_mandates` produces traces that are byte-identical —
 `sha256 dd6cdb7a631e...` on both — reproduced again a day later with the identical hash
-(`docs/NANDA-EVIDENCE.md` §4.2, §8.1). Swapping a pooled ledger for real card mandates changed
+(`docs/NANDA.md` §3). Swapping a pooled ledger for real card mandates changed
 how value moved and left the marketplace's own behavior completely unaffected, which is the
 strongest available form of "this is a drop-in adapter," checked rather than claimed.
 
 Conservation invariants — `authorization_conserved`, `no_pooled_funds`, `settlement_conserved`
 — report green both in the in-process simulation and against the real deployed engine over
 HTTP, including a run where the engine held a real Prava sandbox key
-(`docs/NANDA-EVIDENCE.md` §3.2, §4.5). The local package suite passed **117 tests** with one
+(`docs/NANDA.md` §2–3). The local package suite passed **117 tests** with one
 intentional skip on 2026-08-02. Its upstream-packaged copy passed **118 tests**. Inside the NANDA
 Town workspace, the complete repository suite passed **1,429 tests**, with one skipped and one
 live test deselected; Ruff, formatting and strict Pyright also passed.

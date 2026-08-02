@@ -49,7 +49,7 @@ export const SCENE_TRANSCRIPT = `mode: simulated
   Why a backstop and not a requote: _simulator.py implements backstop
   shortfall absorption but not GMP/1 requote rounds (README, Limitations #9).
   A real requote cascade is proven separately, over HTTP, in
-  scripts/live_check.py::check_requote and docs/NANDA-EVIDENCE.md §3.1.
+  scripts/live_check.py::check_requote and docs/NANDA.md §2.
   Soham    role=payer     status=charged           cap=6510 charged=6510
   Arsh     role=payer     status=charged           cap=6510 charged=6510
   Dev      role=payer     status=declined          cap=6510 charged=0
@@ -65,7 +65,7 @@ export const SCENE_TRANSCRIPT = `mode: simulated
   [PASS] verify_payment is CONFIRMED
 
   signed-shaped receipt (simulated engine: hash-chained, not Ed25519-signed —
-  a real signature from the deployed engine is in docs/NANDA-EVIDENCE.md §3.3):
+  a real signature from the deployed engine is in docs/NANDA.md §2):
     settlement_disclosure: SIMULATED. No card was charged and no money moved. This receipt was produced by the in-process GMP/1 simulator so the plugin can run with no network and no keys. Amounts shown as charged are what the card network would have been asked to authorize.
     chain_head: 8b2e81e1a85913dde913ccd286405b3e929eb64e4c9dcf15ff5a3312219b426e
       Soham    charged=6510   outcome=charged   hash=b885a230a204… chained-from-prev=OK

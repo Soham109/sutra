@@ -1028,7 +1028,7 @@ class PravaMandates:
         Without this the plugin opens each session exactly once and then
         polls a group that can never move again. That is precisely what
         happened the first time ``live`` mode was pointed at the deployed
-        engine — see ``docs/NANDA-EVIDENCE.md``.
+        engine — see ``docs/NANDA.md`` §2.
         """
         if view is None:
             try:

@@ -34,7 +34,7 @@ What you will see, simulated mode:
    **not** requote rounds (README, Limitations #9) — that is a real GMP/1
    engine behaviour, proven separately over HTTP in
    ``scripts/live_check.py``'s ``check_requote`` and
-   ``docs/NANDA-EVIDENCE.md`` §3.1. Backstop absorption is what this
+   ``docs/NANDA.md`` §2. Backstop absorption is what this
    process can show with no network, so it is what this scene shows: real
    code, not a stand-in.
 4. The signed-shaped, hash-chained receipt and ``conservation_report()``
@@ -256,7 +256,7 @@ async def run_simulated_scene() -> None:
     say("Why a backstop and not a requote: _simulator.py implements backstop")
     say("shortfall absorption but not GMP/1 requote rounds (README, Limitations #9).")
     say("A real requote cascade is proven separately, over HTTP, in")
-    say("scripts/live_check.py::check_requote and docs/NANDA-EVIDENCE.md §3.1.")
+    say("scripts/live_check.py::check_requote and docs/NANDA.md §2.")
     final = await engine.get_group(auth.group_id)
     status = await payments.verify_payment(ref)
     show_members(final)
@@ -284,7 +284,7 @@ async def run_simulated_scene() -> None:
     assert receipt is not None
     say("")
     say("signed-shaped receipt (simulated engine: hash-chained, not Ed25519-signed —")
-    say("a real signature from the deployed engine is in docs/NANDA-EVIDENCE.md §3.3):")
+    say("a real signature from the deployed engine is in docs/NANDA.md §2):")
     say(f"  settlement_disclosure: {receipt['settlement_disclosure']}")
     say(f"  chain_head: {receipt['chain_head']}")
     prev = "0" * 64

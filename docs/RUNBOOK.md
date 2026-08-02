@@ -1,62 +1,16 @@
 # Runbook — running, deploying and operating sutra
 
-Operations only. For the rules and traps that must not be broken, read
-[`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md). For track-by-track judging evidence, read
-[`TRACK-EVIDENCE.md`](TRACK-EVIDENCE.md).
+Operations only. For the rules and traps that must not be broken, read [`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md). For track-by-track judging evidence, read [`TRACK-EVIDENCE.md`](TRACK-EVIDENCE.md).
 
-The repository is at `c:\Users\acer\sutra`. Every command below assumes you are in that
-directory unless it says otherwise.
-
----
+Every command below is run from the repository root unless it says otherwise.
 
 ## 0. Read this before running anything
 
-### 0.1 Use PowerShell, not Git Bash
+**Use PowerShell, not Git Bash.** `npm test -w engine` from Git Bash fails every test file with `TypeError: Cannot read properties of undefined (reading 'config')`. The same command in PowerShell passes every file — the code is fine, do not edit a test file in response to this error. If you must run tests from Git Bash, `cd engine && npx vitest run` reports the same passing count. Git Bash (MSYS) also rewrites a path-shaped value like `/data/gmp.db` into a Windows path before the command sees it — set `DB_PATH` and similar variables from PowerShell.
 
-Two things break in Git Bash on this machine.
+**Never print a secret.** Secrets live outside the repository, in local gitignored files (`secrets.env`, `vapid.env`) kept off the working tree, and are set directly on the hosting provider (Railway, Vercel). `secrets.env` holds `ENGINE_SIGNING_SEED`, `ENGINE_API_TOKEN`, `WEBHOOK_SECRET`; `vapid.env` holds the VAPID keypair. Never paste a key into a chat transcript, commit message, or doc — an OpenAI key was auto-revoked minutes after landing in a chat, because OpenAI scans for leaked keys. §4.4 shows how to set a secret without it touching shell history.
 
-**The test suite.** `npm test -w engine` from Git Bash fails every test file with:
-
-```
-TypeError: Cannot read properties of undefined (reading 'config')
-```
-
-The same command in PowerShell passes every file. The code is fine. Do not edit any test file
-in response to that error. Believe the count the runner prints — every number written into a
-doc in this repo has gone stale within hours. If you must run tests from Git Bash, this works
-and reports the same passing count:
-
-```bash
-cd /c/Users/acer/sutra/engine && npx vitest run
-```
-
-**Any path-like environment value.** Git Bash (MSYS) rewrites `/data/gmp.db` into a Windows
-path before the command ever sees it. Setting `DB_PATH=/data/gmp.db` from Git Bash silently
-puts the production database in the wrong place. Set it from PowerShell.
-
-### 0.2 Never print a secret
-
-Secrets live outside the repository entirely, in local, gitignored files (`secrets.env` and
-`vapid.env`) kept off the machine's working tree, and are set directly on the hosting
-provider (Railway, Vercel) rather than checked in anywhere.
-
-`secrets.env` holds `ENGINE_SIGNING_SEED`, `ENGINE_API_TOKEN` and `WEBHOOK_SECRET`.
-`vapid.env` holds `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`.
-
-Never paste a key into a chat transcript, a commit message, or a documentation file. An
-earlier OpenAI key was auto-revoked about twenty minutes after being pasted into a chat,
-because OpenAI scans public and semi-public text for leaked keys. Section 4.4 of this file
-shows how to set a secret without it appearing in your shell history or process arguments.
-
-### 0.3 The Prava sandbox has a hard budget
-
-The team test card has a daily transaction budget that depletes with use, not a number that
-holds still — **20 transactions remained as of this session**. Never point the chaos suite, a
-load test, or a hand-written loop at the sandbox. `npm run chaos` is structurally incapable of
-touching it — `ChaosPrava` refuses to wrap a non-mock adapter and never reads
-`PRAVA_API_KEY` — but nothing protects you from a `for` loop you wrote yourself.
-
----
+**The Prava sandbox has a hard, depleting daily transaction budget.** Never point the chaos suite, a load test, or a hand-written loop at it. `npm run chaos` cannot reach it structurally — `ChaosPrava` refuses to wrap a non-mock adapter — but nothing stops a `for` loop you write yourself.
 
 ## 1. Local development
 
@@ -65,381 +19,142 @@ npm install
 npm run dev
 ```
 
-`npm run dev` starts both halves with `concurrently`: the engine on port 4100 and the Next.js
-app on port 3000. To run them separately, in two terminals:
-
-```powershell
-npm run dev:engine     # engine only, port 4100
-npm run dev:web        # Next.js only, port 3000
-```
-
-No `.env` file is required. Every value has a working default: `PORT=4100`, `PRAVA_ENV=mock`,
-`ENGINE_API_TOKEN=dev-token`, SQLite at `data/gmp.db`, and a signing key generated at boot.
-The web app proxies `/api/*` to `http://localhost:4100` by default
-([`../web/next.config.ts`](../web/next.config.ts)).
-
-If you want a `.env` anyway:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-The local `.env` currently has `PRAVA_ENV=mock` and an **empty** `PRAVA_API_KEY`. That is
-deliberate — the real sandbox key exists only as a Railway environment variable. Local
-development runs entirely offline against the built-in Prava simulator.
-
-Useful local URLs once `npm run dev` is running:
+`npm run dev` starts the engine (port 4100) and the Next.js app (port 3000) together via `concurrently`. Run them separately with `npm run dev:engine` / `npm run dev:web`. No `.env` is required — every value has a working default (`PORT=4100`, `PRAVA_ENV=mock`, `ENGINE_API_TOKEN=dev-token`, SQLite at `data/gmp.db`, a signing key generated at boot), and the web app proxies `/api/*` to `http://localhost:4100` by default. Copy `.env.example` to `.env` if you want one explicitly; it ships with `PRAVA_ENV=mock` and an empty `PRAVA_API_KEY` on purpose — the real sandbox key exists only as a Railway variable, and local development runs entirely offline against the built-in Prava simulator.
 
 | URL | What |
 |---|---|
-| http://localhost:3000 | landing page |
-| http://localhost:3000/app | dashboard: what needs you, what your card is exposed to |
-| http://localhost:3000/app/plan/new | one sentence becomes a coordinated plan |
-| http://localhost:3000/app/bill | photograph or paste a bill and split it |
-| http://localhost:3000/app/discover | search or paste a product URL |
-| http://localhost:4100/health | engine liveness and which adapter it is using |
-| http://localhost:4100/new | the engine's own zero-build HTML fallback |
-
----
+| `localhost:3000` | landing page |
+| `localhost:3000/app` | dashboard: what needs you, what your card is exposed to |
+| `localhost:3000/app/plan/new` | one sentence becomes a coordinated plan |
+| `localhost:3000/app/bill` | photograph or paste a bill and split it |
+| `localhost:3000/app/discover` | search or paste a product URL |
+| `localhost:4100/health` | engine liveness and which Prava adapter it's using |
+| `localhost:4100/new` | the engine's own zero-build HTML fallback |
 
 ## 2. Every npm script
 
-### 2.1 Root scripts — [`../package.json`](../package.json)
+### Root scripts (`package.json`)
 
-| Script | Runs | What it does | Needs |
-|---|---|---|---|
-| `npm run dev` | `concurrently` engine + web | Both halves, ports 4100 and 3000. | nothing |
-| `npm run dev:engine` | `npm run start -w engine` | Engine only, port 4100. | nothing |
-| `npm run dev:web` | `npm run dev -w web` | Next.js dev server, port 3000. | nothing |
-| `npm run build` | `npm run build -w web` | Next.js production build. Observed most recently: succeeds, **23 routes** — this count moved twice during the same session this runbook was edited in; believe what the build prints, not this number. | nothing |
-| `npm start` | `npm run start -w engine` | Engine in the foreground. This is Railway's start command. | nothing |
-| `npm test` | `npm run test -w engine` | Vitest. Believe the count it prints; every number written into a doc here has gone stale within hours. | **PowerShell** |
-| `npm run test:widget` | `node --test widget/detect.test.mjs` | The page detector against captured real pages. Observed: **33 pass, 0 fail** — believe the count it prints. Includes a test that `widget/widget.js` and `extension/detect.js` carry an identical copy of `widget/detect.js`. | nothing |
-| `npm run build:widget` | `node widget/build-bookmarklet.mjs` | Regenerates the bookmarklet and `extension/detect.js` from `widget/detect.js`. Run it after editing the detector. | nothing |
-| `npm run chaos` | `npm run chaos -w chaos` | 60 randomized fault-injection runs. Observed: seed base 42, terminal states `{"partial":9,"committed":38,"aborted":13}`, six invariants pass, prints `GREEN WALL`. Runs the engine **in process** — no HTTP, no server to start. Mock adapter only. Tune with `CHAOS_ITERS` and `SEED`. | nothing |
-| `npm run demo` | `npm run demo -w cli` | Full commit run against the mock adapter. Observed: `COMMITTED`, four members charged $46.50 each, `receipt: ✓ chain + signature verified`. **Drives the engine over HTTP — start one first.** | a running engine on `GMP_API` (default `http://localhost:4100`) |
-| `npm run e2e:plan` | `tsx e2e/plan-flow.ts` | Coordination end to end against **live OpenStreetMap**: real geocode, real venues, real ranking, then a group. | a running engine; `GMP_API`, `ENGINE_API_TOKEN` |
-| `npm run e2e:product` | `tsx e2e/product-flow.ts` | Resolves a real merchant URL, builds a cart, commits through the mock ceremony, checks every surface renders. Never touches the sandbox. | a running engine and web app; `ENGINE_API_TOKEN` |
-| `npm run e2e:sandbox` | `tsx e2e/sandbox-smoke.ts` | Exactly **one** mandate setup, one charge and one report against the real Prava sandbox, pausing for a human at the passkey step. Budget-aware by design. Refuses to run unless the key starts `sk_test_`. | `PRAVA_API_KEY` |
-| `npm run e2e:proof` | `tsx e2e/sandbox-proof.ts` | Creates a group and mints **real** Prava mandate sessions, printing the hosted approval URLs. Add `-- --watch` to poll until terminal. **This is the script that produces real, on-network payment evidence.** | `GMP_API`, `ENGINE_API_TOKEN` |
-| `npm run e2e:auth` | `tsx e2e/auth-check.ts` | Registers a throwaway account against a deployed engine, follows the session cookie, reads a protected route. Proves sign-in works on a live host in one command. | `GMP_API` |
+| Script | What it does | Needs |
+|---|---|---|
+| `npm run dev` | Both halves, ports 4100 and 3000 | nothing |
+| `npm run build` | Next.js production build. Route count moves as routes are added — believe what the build prints. | nothing |
+| `npm start` | Engine in the foreground; Railway's start command | nothing |
+| `npm test` | `npm run test -w engine` (vitest). Believe the printed count. | **PowerShell** |
+| `npm run test:widget` | The page detector against captured real pages (`node --test`), including a check that `widget.js`/`extension/detect.js`/`detect.js` stay identical | nothing |
+| `npm run build:widget` | Regenerates the bookmarklet and `extension/detect.js` from `widget/detect.js` — run after editing the detector | nothing |
+| `npm run chaos` | Randomized fault-injection runs against the mock adapter, in-process (no server to start). Tune with `CHAOS_ITERS`/`SEED`. | nothing |
+| `npm run demo` | Full commit run against the mock adapter, driving the engine **over HTTP** — start one first | a running engine (`GMP_API`, default `localhost:4100`) |
+| `npm run e2e:plan` | Coordination end to end against **live OpenStreetMap** | running engine, `GMP_API`, `ENGINE_API_TOKEN` |
+| `npm run e2e:product` | Resolves a real merchant URL, commits through the mock ceremony. Never touches the sandbox. | running engine + web app, `ENGINE_API_TOKEN` |
+| `npm run e2e:sandbox` | One mandate setup, one charge, one report against the **real** Prava sandbox, pausing for a human passkey. Refuses unless the key starts `sk_test_`. | `PRAVA_API_KEY` |
+| `npm run e2e:proof` | Creates a group and mints real Prava mandate sessions, printing the hosted approval URLs. Add `-- --watch` to poll to terminal. This is the script that produces real on-network payment evidence. | `GMP_API`, `ENGINE_API_TOKEN` |
+| `npm run e2e:auth` | Registers a throwaway account against a deployed engine and reads a protected route | `GMP_API` |
 
-### 2.2 Workspace scripts
+### Workspace scripts
 
-| Command | What |
-|---|---|
-| `npm run typecheck -w engine` | `tsc --noEmit`. Same as `npx tsc --noEmit -p engine/tsconfig.json`. Observed clean. |
-| `npm run typecheck -w web` | `tsc --noEmit` for the Next.js app. |
-| `npm run lint -w web` | `next lint`. |
-| `npm run start -w web` | Serves an already-built Next.js app. Run `npm run build` first. |
-| `npm run gmp -w cli -- <args>` | The CLI. See section 2.3. |
-| `npm run nanda -w cli -- <args>` | NANDA publication tooling. See section 6. |
-| `npm start -w mcp` | The MCP server (`create_group_session`, `get_group_status`, `cancel_group`). |
+`npm run typecheck -w engine` / `-w web` · `npm run lint -w web` · `npm run start -w web` (serve an already-built app) · `npm run gmp -w cli -- <args>` (§2.1) · `npm run nanda -w cli -- <args>` (§5) · `npm start -w mcp` (the MCP server).
 
-### 2.3 CLI runs
+### CLI runs
 
-Every `demo` scenario drives a **running engine** over HTTP at `GMP_API` (default
-`http://localhost:4100`). Start one with `npm run dev:engine` first. `verify` is offline and
-needs nothing.
+`demo` scenarios drive a **running engine** over HTTP at `GMP_API` (default `localhost:4100`) — start one with `npm run dev:engine` first. `verify` is offline and needs nothing.
 
 ```powershell
-npx -w cli tsx src/gmp.ts demo commit       # same as `npm run demo`
+npx -w cli tsx src/gmp.ts demo commit       # same as npm run demo
 npx -w cli tsx src/gmp.ts demo backstop     # shortfall absorbed by an armed backstop
 npx -w cli tsx src/gmp.ts demo abort        # policy becomes unsatisfiable, everything cancelled
 npx -w cli tsx src/gmp.ts demo auction      # sealed-bid priority allocation
-npx -w cli tsx src/gmp.ts verify receipt.json   # offline receipt verification
+npx -w cli tsx src/gmp.ts verify receipt.json
 ```
 
-### 2.4 The NANDA Town plugin (Python)
-
-The plugin is a separate Python project with its own virtual environment.
+### The NANDA Town plugin (Python)
 
 ```powershell
-Set-Location c:\Users\acer\sutra\nanda-town-prava
+Set-Location nanda-town-prava
 .\.venv\Scripts\python.exe -m pytest -q
+Set-Location ..
 ```
 
-Whatever it prints is the answer. This count has moved repeatedly — 44, then 46,
-then 51, then 117 as property-based cases landed — and every document that
-copied a number instead of a command has been wrong within hours of being
-written. Do not quote it anywhere; run it.
-
-Return to the repository root afterwards:
-
-```powershell
-Set-Location c:\Users\acer\sutra
-```
-
----
+This count has moved repeatedly as property-based cases landed. Do not quote it anywhere — run it.
 
 ## 3. Deploying
 
-Two halves, two hosts, two completely separate commands. Deploying one does nothing to the
-other.
+Two halves, two hosts, two separate commands. Deploying one does nothing to the other.
 
-### 3.1 Deploy the web app (Vercel)
+### Web app (Vercel)
 
-**Pushing to `main` does not deploy the web app.** Vercel's git auto-deploy does not fire for
-this project. This has caught this team more than once: you push, the site does not change,
-and you conclude your code is broken.
-
-Two steps, both from PowerShell in `c:\Users\acer\sutra`:
+**Pushing to `main` does not deploy the web app** — Vercel's git auto-deploy does not fire for this project. Two steps, from PowerShell at the repository root:
 
 ```powershell
 npx vercel --prod --yes
 ```
 
-That prints a deployment URL like `https://sutra-abc123xyz.vercel.app`. **The public site is
-still serving the old build at this point.** Copy the printed URL into the second command:
+That prints a deployment URL. **The public site is still serving the old build at this point.** Copy the printed URL into:
 
 ```powershell
-npx vercel alias set https://sutra-abc123xyz.vercel.app sutra-gmp.vercel.app
+npx vercel alias set https://<the-url-that-just-printed> sutra-gmp.vercel.app
 ```
 
-Replace `https://sutra-abc123xyz.vercel.app` with whatever the first command actually printed.
+Verify with `curl.exe -s -o NUL -w "%{http_code}`n" https://sutra-gmp.vercel.app` — expect `200`.
 
-Verify:
+Project `sutra`, org `soham-aggarwals-projects`, linked to GitHub `Soham109/sutra`. The public alias is **`sutra-gmp.vercel.app`** (`sutra.vercel.app` belongs to someone else — the namespace is global). Deployment protection/SSO is disabled so judges can open the site without a login; do not turn it on. Build config is in `vercel.json`: build command `npm run build -w web`, output `web/.next`.
 
-```powershell
-curl.exe -s -o NUL -w "%{http_code}`n" https://sutra-gmp.vercel.app
-```
-
-Expect `200`.
-
-Facts about the Vercel side:
-
-- Project `sutra`, org `soham-aggarwals-projects`, linked to GitHub `Soham109/sutra`.
-- The public alias is **`sutra-gmp.vercel.app`**. `sutra.vercel.app` belongs to a stranger;
-  the namespace is global. Do not try to claim it.
-- Deployment protection / SSO is **disabled**, so judges can open the site without a login.
-  Do not turn it on.
-- Build configuration is in [`../vercel.json`](../vercel.json): build command
-  `npm run build -w web`, output directory `web/.next`, framework `nextjs`.
-
-### 3.2 Deploy the engine (Railway)
-
-From PowerShell in `c:\Users\acer\sutra`:
+### Engine (Railway)
 
 ```powershell
 npx --yes @railway/cli up --ci --service engine
 ```
 
-`--service engine` is **required**. Without it Railway errors with "Multiple services found".
-`--ci` streams build logs and then exits, instead of attaching to the log stream forever.
-
-**If the Railway CLI produces zero output and exits 1, it has not deployed anything.** This has
-happened on this machine: the command returns immediately, silently, with no error text and no
-deployment. Do not assume it worked. Deploy from the Railway dashboard instead, then verify with
-the `/health` check below — a small `uptime_s` is the only proof the deploy landed.
-
-**Do not rely on Railway's git auto-deploy either.** The repo can be connected while the deploy
-trigger is switched off, in which case pushing to `main` changes nothing and the engine keeps
-serving a build from hours ago with no warning anywhere. Check `uptime_s` after every push you
-expect to change the engine.
-
-Verify:
+`--service engine` is required — without it Railway errors with "Multiple services found." **If the CLI produces zero output and exits 1, it has not deployed anything** — deploy from the Railway dashboard instead and verify with `/health` below; a small `uptime_s` is the only proof the deploy landed. **Do not rely on Railway's git auto-deploy either** — the trigger can be switched off while the repo still shows as connected, in which case pushing to `main` changes nothing.
 
 ```powershell
 curl.exe -s https://engine-production-e6fa.up.railway.app/health
 ```
 
-Expect JSON containing `"ok":true` and `"prava_adapter":"sandbox"`. The `uptime_s` field is the
-fastest way to tell whether the process you are looking at is the one you just deployed — a
-small number means a fresh boot.
+Expect JSON with `"ok":true` and `"prava_adapter":"sandbox"`; a small `uptime_s` means a fresh boot. Project `sutra-engine`, service `engine`. Deploy config is in `railway.json`: NIXPACKS, build `npm install`, start `npm run start -w engine`, healthcheck `/health` (60s timeout), restart on failure up to 10 times, **`numReplicas: 1`**. A persistent volume is mounted at `/data`, `DB_PATH=/data/gmp.db`.
 
-Facts about the Railway side:
+### Deploy invariants — do not change these
 
-- Project `sutra-engine`, service **`engine`**.
-- Deploy configuration is in [`../railway.json`](../railway.json): builder NIXPACKS, build
-  command `npm install`, start command `npm run start -w engine`, healthcheck `/health` with a
-  60-second timeout, restart on failure up to 10 times, and **`numReplicas: 1`**.
-- A persistent volume is mounted at `/data`, and `DB_PATH=/data/gmp.db`.
-
-### 3.3 Deploy invariants — do not change these
-
-1. **`numReplicas: 1`.** Load-bearing, not a cost decision. The approval poller, the in-process
-   `EventHub`, and the single-file SQLite database all assume exactly one process. Two replicas
-   double-poll and split the SSE fan-out.
-2. **The `/data` volume and `DB_PATH=/data/gmp.db`.** Without them every redeploy wipes all
-   groups, accounts and receipts. [`../engine/src/server.ts`](../engine/src/server.ts) lines
-   44-45 throw on boot if `NODE_ENV=production` and `DB_PATH` is unset, so a missing volume
-   fails loudly rather than quietly writing to a disk that is about to disappear.
-3. **`ENGINE_SIGNING_SEED` must be fixed.** If it is unset the engine mints a new Ed25519 key
-   at every boot and every receipt signed before the redeploy stops verifying.
-4. **The engine cannot run on Vercel.** It needs file-backed SQLite, a 1.5-second poller that
-   is the only mechanism by which approvals are ever detected, long-lived SSE connections, and
-   an in-process event hub. Serverless kills all four.
-5. **Vercel needs `ENGINE_URL`; browser traffic must not receive operator authority.** The proxy at
-   [`../web/src/app/api/[...path]/route.ts`](../web/src/app/api/[...path]/route.ts) forwards the
-   first-party session cookie and deliberately does not stamp `ENGINE_API_TOKEN` onto browser
-   calls. Doing so would turn every visitor into an operator.
-
----
+`numReplicas: 1` is load-bearing, not a cost decision: the approval poller, the in-process event hub, and the single-file SQLite database all assume exactly one process — two replicas double-poll and split the SSE fan-out. The `/data` volume and `DB_PATH=/data/gmp.db` must both exist, or every redeploy wipes all groups, accounts, and receipts (the engine throws on boot if `NODE_ENV=production` and `DB_PATH` is unset, rather than quietly writing to a disk about to disappear). `ENGINE_SIGNING_SEED` must stay fixed — an unset seed mints a new Ed25519 key at every boot, and every receipt signed before the redeploy stops verifying. The engine cannot run on Vercel: it needs file-backed SQLite, the 1.5-second poller (the only way approvals are ever detected), long-lived SSE, and an in-process event hub — serverless kills all four. The web proxy forwards the first-party session cookie and deliberately never stamps `ENGINE_API_TOKEN` onto browser calls; doing so would turn every visitor into an operator.
 
 ## 4. Environment variables
 
-### 4.1 Which variable goes on which host
-
 | Variable | Railway (engine) | Vercel (web) | Local `.env` | What it does |
 |---|---|---|---|---|
-| `PRAVA_ENV` | `sandbox` | — | `mock` | `mock` uses the built-in offline simulator. `sandbox` uses the real Prava sandbox. |
-| `PRAVA_API_KEY` | set (`sk_test_*`) | — | empty | The Prava sandbox key. Only on Railway. |
-| `PRAVA_BASE_URL` | default | — | `https://sandbox.api.prava.space` | Prava API base. |
-| `APP_BASE_URL` | `https://sutra-gmp.vercel.app` | — | `http://localhost:4100` | Every approval link, QR code and discovery document derives from this. Point it at the **web** origin, not the engine. |
-| `PORT` | Railway sets it | — | `4100` | |
-| `NODE_ENV` | `production` | — | `development` | With `production`, a missing `DB_PATH` throws at boot. |
-| `DB_PATH` | `/data/gmp.db` | — | empty | **Set this from PowerShell only.** Git Bash mangles the path. |
-| `ENGINE_API_TOKEN` | set | optional for server-only jobs | `dev-token` | Operator bearer for trusted server/CLI calls. The browser proxy must never attach it automatically. |
-| `ENGINE_SIGNING_SEED` | set | — | empty | 32-byte hex seed for the Ed25519 receipt key. Must not change. |
+| `PRAVA_ENV` | `sandbox` | — | `mock` | `mock` uses the offline simulator; `sandbox` uses the real Prava sandbox |
+| `PRAVA_API_KEY` | `sk_test_*` | — | empty | Only on Railway |
+| `PRAVA_BASE_URL` | default | — | `https://sandbox.api.prava.space` | |
+| `APP_BASE_URL` | the web origin | — | `http://localhost:4100` | Every approval link, QR code, and discovery document derives from this — point it at **web**, not the engine |
+| `NODE_ENV` | `production` | — | `development` | `production` + missing `DB_PATH` throws at boot |
+| `DB_PATH` | `/data/gmp.db` | — | empty | Set from PowerShell only |
+| `ENGINE_API_TOKEN` | set | optional, server-only | `dev-token` | Operator bearer; the browser proxy must never attach it automatically |
+| `ENGINE_SIGNING_SEED` | set | — | empty | 32-byte hex Ed25519 seed. Must not change. |
 | `WEBHOOK_SECRET` | set | — | `dev-webhook-secret` | |
-| `ENGINE_URL` | — | `https://engine-production-e6fa.up.railway.app` | — | Where the Next.js proxy forwards `/api/*`. |
-| `OPENAI_API_KEY` | set | — | empty | Optional everywhere. Upgrades intent extraction and enables server-side receipt-photo reading. |
-| `OPENAI_MODEL` | `gpt-4.1-nano` | — | `gpt-4.1-nano` | Cheapest tier that handles constrained tool-calling. |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | set | — | — | Web push. Already configured; push is live. |
-| `SHOPIFY_DOMAINS` | unset | — | unset | Comma-separated override for the default product-search shelf. |
-| `SHOPIFY_TEST_ORDER_ENABLED` | dedicated demo only | — | `false` | Enables only the development-store `test: true` order proof. Never point it at a live merchant store. |
-| `SHOPIFY_TEST_STORE` | dedicated demo only | — | `your-store.myshopify.com` | Admin API hostname for the development store. |
-| `SHOPIFY_STOREFRONT_DOMAIN` | dedicated demo only | — | demo storefront host | Public hostname whose products may unlock the proof rail. |
-| `SHOPIFY_ADMIN_ACCESS_TOKEN` | dedicated demo secret | — | empty | Offline token with `write_orders`; never expose as `NEXT_PUBLIC_*` or record it. Either this alone, or the `SHOPIFY_ADMIN_CLIENT_ID`/`SHOPIFY_ADMIN_CLIENT_SECRET` pair below, satisfies the adapter — not both. |
-| `SHOPIFY_ADMIN_CLIENT_ID` / `SHOPIFY_ADMIN_CLIENT_SECRET` | dedicated demo secret | — | empty | Alternative to a static access token: a Shopify Dev Dashboard client-credentials pair the engine exchanges for a token itself (`engine/src/server.ts:94-95`). |
-| `SHOPIFY_API_VERSION` | dedicated demo only | — | `2026-07` | Shopify Admin GraphQL version for the proof adapter. |
-| `ALLOW_DEV_AUTH` | **unset** | — | — | Leave unset in production. It re-enables the header-based identity bypass. |
+| `ENGINE_URL` | — | the Railway URL | — | Where the Next.js proxy forwards `/api/*` |
+| `OPENAI_API_KEY` | set | — | empty | Optional everywhere |
+| `OPENAI_MODEL` | `gpt-4.1-nano` | — | same | Cheapest tier handling constrained tool-calling |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | set | — | — | Web push; already configured and live |
+| `SHOPIFY_DOMAINS` | unset | — | unset | Comma-separated override for the default search shelf |
+| `SHOPIFY_TEST_ORDER_ENABLED` | demo only | — | `false` | Enables only the development-store `test: true` proof — never point at a live store |
+| `SHOPIFY_TEST_STORE` / `SHOPIFY_STOREFRONT_DOMAIN` / `SHOPIFY_API_VERSION` | demo only | — | see §6 | Admin API host, public host that unlocks the proof rail, API version |
+| `SHOPIFY_ADMIN_ACCESS_TOKEN` **or** `SHOPIFY_ADMIN_CLIENT_ID`/`SHOPIFY_ADMIN_CLIENT_SECRET` | demo secret | — | empty | Either the static token or the client-credentials pair — not both. See §6. |
+| `ALLOW_DEV_AUTH` | **unset** | — | — | Leave unset in production — re-enables a header-based identity bypass |
 
-`OPENAI_API_KEY` is optional in every path. The deterministic extractor
-([`../engine/src/agent/extract.ts`](../engine/src/agent/extract.ts)) is the floor, not a stub,
-and runs whenever the model is unavailable. Nothing in the demo depends on the key.
+`OPENAI_API_KEY` is optional everywhere; the deterministic extractor is the floor and runs whenever the model is unavailable.
 
-### 4.2 Read the current Railway variables
+**Read current values:** `npx --yes @railway/cli variable list --service engine` (add `--kv` for raw values, only in a terminal nobody is recording); `npx vercel env ls production`.
 
-```powershell
-npx --yes @railway/cli variable list --service engine
-```
+**Set a secret without shell history:** `Write-Output "the-value" | npx --yes @railway/cli variable set OPENAI_API_KEY --stdin --service engine`. For Vercel, `npx vercel env add ENGINE_API_TOKEN production` reads from a prompt. Vercel environment changes do not apply to an existing deployment — redeploy the web app afterward.
 
-Add `--kv` to print raw values in `KEY=value` form. **Only do that in a terminal nobody is
-recording.**
-
-### 4.3 Read the current Vercel variables
-
-```powershell
-npx vercel env ls production
-```
-
-### 4.4 Set a secret without it appearing in your shell history
-
-Preferred, because the value never becomes a command argument:
-
-```powershell
-Write-Output "the-secret-value" | npx --yes @railway/cli variable set OPENAI_API_KEY --stdin --service engine
-```
-
-The legacy inline form also works, but the value lands in your shell history:
-
-```powershell
-npx --yes @railway/cli variable set OPENAI_API_KEY=the-secret-value --service engine
-```
-
-Add `--skip-deploys` if you are setting several variables and want to redeploy once at the end.
-
-For Vercel, `env add` reads the value from a prompt rather than an argument, which is the
-behaviour you want:
-
-```powershell
-npx vercel env add ENGINE_API_TOKEN production
-```
-
-Then redeploy the web app — Vercel environment changes do **not** apply to an existing
-deployment. Use the two-step deploy in section 3.1.
-
-### 4.5 Rotate a key
-
-Rotating `OPENAI_API_KEY` or `PRAVA_API_KEY` (engine only, nothing else needs to know):
-
-1. Create the new key in the provider's dashboard.
-2. `Write-Output "<new value>" | npx --yes @railway/cli variable set OPENAI_API_KEY --stdin --service engine`
-3. Wait for the redeploy, then `curl.exe -s https://engine-production-e6fa.up.railway.app/health`
-   and check `uptime_s` is small.
-4. Revoke the old key in the provider's dashboard.
-5. Update the local secrets file if the key is recorded there. Do not write it into the repo.
-
-Rotating `ENGINE_API_TOKEN` (**both** hosts must change together):
-
-1. Generate a value: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-2. Set it on Railway with `variable set ENGINE_API_TOKEN --stdin --service engine`.
-3. Set it on Vercel with `npx vercel env rm ENGINE_API_TOKEN production` then
-   `npx vercel env add ENGINE_API_TOKEN production`.
-4. Redeploy the web app with the two-step process in section 3.1.
-5. Update the local `secrets.env` file.
-
-Between steps 2 and 4 the web app is broken, because the token it sends no longer matches the
-one the engine expects. Do this quickly, and not during a demo.
-
-**Rotating `ENGINE_SIGNING_SEED` invalidates every receipt already signed.** They will fail
-verification permanently. Do not rotate it before judging. Rotate it afterwards if you want.
-
-Rotating VAPID keys invalidates every existing push subscription; every user has to re-subscribe.
-
----
+**Rotate `OPENAI_API_KEY`/`PRAVA_API_KEY`:** create the new key, set it via `--stdin`, wait for redeploy, check `/health`'s `uptime_s`, revoke the old key. **Rotate `ENGINE_API_TOKEN`:** both hosts must change together (set on Railway, then `vercel env rm`/`add` on Vercel, then redeploy web) — the app is broken between those steps, so do it quickly and not during a demo. **`ENGINE_SIGNING_SEED` invalidates every receipt already signed if rotated** — do not rotate before judging.
 
 ## 5. Running the demo
 
-### 5.1 The offline demo — no network, no keys, but it needs a local engine
+**Offline demo.** `npm run demo` drives the engine over HTTP; it does not start one. `npm run dev:engine` first, then `npm run demo` in a second terminal: four members, four approvals, four charges, a verified receipt, needing no network or keys. If it fails with a connection error, nothing is listening on 4100.
 
-`npm run demo` drives the engine **over HTTP**. It does not start one. Start the engine first,
-in its own terminal:
+**Live demo path.** Open `https://sutra-gmp.vercel.app`, sign in (do this *before* creating the plan you'll demo — an anonymous organiser loses their copy-link buttons a few seconds after creation, with no way to get them back), go to `/app/plan/new`, type a sentence, answer from each `/p/:participantId` link, open the plan board, and convert to a group. Note the rail: an OpenStreetMap option always lands on `at_venue`, where no card is charged — to demonstrate a real charge you need the product-search or pasted-URL path instead.
 
-```powershell
-npm run dev:engine
-```
-
-Then, in a second terminal:
-
-```powershell
-npm run demo
-```
-
-Four members, four approvals, four charges, a verified receipt. It prints a receipt page URL
-and a replay board URL on `localhost:4100`. With `PRAVA_ENV=mock` (the local default) it needs
-no network and no keys, so this is the fallback if anything live is down.
-
-If it fails with a connection error, nothing is listening on port 4100. Check with:
-
-```powershell
-Get-NetTCPConnection -LocalPort 4100 -State Listen -ErrorAction SilentlyContinue
-```
-
-To drive a different engine, set `GMP_API` and `ENGINE_API_TOKEN` first.
-
-Other scenarios, all needing the same running engine:
-
-```powershell
-npx -w cli tsx src/gmp.ts demo backstop     # a decline, absorbed by an armed backstop
-npx -w cli tsx src/gmp.ts demo abort        # policy becomes unsatisfiable, everything cancelled
-npx -w cli tsx src/gmp.ts demo auction      # 3 claimants, 2 seats, sealed bids allocate
-```
-
-### 5.2 The live demo path
-
-1. Open https://sutra-gmp.vercel.app in a private window.
-2. Sign up, or sign in.
-3. Go to `/app/plan/new` and type a sentence such as
-   *"dinner saturday with Arsh and Maya near Koramangala, under 900 each"*.
-4. Answer as each participant from `/p/:participantId` — no account is needed for that page.
-5. Open the plan board at `/app/plans/:id` and show the ranked options with the arithmetic
-   visible.
-6. Choose one and convert it to a group.
-
-Note which rail you land on. An option that came from OpenStreetMap is always on the
-`at_venue` rail and **no card is charged**, by design — see
-[`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md) invariant 3. To demonstrate a real card charge
-you need a merchant, which means the product-search or pasted-URL path, not the venue path.
-
-**Sign in before you create the plan you are going to demo.** An anonymous plan organiser
-loses their "copy link" buttons a few seconds after creating the plan, and there is no way to
-get them back. If you must demo anonymously, copy every participant link immediately.
-
-### 5.3 The real-Prava proof run
-
-This is the one that produces the evidence the hackathon actually asks for.
+**The real-Prava proof run** — the one that produces the evidence the hackathon actually asks for:
 
 ```powershell
 $env:GMP_API = "https://engine-production-e6fa.up.railway.app"
@@ -447,336 +162,125 @@ $env:ENGINE_API_TOKEN = "<from secrets.env>"
 npm run e2e:proof -- --watch
 ```
 
-The script prints, per member, our approval page URL and the **Prava** hosted URL on
-`sandbox.collect.prava.space`. Open a Prava URL on a phone and complete the passkey ceremony
-with the sandbox test card:
+Prints, per member, the approval page URL and Prava's own hosted URL on `sandbox.collect.prava.space`. Open it on a phone and complete the passkey ceremony with the sandbox test card: PAN `4622 9431 2323 2440`, CVV `157`, expiry `12/30`, card id `CARD-27`, sandbox device-binding OTP `456789`. These are sandbox-only values already in the repository root's gitignored `.env`. With `--watch` the script polls to a terminal state and prints the total charged plus the receipt URL — capture that output.
 
-| Field | Value |
-|---|---|
-| PAN | `4622 9431 2323 2440` |
-| CVV | `157` |
-| Expiry | `12/30` (Prava corrected this by email — it is not 12/27) |
-| Card ID | `CARD-27` |
-| OTP for sandbox device binding | `456789` |
+## 6. Configuring the Shopify development-store proof
 
-These are sandbox-only values and are already in `.env` at the repository root (gitignored, so
-it exists on this machine but not in a fresh clone). The engine never reads them; they are
-typed by a human on Prava's page.
+The proof adapter mirrors a **committed, test-only** Sutra group into one real Shopify order with `test: true`. Shopify stopped letting merchants create *new* custom apps directly from a store's admin on 2026-01-01 — a store with a pre-existing admin-created app keeps its permanent `shpat_…` token (branch B below); a store set up after that date must use the **Dev Dashboard**, which issues a client ID/secret pair instead (branch A).
 
-With `--watch` the script polls until the group reaches a terminal state, then prints the total
-charged through the card network and the receipt URL. Capture that output.
+**Branch A — Dev Dashboard (new setups).** In the store admin: Settings → Apps and sales channels → Develop apps → Build apps in Dev Dashboard → Create app. Add the `write_orders` scope. Under API access requests, request Protected customer data access (name, address, email, phone — needed for the `orderCreate` shipping/billing address) — a development-store-only app activates immediately, no Shopify review. Release the app, install it on the target store. The Dev Dashboard shows a Client ID and Client secret (shown once — copy both). Verify the exchange before touching the host:
 
----
+```bash
+curl -s -X POST "https://your-store.myshopify.com/admin/oauth/access_token" \
+  -H 'content-type: application/x-www-form-urlencoded' \
+  --data 'grant_type=client_credentials&client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET'
+```
 
-## 6. The NANDA registry and the plugin
+A working pair returns a token that itself expires in ~24h — don't paste it anywhere; only the client ID/secret go in env vars, and `ShopifyTestOrderClient` exchanges and refreshes automatically.
 
-### 6.1 Check what we publish
+**Branch B — legacy admin-created app (only if one already exists).** Confirm `write_orders` and protected-customer-data access under Settings → Apps and sales channels → Develop apps, and reveal the permanent Admin API token.
+
+Add to the root `.env` (local) or the Railway service variables (production), using the Branch A block for a Dev Dashboard app or the Branch B line for a legacy token — never both:
+
+```dotenv
+PRAVA_ENV=mock
+SHOPIFY_TEST_ORDER_ENABLED=true
+SHOPIFY_TEST_STORE=your-store.myshopify.com
+SHOPIFY_STOREFRONT_DOMAIN=your-public-storefront.example
+SHOPIFY_API_VERSION=2026-07
+SHOPIFY_DOMAINS=your-public-storefront.example,allbirds.com,gymshark.com
+
+# Branch A
+SHOPIFY_ADMIN_CLIENT_ID=client-id-from-dev-dashboard
+SHOPIFY_ADMIN_CLIENT_SECRET=client-secret-from-dev-dashboard
+
+# Branch B (only if no Branch A pair)
+# SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_redacted
+```
+
+`SHOPIFY_STOREFRONT_DOMAIN` must match the host on the imported product URL. Never record or print the token, client secret, or a filled-in curl command. Use a fictional demo recipient address — never a real participant's.
+
+**Verify the gate:** `curl -s http://localhost:4100/v1/shopify-test/status` should say `enabled: true` with the intended store/domains and the no-real-money disclosure. If `enabled` is `false`, `reason` explains why: `not_configured` (the flag isn't `true`), `misconfigured` (flag is `true` but store/token are still missing), or `blocked_in_production` (Prava is in production on this deployment — the bridge refuses on principle, regardless of Shopify config).
+
+**Run it:** in the product finder, select a configured-storefront product, choose "Create a valid Shopify test order," add the group, complete every test approval, then fill the fictional address on the committed board and submit. The equivalent operator call:
+
+```bash
+curl -sS -X POST http://localhost:4100/v1/groups/GROUP_ID/shopify-test-order \
+  -H 'Authorization: Bearer dev-token' -H 'Content-Type: application/json' \
+  --data '{"email":"demo-recipient@example.com","shipping_address":{"first_name":"Demo","last_name":"Recipient","address1":"123 Test Street","city":"Ottawa","province_code":"ON","country_code":"CA","zip":"K1P 1J1"}}'
+```
+
+Open the returned `admin_url` and capture, in order: the order's **Test** indicator and number, the store domain, line items and total matching the Sutra cart, the fictional address, and transaction history showing exactly one labeled test transaction per participant. Caption it plainly (test order, test transactions, no real money) and say so out loud — this proves the adapter mapping, not Shopify Checkout, and not real card captures.
+
+The bridge is a demo adapter, not a production one: a crash between Shopify creating the order and Sutra saving the proof could produce a duplicate on retry, so it does not claim production idempotency.
+
+## 7. The NANDA registry and the plugin
 
 ```powershell
 $env:SUTRA_PUBLIC_URL = "https://sutra-gmp.vercel.app"
 npm run nanda -w cli -- check
 ```
 
-That fetches our own well-known URLs and validates them. The base URL comes from
-`SUTRA_PUBLIC_URL`, falling back to `APP_BASE_URL`, defaulting to `http://localhost:4100`. A
-loopback or private-network address is **refused** for any real submission, because both
-registries probe whatever URL you give them from their own network and badge the listing
-permanently.
-
-### 6.2 Read our SkillMD registry entry
+Fetches and validates our own well-known URLs. A loopback or private-network base is refused for any real submission — both registries probe whatever URL they're given and badge the listing permanently.
 
 ```powershell
 curl.exe -s https://nandatown.projectnanda.org/api/skills/47063b5f-5000-4c03-8f33-c98555618f85
 ```
 
-Observed on 2026-08-01: the entry exists, `name` is `sutra — group checkout (GMP/1)`,
-`source_url` is `https://sutra-gmp.vercel.app/skill.md`, `created_at` is
-`2026-08-01T13:29:23.374Z`, and **`reachable` is `null`** — not `true`. `null` means the
-registry has recorded no probe result. Re-check before quoting it and report what it actually
-says.
+Re-check before quoting the entry's `reachable` field — it has been `null` (not `true`) every time this has been checked. `npm run nanda -w cli -- skill-submit --dry-run` previews the exact submission body without submitting.
 
-The whole registry index, with the current entry count:
+**Do not run `npm run nanda -w cli -- index-register`.** NANDA Index v2 registration needs a DNS TXT record on a domain the team controls; a `.vercel.app` subdomain can't carry one, and it isn't what the prize judges anyway — see [`NANDA.md`](NANDA.md).
+
+**The plugin's live check against a real engine:**
 
 ```powershell
-curl.exe -s https://nandatown.projectnanda.org/api/skills
-```
-
-Observed count on 2026-08-01: **273**.
-
-### 6.3 Re-submit or update the SkillMD entry
-
-```powershell
-$env:SUTRA_PUBLIC_URL = "https://sutra-gmp.vercel.app"
-npm run nanda -w cli -- skill-submit --dry-run
-```
-
-`--dry-run` previews the exact body without submitting. Drop it to submit for real. Flags:
-`--all`, `--content`, `--dry-run`. `skill-submit` probes the SkillMD URL first and refuses if
-it is unreachable.
-
-### 6.4 Do not run index-register
-
-```
-npm run nanda -w cli -- index-register       # DO NOT RUN
-```
-
-NANDA Index v2 registration needs a DNS TXT record on a domain we control. A `.vercel.app`
-subdomain cannot carry one. It is also not what the NANDA prize is for — the prize is
-"Best Prava Adapter for the NANDA Town", which is the Python plugin.
-
-### 6.5 The plugin's live check against a real engine
-
-```powershell
-Set-Location c:\Users\acer\sutra\nanda-town-prava
+Set-Location nanda-town-prava
 $env:GMP_API = "https://engine-production-e6fa.up.railway.app"
 $env:ENGINE_API_TOKEN = "<from secrets.env>"
 .\.venv\Scripts\python.exe scripts\live_check.py
-Set-Location c:\Users\acer\sutra
+Set-Location ..
 ```
 
-`scripts/live_check.py` exercises `live` mode over a real socket, because the test suite
-injects fake transports. It asks `GET /health` for the adapter kind and grades itself
-differently for `mock` versus a real key. On a real adapter it cancels every group it created
-before exiting. It never prints `ENGINE_API_TOKEN`.
+Exercises `live` mode over a real socket (the test suite otherwise injects fake transports), grading itself differently for `mock` vs. a real key, and cancels every group it created before exiting. It never prints `ENGINE_API_TOKEN`. Transcripts are in [`NANDA.md`](NANDA.md) §2.
 
-Transcripts of previous runs are in [`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md) sections 3.2 and
-3.3.
+## 8. Screenshots
 
----
-
-## 7. When things break
-
-### 7.1 Railway's API flakes during a deploy
-
-**Symptom.** `railway up` fails with a network or GraphQL error partway through.
-
-**Fix.** Run the same command again. This is routine and not a sign of a problem:
-
-```powershell
-npx --yes @railway/cli up --ci --service engine
-```
-
-If it fails repeatedly, check the deployment list and the logs:
-
-```powershell
-npx --yes @railway/cli deployment list --service engine
-npx --yes @railway/cli logs --service engine --lines 200
-```
-
-**Always pass `--lines` to `logs`.** Without it, `railway logs` *streams* and never exits,
-which will hang the terminal session indefinitely. `--lines 200` fetches history and returns.
-
-### 7.2 Railway says "Multiple services found"
-
-**Cause.** You omitted `--service engine`.
-
-**Fix.** Always pass it:
-
-```powershell
-npx --yes @railway/cli up --ci --service engine
-```
-
-### 7.3 Vercel is serving a stale build
-
-**Symptom.** You pushed, or you deployed, and https://sutra-gmp.vercel.app still shows the old
-version.
-
-**Cause, almost always.** Either git auto-deploy did not fire (it does not fire for this
-project), or you deployed but never moved the alias.
-
-**Fix.** Both steps, in order:
-
-```powershell
-npx vercel --prod --yes
-npx vercel alias set <the-url-that-just-printed> sutra-gmp.vercel.app
-```
-
-To confirm which deployment the alias currently points at:
-
-```powershell
-npx vercel alias list
-npx vercel ls
-```
-
-Also check you are not looking at a browser cache — test in a private window.
-
-### 7.4 "missing or invalid bearer token" from the web app
-
-**Cause.** Vercel does not have `ENGINE_API_TOKEN`, or it does not match the value on Railway.
-
-**Fix.**
-
-```powershell
-npx vercel env ls production
-npx --yes @railway/cli variable list --service engine
-```
-
-Make the two values identical, then redeploy the web app with both steps from section 3.1.
-Vercel environment changes do not apply to an existing deployment.
-
-### 7.5 The engine is running an old build
-
-**Symptom.** A feature that works locally 404s or misbehaves in production. This has happened
-before: "login is broken" turned out to mean the engine had been up for 95 minutes running a
-build from before `/v1/auth/*` existed.
-
-**Two causes, both silent.** Either Railway's git auto-deploy trigger is switched off (the repo
-still shows as connected, so nothing looks wrong), or the CLI exited 1 with no output and never
-deployed. Both leave a stale process running happily. See section 3.2.
-
-**Diagnose.**
-
-```powershell
-curl.exe -s https://engine-production-e6fa.up.railway.app/health
-```
-
-A large `uptime_s` means the process is old. Then prove the specific feature:
-
-```powershell
-$env:GMP_API = "https://engine-production-e6fa.up.railway.app"
-npm run e2e:auth
-```
-
-**Fix.** Deploy the engine (section 3.2), then re-run the check.
-
-### 7.6 Overpass is rate-limiting (empty venue board)
-
-**Symptom.** A plan board shows no options, with a reason such as *"Overpass is rate-limiting
-us; try again in a minute"*.
-
-**This is working as designed.** An Overpass 429 or 504, or a 200 that carries a `remark` and
-no elements, is treated as a **failure** and rendered with its reason — never as "nothing near
-you". Rendering an incomplete answer as an empty neighbourhood is the one lie that module must
-not tell.
-
-**Fix.** Wait a minute and press refresh on the plan board, which calls
-`POST /v1/plans/:id/options/refresh`. Refresh is an explicit action precisely because it spends
-someone's rate limit. An empty refresh preserves the previous board rather than wiping it — that
-was a real bug and it is fixed.
-
-Check the last observed reachability of both OSM sources:
-
-```powershell
-curl.exe -s https://sutra-gmp.vercel.app/api/v1/places/status
-```
-
-During a demo, prefer a location you have already searched — results are cached — or use the
-product-search or pasted-URL path, which does not touch Overpass at all.
-
-### 7.7 A Prava session expired
-
-**Symptom.** The hosted approval page says the session is expired or invalid.
-
-**Cause.** Prava sessions expire roughly **15 minutes** after creation. This is why sessions
-are minted lazily on the member's first open rather than at group creation — the clock starts
-when the human is actually looking at the page.
-
-**Fix.** Do not debug it. Create a fresh group and open the new URL promptly:
-
-```powershell
-$env:GMP_API = "https://engine-production-e6fa.up.railway.app"
-$env:ENGINE_API_TOKEN = "<from secrets.env>"
-npm run e2e:proof -- --watch
-```
-
-Remember the team test card's daily transaction budget — about 20 remained as of this session. Do not burn it retrying.
-
-### 7.8 A member approved but the group has not moved
-
-**Cause.** Prava has **no webhooks**. Approval is detected by a poller that lists mandates for
-our per-member `customer_id` with `standing_only=true`, on a 1.5-second cycle. If the engine
-process restarted, the poller re-enters on boot via `recoverOnBoot()`.
-
-**Diagnose.** Check the engine is alive and recently booted:
-
-```powershell
-curl.exe -s https://engine-production-e6fa.up.railway.app/health
-npx --yes @railway/cli logs --service engine --lines 200
-```
-
-Then read the group state directly, which shows each member's status:
-
-```powershell
-curl.exe -H "Authorization: Bearer <ENGINE_API_TOKEN>" https://engine-production-e6fa.up.railway.app/v1/groups/<group_id>
-```
-
-If the group is stuck in `committing`, that is not necessarily a failure. **Unknown charge
-state is never treated as failure** — the engine resolves it by fetching the mandate's
-`charges[]` and matching our idempotency `reference`, and the poller re-enters the commit under
-the same reference. Give it a cycle before intervening.
-
-### 7.9 The engine will not boot with a DB_PATH error
-
-**Symptom.** Boot throws: `DB_PATH is required in production. Mount a persistent Railway volume
-at /data and set DB_PATH=/data/gmp.db.`
-
-**Cause.** `NODE_ENV=production` with no `DB_PATH`. This guard exists so a missing volume fails
-loudly instead of quietly writing to a disk that vanishes on the next deploy.
-
-**Fix, from PowerShell** (never from Git Bash, which mangles the path):
-
-```powershell
-npx --yes @railway/cli variable set DB_PATH=/data/gmp.db --service engine
-```
-
-Then confirm the volume is actually mounted at `/data` in the Railway dashboard. Setting the
-variable without the volume gets you a database that disappears on every redeploy.
-
-### 7.10 Receipts stopped verifying after a redeploy
-
-**Cause.** `ENGINE_SIGNING_SEED` changed, or was never set, so the engine minted a new Ed25519
-key at boot.
-
-**Diagnose.** Compare `receipt_public_key` in `/health` against what it was before. On
-2026-08-01 it was
-`b71838a635e97a8f8104e95213bbf3b718f64d89c13d645a8ab6245ca1f8de94`.
-
-**Fix.** Restore the original seed from `secrets.env` and redeploy. Receipts signed under a
-different key cannot be recovered — the signature is over the content, and the key is gone.
-
-### 7.11 Tests fail with "Cannot read properties of undefined (reading 'config')"
-
-**Cause.** You are in Git Bash. See section 0.1.
-
-**Fix.** Run it from PowerShell:
-
-```powershell
-npm test -w engine
-```
-
-Or, if you must stay in Git Bash:
+`docs/screenshots/capture.mjs` opens the deployed product in headless Chrome, registers a disposable account, and drives the UI to capture a product search and link split, a reconciled bill split, a group mid-flight, the individual decision page and terminal receipt, a plan with real OpenStreetMap venues, and the NANDA discovery page. Run metadata lands in `docs/screenshots/run-report.json`.
 
 ```bash
-cd /c/Users/acer/sutra/engine && npx vitest run
+node docs/screenshots/capture.mjs
+node docs/screenshots/prepare-readme.mjs
 ```
 
-Both report the same passing count. **Do not edit a test file in response to this error.**
+Override the target or browser with `SUTRA_URL=http://localhost:3000 CHROME_PATH=/path/to/chrome`. `prepare-readme.mjs` crops the numbered captures into the `readme-*.png` files the root README uses, changing no text, number, status, or browser state. The Chrome extension is the one deliberately-skipped artifact — it can't be captured honestly without loading it unpacked in a real browser on a real merchant page, and a faked browser frame would be false. The bill flow is deliberately captured on `at_venue`: exact agreement and a signed receipt, `charged_amount = 0`.
 
-### 7.12 After an interrupted session, verify before trusting the tree
+## 9. When things break
 
-Before continuing work after an interruption of any kind, verify the state of `main` rather
-than assuming it is what you left it as:
+**Railway's API flakes mid-deploy.** Just re-run `npx --yes @railway/cli up --ci --service engine`. If it fails repeatedly, check `deployment list` and `logs --lines 200` (always pass `--lines` — without it, `logs` streams forever and hangs the session).
 
-```powershell
-git status
-git log --oneline -5
-npm test -w engine
-```
+**"Multiple services found."** You omitted `--service engine`.
 
-Read the diff of the most recent commit before trusting it, especially anything touching
-validation or security-relevant checks. The dangerous case is not a failing test — it is a
-change that passes and is wrong. As a concrete example of what to look for: a seat-attachment
-check should refuse attaching somebody else's **account** without their agreement, while still
-allowing a **bare name** to make a link-only participant — the commonest real case the product
-has, the person at the table who will never sign up. A rewrite that refuses any seat without a
-`user_id` reads like a tightened security rule but silently deletes that case; `assertSeatable`
-is the narrower rule that keeps both properties true at once.
+**Vercel is serving a stale build.** Either auto-deploy didn't fire, or you deployed but never moved the alias. Run both steps from §3 in order, and confirm with `vercel alias list` / `vercel ls`. Check you're not looking at a browser cache — use a private window.
 
----
+**"missing or invalid bearer token" from the web app.** Vercel's `ENGINE_API_TOKEN` doesn't match Railway's. Compare `vercel env ls production` against `railway variable list --service engine`, make them identical, redeploy web.
 
-## 8. Health checks — the five-minute sweep
+**The engine is running an old build.** A feature that works locally 404s in production. Either Railway's auto-deploy trigger is off, or the CLI exited 1 silently — both leave a stale process running happily. Check `/health`'s `uptime_s`, then `npm run e2e:auth` against the deployed `GMP_API` to prove the specific feature; redeploy per §3.2 and re-check.
 
-Run these when you pick the project up, or before a demo.
+**Overpass is rate-limiting (empty venue board).** This is working as designed — a 429/504, or a 200 with a `remark` and no elements, is treated as a failure and rendered with its reason, never as "nothing near you." Wait a minute and press refresh (an explicit action, since it spends someone's rate limit; an empty refresh preserves the previous board). Check last-observed reachability at `/api/v1/places/status`, or use the product-search/pasted-URL path during a demo, which never touches Overpass.
+
+**A Prava session expired.** Sessions expire roughly 15 minutes after creation — that's why they're minted lazily on first open, not at group creation. Don't debug it; create a fresh group with `npm run e2e:proof -- --watch` and open the new URL promptly. Remember the sandbox's daily transaction budget; don't burn it retrying.
+
+**A member approved but the group hasn't moved.** Prava has no webhooks — approval is detected by a poller listing mandates for the member's `customer_id` on a 1.5-second cycle, resuming on boot via `recoverOnBoot()` after any restart. Check the engine is alive and recently booted, then read the group state directly. A group stuck in `committing` is not necessarily a failure — unknown charge state is never treated as failure, and the poller re-enters the commit under the same idempotency reference. Give it a cycle.
+
+**The engine won't boot: `DB_PATH is required in production`.** `NODE_ENV=production` with no `DB_PATH` set — this guard exists so a missing volume fails loudly instead of writing to a disk that vanishes on the next deploy. Fix from PowerShell (never Git Bash, which mangles the path): `npx --yes @railway/cli variable set DB_PATH=/data/gmp.db --service engine`, then confirm the volume is actually mounted at `/data` in the dashboard.
+
+**Receipts stopped verifying after a redeploy.** `ENGINE_SIGNING_SEED` changed or was never set, so a new Ed25519 key was minted at boot. Compare `receipt_public_key` in `/health` against its last-known value. Restore the original seed from `secrets.env` and redeploy — receipts signed under a different key cannot be recovered, since the signature is over the content and the key is gone.
+
+**Tests fail with "Cannot read properties of undefined (reading 'config')."** You're in Git Bash — see §0.
+
+**After an interrupted session, verify before trusting the tree.** `git status`, `git log --oneline -5`, `npm test -w engine`. Read the diff of the most recent commit before trusting it, especially anything touching validation or security-relevant checks — the dangerous case is not a failing test, it's a change that passes and is wrong. Concretely: a seat-attachment check should refuse attaching somebody else's **account** without their agreement, while still allowing a **bare name** to make a link-only participant — the commonest real case, the person at the table who will never sign up. A rewrite that refuses any seat without a `user_id` looks like a tightened rule but silently deletes that case.
+
+## 10. Health checks — the five-minute sweep
 
 ```powershell
 curl.exe -s https://engine-production-e6fa.up.railway.app/health
@@ -788,13 +292,11 @@ curl.exe -s -o NUL -w "catalog %{http_code}`n" https://sutra-gmp.vercel.app/api/
 curl.exe -s -o NUL -w "places %{http_code}`n" https://sutra-gmp.vercel.app/api/v1/places/status
 ```
 
-All seven returned 200 as of 2026-08-02, and `/health` reported `"prava_adapter":"sandbox"`.
-
-Then the local suites:
+All seven should return 200, and `/health` should report `"prava_adapter":"sandbox"`. Then the local suites — expect all files passing, believe the counts they print:
 
 ```powershell
-npm test -w engine        # expect all files passing; believe the count it prints
-npm run test:widget       # expect all passing; believe the count it prints
-npm run chaos             # expect GREEN WALL
-npm run build             # expect a successful build; route count moves as routes are added
+npm test -w engine
+npm run test:widget
+npm run chaos       # expect GREEN WALL
+npm run build        # expect a successful build; route count moves as routes are added
 ```

@@ -14,156 +14,68 @@ Built on [Prava](https://docs.prava.space) for the Agentic Commerce Hackathon ·
 
 ![Sutra landing page: plan the group decision, then let each person approve their own share](docs/screenshots/readme-hero.png)
 
-Sutra coordinates a purchase before money moves. A group can begin with a sentence, a product link, or a restaurant bill; collect everyone’s constraints; calculate exact shares; and ask each person for consent to only their own amount.
+Sutra coordinates a purchase before money moves. A group starts with a sentence, a product link, or a restaurant bill; Sutra collects everyone's constraints, calculates exact shares, and asks each person to consent to only their own amount.
 
-The payment primitive underneath is **GMP/1, the Group Mandate Protocol**: N principals, N independently capped mandates, one group policy, and a signed terminal receipt. Sutra never stores a pooled balance and never sees a card number.
+The payment primitive underneath is **GMP/1, the Group Mandate Protocol**: N principals, N independently capped mandates, one group policy, one signed terminal receipt. Sutra never stores a pooled balance and never sees a card number.
 
 ## The problem
 
-Today, “group payment” usually means one person becomes the lender. They place the order on one card, send requests afterwards, and absorb the risk when somebody forgets or declines.
-
-Agentic payment protocols inherit the same assumption: one user authorizes one agent. They can describe a group purchase, but the payment layer still sees one principal. Sutra adds the missing coordination layer without turning the organizer—or the agent—into a wallet.
-
-## From intent to consent
+Today, "group payment" usually means one person becomes the lender: they place the order on one card, then chase everyone else afterward. Agentic payment protocols inherit the same assumption — one user authorizes one agent — so they can describe a group purchase, but the payment layer still sees a single principal. Sutra adds the missing coordination layer without turning the organizer, or the agent, into a wallet.
 
 ```mermaid
 flowchart LR
     A["Sentence · link · bill"] --> B["Interpret facts and ask the group"]
     B --> C["Rank options and calculate exact shares"]
     C --> D["Freeze cart hash · cap · policy"]
-    D --> E1["Person 1 approves"]
-    D --> E2["Person 2 approves"]
-    D --> E3["Person N approves"]
-    E1 --> F["GMP/1 decision + commit saga"]
-    E2 --> F
-    E3 --> F
-    F --> G["Explicit capability: Prava · Shopify POS · checkout handoff · at venue"]
+    D --> E["Each person approves their own share"]
+    E --> F["GMP/1 decision + commit saga"]
+    F --> G["Prava · Shopify POS · checkout handoff · at venue"]
     G --> H["Ed25519-signed, hash-chained receipt"]
 ```
 
-1. **Bring the context.** Describe a plan, paste a public product page, or enter a bill.
-2. **Ask, don’t assume.** Every participant gets a private link for availability, location, budget, RSVP, and constraints. These answers cannot authorize payment.
-3. **Make the decision inspectable.** Real venues come from OpenStreetMap; product facts retain their source; rankings expose their factors; bill arithmetic must reconcile.
-4. **Bind consent to the exact thing.** Each payer sees their items, share, cap, merchant, policy, and cart hash before approving.
-5. **Use the capability the merchant actually has.** A Prava adapter may charge. Shopify POS, checkout handoff, and at-venue flows record agreement and explicitly report zero charged by Sutra.
-6. **Leave evidence.** Every terminal group produces a signed receipt whose consent chain can be verified without trusting the UI.
+Every payer sees their items, share, cap, merchant, and cart hash before approving. Sutra then uses whatever capability the merchant actually has — a Prava adapter may charge; Shopify POS, checkout handoff, and at-venue flows record agreement and explicitly report zero charged by Sutra — and every terminal group produces a receipt whose consent chain verifies without trusting the UI.
 
 ## What the product does
 
-### Plan with the group, not around them
-
-One sentence becomes typed intent, participant questions, real OpenStreetMap venues, common time windows, and an explainable shortlist. OpenAI can help extract intent, but deterministic rules remain the fallback and never invent venue or payment facts.
+One sentence becomes typed intent, participant questions, real OpenStreetMap venues, and an explainable ranked shortlist — deterministic rules are always the fallback, and never invent a venue or a price. A product URL or a search across configured Shopify storefronts resolves to a verified merchant, price, and stock state before anyone is seated in a group; an authenticated cart on another site comes in through the click-invoked browser extension. A photographed or pasted bill reconciles against its printed total, item by item, and stops rather than guesses when the arithmetic doesn't add up — this is the **at-venue rail**: it records who owes what and never charges a card. Every approval page carries the whole decision — share, items, policy, deadline, and the rail-specific consequence — with payment consent kept separate from planning answers. The shipped web/PWA also has accounts, friends, circles, a live group thread with an `@sutra` bot, notifications, a dashboard for pending decisions and card exposure, receipts, and the extension.
 
 ![Plan board with participants and real OpenStreetMap venues](docs/screenshots/readme-plan.png)
 
-### Resolve a product, then verify it
-
-Open a live Shopify shelf, search any configured Shopify storefront, or paste an exact public product URL. Sutra preserves merchant, price, currency, stock state, source, and resolution confidence before anyone is seated in the group. Authenticated carts from other sites come through the click-invoked extension.
-
-![Product discovery results with merchant, live price, stock state, and split action](docs/screenshots/readme-discover.png)
-
-### Turn a bill into exact, reviewable shares
-
-Paste receipt text—or use vision when configured—then reconcile parsed lines against the printed total. Assign items, distribute fees in minor units, and stop when the arithmetic or OCR integrity check is suspicious. This is the **at-venue rail**: it records who owes what; it does not charge a card.
-
-![Itemised bill with reconciliation, item claimants, and exact per-person totals](docs/screenshots/readme-bill.png)
-
-### Give every person one clear decision
-
-The approval surface contains the whole decision: exact share, items, group policy, progress, deadline, and the rail-specific consequence. Payment consent is separate from planning answers.
-
-<p align="center">
-  <img src="docs/screenshots/readme-approval.png" width="520" alt="Individual approval page showing one exact share, the group state, and the explicit no-charge disclosure for an at-venue split" />
-</p>
-
-### Operate as a real group product
-
-The shipped web/PWA also includes accounts, friends, circles, pass-the-phone participation, private invite links, a live group thread with an `@sutra` state bot, notifications, a dashboard for pending decisions and card exposure, receipts, and an unpacked Chrome extension for importing the current merchant page.
-
 ## The money boundary
-
-Sutra does not pretend every split has the same settlement capability.
 
 | Situation | What Sutra completes | What it does **not** claim |
 |---|---|---|
-| Merchant with a real Sutra/Prava payment adapter | Creates one hosted mandate session per payer, waits for each person’s passkey approval, then executes the group policy through person-scoped charges | That a merchant URL alone proves adapter support |
-| Configured Shopify development store | After Sutra/Prava **test** approvals, creates one valid Shopify order with `test: true`, a fictional delivery address, and one visibly labeled test transaction per participant | Real money, multi-card Shopify Checkout, or a production merchant integration |
-| Confirmed Shopify POS counter | Records each exact agreed share, then gives the cashier a clear split-payment handoff | That Sutra connects to the terminal or that its signed agreement proves the POS payment |
-| Shopify/public online product without an adapter | Preserves live product facts, coordinates shares, and returns the group to merchant checkout | That Sutra placed the order; delivery address, shipping, tax and payment remain at checkout |
-| Physical restaurant/bar bill | Reconciles the bill, captures exact agreement, and signs a receipt with `owed_amount > 0` and `charged_amount = 0` | That Sutra paid the venue |
+| Merchant with a real Sutra/Prava adapter | One hosted mandate session per payer, then person-scoped charges once each approves | That a merchant URL alone proves adapter support |
+| Configured Shopify development store | After **test** approvals, one valid Shopify order with `test: true` and one labeled test transaction per participant | Real money, multi-card Shopify Checkout, or a production integration |
+| Confirmed Shopify POS counter | Records each exact share, hands the cashier a clear split-payment total | That Sutra connects to the terminal or observes the POS payment |
+| Shopify/public product, no adapter | Preserves live product facts and coordinated shares, returns the group to merchant checkout | That Sutra placed the order — address, shipping, tax, and payment stay at checkout |
+| Physical restaurant/bar bill | Reconciles the bill and signs a receipt with `owed_amount > 0`, `charged_amount = 0` | That Sutra paid the venue |
 
-A shared online checkout becomes fully automatic only when the merchant supports split tender or a merchant adapter can reconcile the individual payment credentials. That protocol extension is designed in [`spec/PROTOCOL.md`](spec/PROTOCOL.md); merchant adoption is not a shipped claim.
+A shared online checkout becomes fully automatic only once a merchant supports split tender or an adapter can reconcile individual credentials — designed in [`spec/PROTOCOL.md`](spec/PROTOCOL.md), not a shipped claim.
 
-### Verified Shopify test demo
-
-As of **August 2, 2026**, the deployed engine is connected to the Shopify development store
-`sutra-agzdw2mf.myshopify.com`. The app has order, product and publication access; three real
-development-store products are published; and `/v1/shopify-test/status` reports the adapter ready
-while Prava runs in sandbox mode.
-
-The judgeable flow is: choose a real store product → create a two-person split → let each person
-approve their capped Prava sandbox mandate → wait for the Sutra group to commit → create one
-Shopify **TEST** order → open Shopify Admin and show the order total plus one labeled test
-transaction per participant. This is strong merchant-record integration evidence, but it is still
-test infrastructure: no real money moves and Shopify Checkout does not collect multiple cards.
+As of **August 2, 2026**, the deployed engine is connected to the Shopify development store `sutra-agzdw2mf.myshopify.com`, with three published demo products and `/v1/shopify-test/status` reporting the adapter ready while Prava runs in sandbox mode. The judgeable flow: pick a real product, run a two-person split, each person approves their capped Prava sandbox mandate, the group commits, then Sutra creates one Shopify **TEST** order you can open in Shopify Admin next to its one labeled test transaction per participant. Real merchant-record integration evidence — still test infrastructure, no real money, and Shopify Checkout itself never collects multiple cards.
 
 ## Why the engine is difficult
 
-The happy path is not the differentiator. Card charges do not roll back like database rows, so GMP/1 is a crash-resumable commit saga built around evidence:
-
-- **No pooled funds:** there is no wallet, balance, or ledger table in the engine schema.
-- **Consent cannot stretch:** cart hash and cap are part of the approved object; a larger share requires fresh consent.
-- **Definite refusal is not retried:** a terminal provider response closes that attempt.
-- **Unknown is not failure:** after a lost response, the engine asks the provider for the idempotency reference before it considers retrying.
-- **No silent double charge:** attempt references survive restart and are reconstructed from the append-only event log.
-- **Partial means partial:** if an irreversible mixed outcome occurs, the receipt reports it instead of manufacturing “atomic” success.
-- **At-venue never says charged:** receipt verification rejects a non-charging rail that claims money moved.
-
-Commit policies include `all_of`, quorum, weighted threshold, veto, required members, and deadline fallback. Roles include payer, sponsor, backstop, and observer. The exact state machines and failure semantics live in the [GMP/1 specification](spec/PROTOCOL.md).
+Card charges don't roll back like database rows, so GMP/1 is a crash-resumable commit saga, not a happy path with a try/catch around it. There is no wallet, balance, or ledger table anywhere in the schema. Consent can't stretch — cart hash and cap are part of what was approved, and a larger share needs fresh consent. A definite refusal from the payment provider is never retried; an unknown result is never treated as a failure, and the engine asks the provider for its own idempotency reference before deciding anything. Attempt references survive a restart, reconstructed from the append-only event log, so nothing gets silently charged twice. A mixed, irreversible outcome is reported as `partial`, never manufactured into a false "atomic" success. And a receipt on a non-charging rail that claims a charge fails its own verification. Commit policies include `all_of`, quorum, weighted threshold, veto, required members, and deadline fallback, with payer, sponsor, backstop, and observer roles — the full state machines live in [`spec/PROTOCOL.md`](spec/PROTOCOL.md).
 
 ## Project NANDA: a payment adapter, not another ledger
 
-[`nanda-town-prava/`](nanda-town-prava/) is a real NANDA Town `payments` plugin registered as `prava_mandates` under `nest.plugins.payments`. It replaces the simulator’s pooled `prepaid_credits` model with merchant-scoped, amount-capped authorization headroom.
+[`nanda-town-prava/`](nanda-town-prava/) is a real NANDA Town `payments` plugin, registered as `prava_mandates` under `nest.plugins.payments`, replacing the simulator's pooled `prepaid_credits` model with merchant-scoped, capped authorization headroom.
 
 | | `prepaid_credits` | `prava_mandates` |
 |---|---|---|
-| Value model | Internal pooled balances | Each principal’s own card authorization |
+| Value model | Internal pooled balances | Each principal's own card authorization |
 | `pay()` | Debit one agent, credit another | Create/execute a merchant payment mandate |
-| Human authorization | Process-controlled | Hosted approval + passkey in live mode |
-| Payee | Another simulator agent | External merchant |
+| Payee | Another simulator agent | An external merchant |
 | Group purchase | No multi-principal primitive | `pay_group()` binds N mandates to one policy |
 | Agent-to-agent transfer | Supported | Deliberately impossible on this rail |
-
-![Live NANDA discovery evidence served by Sutra](docs/screenshots/readme-nanda.png)
-
-Run the narrated, self-grading comparison with no keys or network:
 
 ```bash
 npm run nanda:scene
 ```
 
-The scene discovers the installed plugin through Python entry-point metadata, runs a four-agent purchase with a mid-flight decline and backstop, checks conservation invariants, and compares the same scenario with `prepaid_credits`. Simulated receipts are marked `simulated: true`; live mode requires human approval and never impersonates it. See the [plugin README](nanda-town-prava/README.md) and [evidence pack](docs/NANDA-EVIDENCE.md).
-
-The reusable package has also been submitted upstream to NANDA Town as
-[`projnanda/nandatown#210`](https://github.com/projnanda/nandatown/pull/210). The PR uses the
-required `hackathon/soham109-prava-group-mandates` branch and passes NANDA Town's repository-wide
-Ruff, formatting, Pyright and pytest gates.
-
-## Architecture
-
-| Layer | Responsibility | Primary code |
-|---|---|---|
-| Web / PWA | Planning, discovery, people, approvals, dashboard, receipts | [`web/`](web/) |
-| Coordination | Intent extraction, participant signals, time/geo math, explainable ranking | [`engine/src/plan/`](engine/src/plan/) · [`engine/src/agent/`](engine/src/agent/) |
-| Commerce intake | URL resolution, public catalogs, bill parsing and integrity checks | [`engine/src/catalog/`](engine/src/catalog/) · [`engine/src/bill/`](engine/src/bill/) |
-| GMP/1 engine | Share allocation, policies, mandate lifecycle, commit/recovery, receipts | [`engine/src/service.ts`](engine/src/service.ts) · [`engine/src/protocol/`](engine/src/protocol/) |
-| Payment adapters | Real Prava REST client, local mock, fault-injection proxy | [`engine/src/prava/`](engine/src/prava/) |
-| Agent surfaces | MCP server, A2A AgentCard, AgentFacts, SkillMD, AI catalog | [`mcp/`](mcp/) · [`engine/src/discovery/`](engine/src/discovery/) |
-| Merchant-page intake | Shared detector, bookmarklet, unpacked extension | [`widget/`](widget/) · [`extension/`](extension/) |
-| NANDA Town | Python `payments` plugin and simulator-compatible protocol adapter | [`nanda-town-prava/`](nanda-town-prava/) |
-| Shopify proof | Development-store test-order adapter and transaction reconciliation | [`docs/SHOPIFY_FLOW.md`](docs/SHOPIFY_FLOW.md) |
-
-The engine is intentionally one persistent process today: SQLite, the approval poller, SSE fan-out, and the in-process event hub depend on a single replica. Deployment invariants are documented in the [runbook](docs/RUNBOOK.md).
+discovers the installed plugin through Python entry-point metadata, runs a four-agent purchase with a mid-flight decline and backstop, checks conservation invariants, and compares the same scenario against `prepaid_credits`. Simulated receipts are marked `simulated: true`; live mode requires a real human approval and never impersonates one. Submitted upstream as [`projnanda/nandatown#210`](https://github.com/projnanda/nandatown/pull/210). Full evidence: [`docs/NANDA.md`](docs/NANDA.md).
 
 ## Run it locally
 
@@ -173,59 +85,41 @@ Requires Node.js 22.5+.
 npm install
 cp .env.example .env     # optional; defaults use SQLite + mock Prava
 npm run dev              # web :3000 · engine :4100
+npm run demo             # in another terminal: four approvals → commit → verified receipt
 ```
 
-In another terminal:
-
-```bash
-npm run demo             # four approvals → commit → verified receipt
-```
-
-`npm run demo` checks for an engine at `localhost:4100` first. If `npm run dev` isn't running yet, it starts one itself for the duration of the demo and stops it again afterward — so running the two commands out of order, or skipping straight to `npm run demo`, still works.
-
-Useful verification commands:
+`npm run demo` looks for an engine at `localhost:4100` first, and starts one itself if `npm run dev` isn't already running — the two commands work in either order.
 
 ```bash
 npm test -w engine       # protocol, API, integrations, failure semantics
 npm run test:widget      # detector shared by widget/bookmarklet/extension
-npm run build            # production Next.js build + type checking
+npm run build             # production Next.js build + type checking
 npm run nanda:test       # Python adapter suite
-npm run nanda:scene      # narrated NANDA differentiator
 ```
 
-The default demo is deliberately offline and reproducible. Real Prava sandbox approval requires a human to complete the hosted passkey ceremony; automation must not approve a mandate on someone’s behalf.
+The default demo is offline and reproducible on purpose. Real Prava sandbox approval requires a human to complete the hosted passkey ceremony — automation must not approve a mandate on someone's behalf.
 
-## Current limits—plainly
+## Current limits, plainly
 
-- No completed, human-approved Prava sandbox card charge is documented in this repository yet. Real mandate-session creation is integrated; do not describe that as settled money.
-- Sutra does not place an ordinary shared merchant order when the checkout accepts only one card.
-- Shopify POS is a cashier handoff today, not a direct terminal integration. Merchant/POS receipts—not Sutra’s agreement receipt—prove payment.
-- The configured development-store proof accepts a fictional address in Sutra and writes a `test: true` Shopify order. On ordinary online handoff, address, shipping, tax and final payment remain at Shopify checkout.
-- The restaurant-bill rail records agreement and exact debt but never charges the venue.
-- Photo OCR runs on-device by default. Upload to a configured vision service requires an explicit disclosed click; pasted bill text and all arithmetic are deterministic.
-- Catalog coverage is best-effort over public data. Authenticated carts and heavily client-rendered pages require the extension or a merchant integration.
-- Venue search depends on public OpenStreetMap services and can time out under load.
-- The Chrome extension is load-unpacked only; it is not in the Web Store.
-- The production engine is a durable single-writer SQLite deployment, not a horizontally scaled service.
-- Native mobile apps are roadmap work; the responsive PWA is what ships now.
+No completed, human-approved Prava sandbox card charge is documented in this repository yet — mandate-session creation is real and integrated, but do not describe that as settled money. Sutra does not place an ordinary shared merchant order when the checkout accepts only one card. Shopify POS is a cashier handoff, not a terminal integration. The restaurant-bill rail records agreement and exact debt but never charges the venue. Post-capture refunds are not supported on any rail today — the remedy is a merchant-initiated refund or a cardholder chargeback. The Chrome extension is load-unpacked only, not in the Web Store. The production engine is a durable single-writer SQLite deployment, not a horizontally scaled service. Native mobile apps are roadmap work; the responsive PWA is what ships now.
 
-The detailed built/partial/not-built inventory is in [`docs/PRODUCT_AND_MOBILE_ROADMAP.md`](docs/PRODUCT_AND_MOBILE_ROADMAP.md).
+The full built/partial/not-built inventory is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12.
 
 ## Documentation
 
 | Read this | When you need |
 |---|---|
+| [`docs/EXPLANATION.md`](docs/EXPLANATION.md) | The zero-knowledge explainer, no prior payments or agent-protocol knowledge assumed |
 | [`spec/PROTOCOL.md`](spec/PROTOCOL.md) | GMP/1 objects, policies, state machines, commit saga, rails, receipts |
-| [`docs/COORDINATION.md`](docs/COORDINATION.md) | Signal model, common-window math, geo model, ranking arithmetic |
-| [`docs/REPO-MAP.md`](docs/REPO-MAP.md) | Code-level map with concrete implementation references |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Code-level map, the coordination layer, the delegate mesh, and the Shopify boundary — all checked against the source |
 | [`docs/REFERENCE.md`](docs/REFERENCE.md) | Endpoint inventory, failure taxonomy, built-vs-designed claims |
-| [`docs/PRODUCT_ARCHITECTURE.md`](docs/PRODUCT_ARCHITECTURE.md) | Web, extension, merchant checkout, accounts, and mobile boundaries |
-| [`docs/NANDA-EVIDENCE.md`](docs/NANDA-EVIDENCE.md) | NANDA plugin transcripts, baseline diff, registry evidence |
+| [`docs/NANDA.md`](docs/NANDA.md) | NANDA plugin evidence, baseline diff, registry status |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Local operation, deployment, keys, recovery, production invariants |
-| [`docs/TRACK-EVIDENCE.md`](docs/TRACK-EVIDENCE.md) | Track-by-track judging evidence, every claim sourced to a file, line, or live URL |
+| [`docs/TRACK-EVIDENCE.md`](docs/TRACK-EVIDENCE.md) | Track-by-track judging evidence, sourced to a file, line, or live URL |
+| [`docs/BUSINESS-CASE.md`](docs/BUSINESS-CASE.md) | The commercial argument: unit economics, the wedge, and what would kill it |
 
 ## Team
 
 Built by **Soham Aggarwal and Arshjeet** as team `__init__ to win it` for the Agentic Commerce Hackathon, August 2026.
 
-The project’s standard is simple: if money did not move, the product, receipt, README, and demo must all say so.
+The project's standard is simple: if money did not move, the product, receipt, README, and demo must all say so.

@@ -27,7 +27,7 @@ The manifest has host permissions only for the deployed and local Sutra engines.
 
 ## Important boundary
 
-The extension imports merchant-reported facts and starts coordination. It does not retain or control the merchant's authenticated session, submit an address or checkout, place an order, or verify a payment. Final prices, discounts, shipping and tax must be checked at the merchant. Automatic completion would additionally need a supported merchant/payment adapter, a stable quote or reservation, and merchant authentication. See [product architecture](../docs/PRODUCT_ARCHITECTURE.md).
+The extension imports merchant-reported facts and starts coordination. It does not retain or control the merchant's authenticated session, submit an address or checkout, place an order, or verify a payment. Final prices, discounts, shipping and tax must be checked at the merchant. Automatic completion would additionally need a supported merchant/payment adapter, a stable quote or reservation, and merchant authentication. See [architecture](../docs/ARCHITECTURE.md) §1.
 
 ## Files
 

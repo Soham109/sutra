@@ -43,7 +43,7 @@ docstring, why the scene shows a *backstop absorbing* a decline rather than a
 *requote cascade*: the local `simulated` engine implements the former but not
 the latter (Limitations #9 below) — a real requote cascade is proven
 separately, over HTTP, in [`scripts/live_check.py`](scripts/live_check.py) and
-[`docs/NANDA-EVIDENCE.md`](../docs/NANDA-EVIDENCE.md) §3.1.
+[`docs/NANDA.md`](../docs/NANDA.md) §2.
 
 ---
 
@@ -212,7 +212,7 @@ configuration, not the plugin's.
 
 Proof that this path works against a real engine over a real socket, including
 what broke the first time it was run and how it was fixed:
-[`docs/NANDA-EVIDENCE.md`](../docs/NANDA-EVIDENCE.md). The harness is
+[`docs/NANDA.md`](../docs/NANDA.md) §2. The harness is
 [`scripts/live_check.py`](scripts/live_check.py) and it grades itself against
 whichever Prava adapter the engine reports at `GET /health`.
 
@@ -497,7 +497,7 @@ then 51, then 57, then 117, in one week, each a genuine addition (new
 regression tests, then a hand-rolled property test over randomised
 scenarios), not a typo. Treat it as a floor, not a fixed constant, and
 re-run `pytest -q` for the true count;
-[`docs/NANDA-EVIDENCE.md`](../docs/NANDA-EVIDENCE.md) §8.1 records exactly
+[`docs/NANDA.md`](../docs/NANDA.md) §4 records exactly
 when and why it moved, including one run mid-edit that briefly failed and
 was green again a minute later.
 
@@ -533,7 +533,7 @@ hold the deployed engine's bearer token, so the honest result is a refused
 write, reported plainly — never a faked commit. The full run, with a token
 present, minting real `sandbox.collect.prava.space` approval URLs and then
 being refused a self-approval, is in
-[`docs/NANDA-EVIDENCE.md`](../docs/NANDA-EVIDENCE.md) §3.2 and §8.4.
+[`docs/NANDA.md`](../docs/NANDA.md) §2 and §4.
 
 ---
 

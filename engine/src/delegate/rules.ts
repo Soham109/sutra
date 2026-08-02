@@ -17,7 +17,7 @@ import { PlaceSchema, WindowSchema, type SignalKind, type SignalPayload, type Sl
 // account. `SignalPayload` (../plan/types.ts) has no payment-shaped variant,
 // so there is structurally nothing for this function to emit even if it
 // wanted to. The actual mandate approval stays a passkey ceremony on the
-// human's own device — see docs/AGENT-MESH.md for why that boundary is
+// human's own device — see docs/ARCHITECTURE.md §9 for why that boundary is
 // deliberate rather than a gap.
 // ---------------------------------------------------------------------------
 

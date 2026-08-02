@@ -241,7 +241,7 @@ export async function main(): Promise<{ app: FastifyInstance; close: () => Promi
   // Standing rules a human sets in advance, so their own agent can answer the
   // coordination questions above (in/when/where/budget) without either human
   // in the loop or an invented answer. Never a payment path — see
-  // engine/src/delegate/rules.ts and docs/AGENT-MESH.md.
+  // engine/src/delegate/rules.ts and docs/ARCHITECTURE.md §9.
   installDelegateSchema(db)
   const delegateStore = new DelegateStore(db)
   registerDelegateRoutes(app, { store: delegateStore, plans, planStore, social })

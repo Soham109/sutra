@@ -1,40 +1,21 @@
 # Documentation index
 
-Start with [`../README.md`](../README.md) for what this is and how the money moves, then
-[`TRACK-EVIDENCE.md`](TRACK-EVIDENCE.md) for the judging evidence, track by track.
-
-## Start here
+Start with [`../README.md`](../README.md) for what this is and how the money moves, then [`TRACK-EVIDENCE.md`](TRACK-EVIDENCE.md) for the judging evidence, track by track.
 
 | Document | One line |
 |---|---|
 | [`../README.md`](../README.md) | The front door: what this is, how the money moves, what the product does, where it honestly stops, and a 60-second quickstart. |
+| [`EXPLANATION.md`](EXPLANATION.md) | The zero-knowledge explainer — assumes no prior knowledge of payments infrastructure or agent protocols. |
 | [`TRACK-EVIDENCE.md`](TRACK-EVIDENCE.md) | Track-by-track judging evidence, every claim sourced to a file, line, or live URL. |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | How the system is built: the repo and engine module map, the data model, the four request flows, the coordination layer's math, the delegate mesh, the Shopify boundary, and what's built vs. roadmap. Written to be checked, not trusted. |
+| [`NANDA.md`](NANDA.md) | The NANDA Town payments plugin: the thesis, live-mode evidence, the baseline diff, the registry status, and what was not verified. |
 | [`RUNBOOK.md`](RUNBOOK.md) | Operations: every npm script, how to deploy each half, every environment variable, how to rotate a key, and what to do when something breaks. |
-| [`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md) | Permanent engineering knowledge: the nine invariants that must not break, the Prava integration traps, and the file ownership map. Read before changing anything in `engine/src/`. |
-
-## The product and the protocol
-
-| Document | One line |
-|---|---|
-| [`REFERENCE.md`](REFERENCE.md) | The long tail the front page should not carry: the full endpoint inventory, the 36-case failure taxonomy, built vs designed-not-built, and the pre-existing-work disclosure. |
-| [`REPO-MAP.md`](REPO-MAP.md) | What the code actually contains, with a file:line on every claim — the data model, the state machines, and the four main request flows traced through real function calls. Written to be checked, not trusted. |
-| [`../spec/PROTOCOL.md`](../spec/PROTOCOL.md) | GMP/1 formally: objects, state machines, the decision, the commit saga, crash recovery, receipts, and the settlement rails. |
-| [`COORDINATION.md`](COORDINATION.md) | The layer above the protocol: the signal model, common-window sweeping, spherical geometry, and the exact arithmetic behind every option's score. |
-| [`../spec/AP2-EXTENSION.md`](../spec/AP2-EXTENSION.md) | A positioning memo against AP2 v0.2: where the multi-principal gap is and what an extension would need. |
-| [`PRODUCT_ARCHITECTURE.md`](PRODUCT_ARCHITECTURE.md) | The boundary between web discovery, extension import, merchant checkout, accounts and mobile. |
-| [`PRODUCT_AND_MOBILE_ROADMAP.md`](PRODUCT_AND_MOBILE_ROADMAP.md) | Product, platform and mobile roadmap, each item marked built / partly built / not built. |
-| [`SHOPIFY_FLOW.md`](SHOPIFY_FLOW.md) | The Shopify path end to end: storefront search, the POS split-tender rail, and the checkout handoff boundary. |
-
-## Evidence
-
-| Document | One line |
-|---|---|
+| [`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md) | Permanent engineering knowledge: the invariants that must not break, the Prava integration traps, and the file ownership map. Read before changing anything in `engine/src/`. |
+| [`REFERENCE.md`](REFERENCE.md) | The long tail: the full endpoint inventory, the 36-case failure taxonomy, built vs. designed-not-built, and the pre-existing-work disclosure. |
 | [`BUSINESS-CASE.md`](BUSINESS-CASE.md) | The commercial argument, argued honestly: unit economics, the wedge, the competitive landscape, and what would kill it. |
-| [`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md) | The NANDA Town evidence pack: live-mode transcripts, the baseline diff against `prepaid_credits`, the SkillMD submission, and what was not verified. |
-| [`NANDA-REGISTRY.md`](NANDA-REGISTRY.md) | What the two NANDA registries actually are, what we submitted where, and why Index v2 registration is not the prize. |
-| [`AGENT-MESH.md`](AGENT-MESH.md) | The agent mesh: delegate answering, open questions, and the MCP tools that expose them. |
-| [`SCREENSHOTS.md`](SCREENSHOTS.md) | The screenshot set, how it is captured, and which shot is the Devfolio cover image. |
-| `../film/DEMO_RECORDING.md` | The demo recording plan: the shot list, what has to be on screen, and what must never be. Developed locally and gitignored — the finished video is uploaded to the submission rather than shipped in the repository. |
+| [`../spec/PROTOCOL.md`](../spec/PROTOCOL.md) | GMP/1 formally: objects, state machines, the decision, the commit saga, crash recovery, receipts, and the settlement rails. |
+| [`../spec/AP2-EXTENSION.md`](../spec/AP2-EXTENSION.md) | A positioning memo against AP2 v0.2: where the multi-principal gap is and what an extension would need. |
+| `../film/DEMO_RECORDING.md` | The demo recording plan. Developed locally and gitignored — the finished video is uploaded to the submission rather than shipped in the repository. |
 
 ## Integrations
 

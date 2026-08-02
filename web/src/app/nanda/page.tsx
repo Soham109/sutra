@@ -208,7 +208,7 @@ export default function NandaPage() {
           <a href={`${REPO}/blob/main/nanda-town-prava/nanda_town_prava/plugin.py`}>plugin.py</a>
           <a href={`${REPO}/blob/main/nanda-town-prava/scripts/town_scene.py`}>town_scene.py</a>
           <a href={`${REPO}/blob/main/nanda-town-prava/README.md`}>nanda-town-prava/README.md</a>
-          <a href={`${REPO}/blob/main/docs/NANDA-EVIDENCE.md`}>docs/NANDA-EVIDENCE.md</a>
+          <a href={`${REPO}/blob/main/docs/NANDA.md`}>docs/NANDA.md</a>
           <a href={`${REPO}/blob/main/spec/PROTOCOL.md`}>spec/PROTOCOL.md</a>
         </footer>
       </div>

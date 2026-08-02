@@ -292,7 +292,7 @@ export default function DocsPage() {
               GMP/1 begins the moment a group already knows what it&rsquo;s buying. Real groups don&rsquo;t
               start there — they start at &ldquo;dinner Saturday?&rdquo; and spend an hour deciding when,
               where, and who can make it. This layer is that hour, made into an object.{' '}
-              <code>engine/src/plan/</code>, <code>docs/COORDINATION.md</code>.
+              <code>engine/src/plan/</code>, <code>docs/ARCHITECTURE.md</code> §10.
             </p>
           </div>
           <div className="doc-diagram-row">
@@ -426,7 +426,7 @@ export default function DocsPage() {
         <footer className="docs-foot">
           <Link href="/nanda">NANDA evidence page</Link>
           <a href={FILE('spec/PROTOCOL.md')}>spec/PROTOCOL.md</a>
-          <a href={FILE('docs/COORDINATION.md')}>docs/COORDINATION.md</a>
+          <a href={FILE('docs/ARCHITECTURE.md')}>docs/ARCHITECTURE.md</a>
           <a href={FILE('engine/src/service.ts')}>engine/src/service.ts</a>
           <a href={FILE('engine/src/rails.ts')}>engine/src/rails.ts</a>
           <a href={FILE('engine/src/receipt.ts')}>engine/src/receipt.ts</a>

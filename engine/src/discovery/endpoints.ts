@@ -217,7 +217,7 @@ export const ENGINE_ENDPOINTS: readonly ApiEndpoint[] = [
   // availability, home location, constraints), and any MCP-capable agent can
   // then answer coordination questions on their behalf using those rules —
   // never a payment. See mcp/src/server.ts (list_open_questions,
-  // answer_as_delegate, get_plan_status) and docs/AGENT-MESH.md.
+  // answer_as_delegate, get_plan_status) and docs/ARCHITECTURE.md §9.
   {
     method: 'PUT',
     path: '/v1/delegate/rules',

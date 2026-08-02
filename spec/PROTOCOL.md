@@ -6,7 +6,7 @@ Reference implementation: [`engine/src/`](../engine/src/). Where a section
 names a file, that file is the normative source and this document is the
 summary.
 
-Companions: [`docs/COORDINATION.md`](../docs/COORDINATION.md) documents in full
+Companions: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §10 documents in full
 the pre-protocol phase that §11 summarises ·
 [`spec/AP2-EXTENSION.md`](AP2-EXTENSION.md) positions GMP/1 against AP2 v0.2.
 
@@ -275,7 +275,7 @@ circles with reliability records and standing trust lines on recurring
 mandates — group consent quietly becoming group credit.
 
 L0–L2 are implemented. L3 and L4 are not; see
-[`docs/PRODUCT_AND_MOBILE_ROADMAP.md`](../docs/PRODUCT_AND_MOBILE_ROADMAP.md).
+[`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §12.
 
 ---
 
@@ -438,7 +438,7 @@ whose every factor carries a sentence a human can check against the data → the
 group picks one.
 
 The arithmetic, the interval algebra, the geography, and the exact factor
-weights are documented in [`docs/COORDINATION.md`](../docs/COORDINATION.md).
+weights are documented in [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §10.
 
 ### 11.3 The handover
 

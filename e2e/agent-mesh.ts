@@ -29,7 +29,7 @@
  *  5. The boundary — the money step hands back to the humans. N real passkey
  *                    URLs, one per person, and this script — like every
  *                    delegate above it — cannot complete a single one of
- *                    them. That line is deliberate; see docs/AGENT-MESH.md.
+ *                    them. That line is deliberate; see docs/ARCHITECTURE.md §9.
  *  6. The refusal  — step 5 shows the boundary by omission (this script never
  *                    calls the human-only route). Step 6 attempts it: a real
  *                    merchant forces the prava_mandates rail, and an agent —
