@@ -36,7 +36,7 @@ for (let i = 0; i < spec.lines.length; i++) {
   const voice = preferredVoice
   execFileSync(edge, [
     '--voice', voice,
-    '--rate=+4%',
+    `--rate=${spec.rate}`,
     '--pitch=+0Hz',
     '--text', line.text,
     '--write-media', raw,
@@ -62,9 +62,17 @@ for (let i = 0; i < spec.lines.length; i++) {
   manifest.push({ file: `${stem}.wav`, atMs: line.atMs, durationMs, text: line.text, voice })
 }
 
+// atMs in narration.json are targets, not guarantees — the neural voice runs
+// at its own pace regardless of word count. Visual scene cuts (render.mjs)
+// are on their own deterministic clock and never read this file, so nudging
+// a clip's start later only delays when that line is heard, not what's on
+// screen. Push forward by the spec's gap, never pull earlier.
 for (let i = 0; i < manifest.length - 1; i++) {
-  const over = manifest[i].atMs + manifest[i].durationMs - manifest[i + 1].atMs
-  if (over > 0) throw new Error(`Narration line ${i} overlaps the next by ${over}ms.`)
+  const earliestNext = manifest[i].atMs + manifest[i].durationMs + spec.gapMs
+  if (manifest[i + 1].atMs < earliestNext) {
+    console.warn(`  line ${i + 1} pushed ${earliestNext - manifest[i + 1].atMs}ms to clear line ${i}`)
+    manifest[i + 1].atMs = earliestNext
+  }
 }
 
 writeFileSync(join(here, 'build', 'voice.json'), JSON.stringify(manifest, null, 2))
