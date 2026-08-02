@@ -8,7 +8,7 @@ http://localhost:4100
 ## Endpoints
 
 POST /v1/groups
-  Create a group checkout. One cart, N members, one merchant-locked amount-capped payment mandate per member on their own card, all committed together under a policy. Needs `Authorization: Bearer <ENGINE_API_TOKEN>`. All amounts are integer minor units (cents). Returns one private approval URL per member.
+  Create a group checkout. One cart, N members, one merchant-locked amount-capped payment mandate per member on their own card, all committed together under a policy. Needs `Authorization: Bearer <ENGINE_API_TOKEN>`. All amounts are integer minor units (cents). Returns one private approval URL per member. A resolvable merchant URL alone is **not** enough to reach the card rail — it proves where the item came from, not that the merchant can be charged, so it defaults to `checkout_handoff` (agree the split, then finish at the merchant's own checkout). To actually mint a card mandate per member, pass `"rail": "prava_mandates"` explicitly, as below, against a merchant this deployment is actually configured to charge.
   Example:
     curl -X POST "http://localhost:4100/v1/groups" \
       -H "Content-Type: application/json" \
@@ -28,6 +28,7 @@ POST /v1/groups
           { "name": "Maya", "role": "payer" }
         ],
         "policy": { "type": "quorum", "m": 3 },
+        "rail": "prava_mandates",
         "deadline_minutes": 60
       }'
   Response:
@@ -216,13 +217,13 @@ POST /v1/plans/{plan_id}/choose
     { "plan_id": "pl_4d7e", "status": "chosen", "chosen_option_id": "op_2" }
 
 POST /v1/plans/{plan_id}/convert
-  The handover: turn the chosen plan into a real group checkout with real per-member mandates. Same organiser requirement as `choose`, above.
+  The handover: turn the chosen plan into a real group checkout. Same organiser requirement as `choose`, above. The rail is decided by where the chosen option came from, not requested here: an OpenStreetMap venue (like this Bandra dinner) always settles `at_venue` — no card is charged through this engine — because a restaurant listing is not a merchant this engine can bill. A chosen product-catalog option instead lands on `checkout_handoff` by default, or `shopify_pos` if the caller asked for it; only `POST /v1/groups` called directly, with `"rail": "prava_mandates"` explicit in the body, ever mints real per-member card mandates.
   Example:
     curl -X POST "http://localhost:4100/v1/plans/pl_4d7e/convert" \
       -H "Content-Type: application/json" \
       -d '{ "unit_amount": 80000, "qty": 4, "currency": "INR" }'
   Response:
-    { "group_id": "gs_2b8c", "rail": "prava_mandates", "members": [{ "member_id": "mi_e5", "name": "Soham", "share_amount": 80000 }] }
+    { "group_id": "gs_2b8c", "rail": "at_venue", "members": [{ "member_id": "mi_e5", "name": "Soham", "share_amount": 80000 }] }
 
 PUT /v1/delegate/rules
   Set the standing rules a delegate agent may act on for the signed-in caller: budget ceiling, recurring availability, home location, constraints. Requires being signed in as the human whose rules these are.

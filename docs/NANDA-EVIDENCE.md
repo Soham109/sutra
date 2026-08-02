@@ -37,8 +37,9 @@ upstream maintainers.
 > them directly, pooling funds in their own balance before forwarding it:
 > the exact custody `prava_mandates` refuses. Our plugin registers as a real
 > `nest.plugins.payments` entry point and inverts the model: `pay_group()`
-> mints one merchant-scoped, amount-capped mandate per principal, commits or
-> cancels the whole group atomically, and never credits one agent from
+> mints one merchant-scoped, amount-capped mandate per principal, then
+> charges each sequentially with idempotent recovery so the group ends either
+> fully committed or every mandate cancelled, and never credits one agent from
 > another's payment. Run `python scripts/town_scene.py`: it discovers the
 > entry point, mints four mandates, watches one principal decline mid-flight
 > and a backstop absorb the shortfall, prints a hash-chained receipt with

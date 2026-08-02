@@ -210,7 +210,7 @@ The first six were in the original specification. The rest came out of building 
 - No public reliability score or coercive decline UX.
 - No vertical-specific backend fork for movies, flights, dinner, or stays; they are templates over one protocol.
 - No mobile WebView shell presented as a native app.
-- **The word *charged* is reserved for money this engine actually moved.** A rail that cannot charge produces `settled`, never `charged`; the two are distinct member states, distinct verbs on every surface, and distinct fields in the receipt. `verifyReceipt` fails an `at_venue` receipt that reports a non-zero charged total.
+- **The word *charged* is reserved for money this engine actually moved.** A rail that cannot charge produces `settled`, never `charged`; the two are distinct member states, distinct verbs on every surface, and distinct fields in the receipt. `verifyReceipt` fails a receipt on any non-charging rail (`shopify_pos`, `checkout_handoff`, `at_venue`) that reports a non-zero charged total.
 - **No merchant is inferred from a URL that is not one.** A map page, a brochure site, or the schema's placeholder host does not make something chargeable. When there is no reachable merchant, say so and take the other rail.
 - **Nothing is invented to make arithmetic close.** A bill that does not reconcile against its printed total is reported as not reconciling, with every unread line returned; the printed line amount always wins over a computed one.
 - **Silence is not agreement.** A participant who has not answered is never counted as a yes, is never folded in with someone who deliberately abstained, and is always named in the sentence that explains the number.

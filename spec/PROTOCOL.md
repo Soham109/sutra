@@ -151,7 +151,7 @@ receipt, transition to `committed` or `partial`.
 the allocation is final and every locked member has agreed their number: each
 one moves to `settled` with `charged_amount = 0`, the group moves to
 `committed`, and the receipt is issued with `rail: "at_venue"` and a total
-charged of zero. There is no card to touch, so there is nothing to make atomic.
+charged of zero. There is no card to touch, so no charge sequence runs at all.
 
 ### 4.3 Crash recovery
 
@@ -241,11 +241,12 @@ any of the following hold:
 3. `chain_head` does not equal the final entry's hash;
 4. `totals.charged` ≠ Σ `charged_amount`;
 5. `totals.owed` ≠ Σ `owed_amount`;
-6. **`rail` is `at_venue` and the charged total is not zero**;
+6. **`rail` has no charging capability (`shopify_pos`, `checkout_handoff`, or
+   `at_venue`) and the charged total is not zero**;
 7. the signature is missing, or does not verify under `public_key`.
 
 Rule 6 is the load-bearing one for §10. The rail is not decoration: a receipt
-from a non-charging rail that claims money moved is exactly the forgery this
+from any non-charging rail that claims money moved is exactly the forgery this
 chain exists to make detectable, and it is detectable offline by anyone holding
 the file.
 
@@ -282,18 +283,24 @@ L0–L2 are implemented. L3 and L4 are not; see
 
 Normative. Implementation: [`engine/src/rails.ts`](../engine/src/rails.ts).
 
-### 10.1 The two rails
+### 10.1 The four rails
 
-| | `prava_mandates` | `at_venue` |
-|---|---|---|
-| `charges` | true | **false** |
-| `mandates` | true | **false** |
-| `needs_merchant` | true | false |
-| Member consent | passkey approval of a merchant-scoped, amount-capped mandate on the provider's hosted page | explicit acceptance of an exact amount, recorded before the card machine arrives |
-| Terminal member status | `charged` | `settled` |
-| `settled_verb` (the only verb a surface may use) | "charged" | "settled at the venue" |
-| Receipt `charged_amount` | the amount charged | always 0 |
-| Receipt `owed_amount` | the amount charged | the whole obligation |
+| | `prava_mandates` | `shopify_pos` | `checkout_handoff` | `at_venue` |
+|---|---|---|---|---|
+| `charges` | true | **false** | **false** | **false** |
+| `mandates` | true | **false** | **false** | **false** |
+| `needs_merchant` | true | true | true | false |
+| Member consent | passkey approval of a merchant-scoped, amount-capped mandate on the provider's hosted page | explicit acceptance of an exact amount, recorded before a cashier runs Shopify POS split tender | explicit acceptance of an exact amount, recorded before the group returns to the merchant's own checkout | explicit acceptance of an exact amount, recorded before the card machine arrives |
+| Terminal member status | `charged` | `settled` | `settled` | `settled` |
+| `settled_verb` (the only verb a surface may use) | "charged" | "ready for Shopify POS" | "approved for checkout" | "settled at the venue" |
+| Receipt `charged_amount` | the amount charged | always 0 | always 0 | always 0 |
+| Receipt `owed_amount` | the amount charged | the whole obligation | the whole obligation | the whole obligation |
+
+Only `prava_mandates` mints a Prava mandate or charges anything. The other
+three all record exact, explicit agreement and stop — `shopify_pos` and
+`checkout_handoff` differ only in what happens next (a cashier's terminal vs.
+the merchant's own online checkout), and both exist so a resolved catalog
+item never gets treated as chargeable just because its URL parses.
 
 Each rail carries a one-sentence `disclosure`. It is copied verbatim into the
 receipt, returned by `POST /v1/bill/split`, and published in the engine's
@@ -316,9 +323,20 @@ other's language.
 3. a URL that does not parse → `at_venue`;
 4. a hostname of `localhost` or ending in `.test` → `at_venue` (the schema's
    placeholder default is not a merchant);
-5. otherwise → `prava_mandates`.
+5. otherwise → `checkout_handoff` — a real, resolvable merchant URL proves
+   where an item came from, not that the merchant can be charged, so this is
+   the default outcome for a plain resolved product link.
 
-Two callers request `at_venue` explicitly, and both have a real reason:
+`prava_mandates` and `shopify_pos` are never chosen by inference — only an
+explicitly `requested` rail selects either of them (step 1). In the shipped
+product the one caller that ever requests `prava_mandates` is the discover
+builder's own checkout-mode picker, and only for the one merchant with a
+configured card-mandate adapter; every other product-search or pasted-link
+group lands on `checkout_handoff` unless a human explicitly picks a different
+mode.
+
+Three callers request a specific rail explicitly, rather than letting
+inference run:
 
 - **Bill splitting.** A photographed or pasted restaurant bill has no merchant
   the provider can charge. `POST /v1/bill/split` sets the rail directly and
@@ -326,15 +344,24 @@ Two callers request `at_venue` explicitly, and both have a real reason:
   agree ([`routes-v2.ts`](../engine/src/routes-v2.ts)).
 - **A venue chosen from OpenStreetMap.** Its `url` is an OSM node page or the
   restaurant's brochure site — neither takes payment. Letting that resolve to
-  the card rail would put a group on a path that ends in a charge that cannot
+  a charging rail would put a group on a path that ends in a charge that cannot
   happen, so `convertToGroup` forces `at_venue` whenever the chosen option's
   source is `overpass`, on the source rather than on whether the URL parses
   ([`plan/service.ts`](../engine/src/plan/service.ts)).
+- **The browser extension.** `POST /v1/extension/groups` always requests
+  `checkout_handoff` outright, regardless of the merchant URL — reading a page
+  is not a merchant payment integration, so an extension-created group never
+  qualifies for a charging rail just because the page it was read from has a
+  real hostname ([`routes-v2.ts`](../engine/src/routes-v2.ts)).
 
-An unrecognised rail string resolves to `prava_mandates` — the strict rail —
-rather than to the permissive one.
+An unrecognised rail string resolves to `checkout_handoff` — a non-charging
+rail — rather than to a charging one.
 
 ### 10.3 The non-charging lifecycle
+
+Shared by all three non-charging rails (`shopify_pos`, `checkout_handoff`,
+`at_venue`) — the same acceptance act, differing only in which merchant-owned
+next step it hands off to.
 
 1. `openMember` mints nothing. There is no merchant to scope a mandate to and
    no card ceremony to send anyone to, so no approval URL exists. The member
@@ -343,14 +370,16 @@ rather than to the permissive one.
 2. `acceptShare` records their consent: status `approved`, event
    `member.accepted`. This is the whole of their consent on this rail, and it
    is deliberately a different act from a passkey mandate so the receipt can
-   never blur the two. Calling it on a charging-rail group is refused.
+   never blur the two. Calling it on a charging-rail (`prava_mandates`) group
+   is refused.
 3. The ordinary policy evaluation of §4 runs unchanged.
 4. On commit, each locked member moves to `settled` with `charged_amount = 0`
    and `member.settled { owed, rail }` is emitted; the group moves to
    `committed` and emits `group.committed { rail, charged: false }`.
-5. The receipt is issued with `rail: "at_venue"`, `totals.charged = 0`,
-   `totals.owed` equal to the sum of the agreed amounts, and rule 7.3(6) makes
-   any later tampering with those numbers detectable.
+5. The receipt is issued with the group's actual rail (`shopify_pos`,
+   `checkout_handoff`, or `at_venue`), `totals.charged = 0`, `totals.owed`
+   equal to the sum of the agreed amounts, and rule 7.3(6) makes any later
+   tampering with those numbers detectable.
 
 **Implementation status, stated plainly:** step 2 is reachable over HTTP at
 `POST /v1/members/:id/accept` ([`engine/src/routes.ts`](../engine/src/routes.ts)),
@@ -424,7 +453,8 @@ one-directional. It produces an ordinary `CreateGroupInput`:
 - **policy, tolerance, deadline, no_blame** — supplied by the caller,
   defaulting to `all_of` / 500 bps / 60 minutes;
 - **rail** — `at_venue` if the chosen option came from Overpass, else
-  `prava_mandates` (§10.2);
+  `checkout_handoff` unless the caller explicitly asked for `shopify_pos`; a
+  plan conversion never produces `prava_mandates` (§10.2);
 - **origin** — `"plan"`, and a `product` provenance block carrying the plan id,
   option id, source, place and URL.
 

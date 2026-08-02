@@ -78,7 +78,7 @@ was donated to the FIDO Alliance, and standardization of agentic payment mandate
 active, current process (`spec/AP2-EXTENSION.md`). Multi-principal consent is a documented,
 undefended gap in that specification today. Being the working reference implementation of
 what a multi-principal extension needs — a shared cart hash across principals, a commit
-policy language, consent binding, an atomic-enough commit, backstop absorption, a signed
+policy language, consent binding, a crash-safe sequential commit, backstop absorption, a signed
 group receipt, and a settlement-rail declaration (`spec/AP2-EXTENSION.md`, "What a
 multi-principal extension needs") — is a real opportunity to influence a standard while it
 is still being written. That is evidence of good timing for the protocol contribution. It is

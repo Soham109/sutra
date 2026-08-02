@@ -15,8 +15,8 @@ Payment Mandate authorizes *a* payment instrument for *the* agent bound to it.
 There is no object anywhere in that surface that says *"these four people are
 each authorizing part of one purchase, and it happens for all of them or none
 of them."* GMP/1 is sutra's answer to that gap at the protocol level — a
-shared cart hash, a commit policy, per-principal capped mandates, atomic
-enough settlement.
+shared cart hash, a commit policy, per-principal capped mandates, a
+crash-safe sequential settlement with idempotent recovery.
 
 This feature is the other half of the same gap, one layer up. NANDA's whole
 premise — an "agent internet" where agents discover each other and act for
@@ -399,15 +399,15 @@ locally. The edit is additive only (two new imports, four new lines in
 `main()`) and coexists correctly alongside unrelated auth work that landed in
 the same file around the same time; the file still typechecks clean.
 
-### 6.3 `npm test -w engine` is not green repository-wide
+### 6.3 `npm test -w engine` is green repository-wide
 
-`engine/test/crash-double-charge.test.ts`, exercising `GroupService.approveMember`
-/ `MockPrava.charge` / `MockPrava.chargeCount`, none of which exist yet, currently
-fails 3 tests. This is unrelated, in-progress work outside `engine/src/delegate/**`;
-it was not touched here. Isolated: `npx tsc --noEmit -p engine/tsconfig.json` is
-clean outside that one file, and **all 406 pre-existing tests plus all 29 new
-`delegate.test.ts` tests pass** (`npx vitest run` restricted to those files,
-and the full suite minus that one file).
+At the time this section was first written, `engine/test/crash-double-charge.test.ts`
+was failing against unrelated in-progress work outside `engine/src/delegate/**`,
+so this file recorded the delegate tests as passing in isolation rather than
+claim a fully green suite that did not yet exist. That gap has since closed:
+`npm test -w engine` now passes every file, `crash-double-charge.test.ts`
+included — re-run it and believe the count it prints rather than any number
+frozen here.
 
 ### 6.4 Design simplifications, stated once and not hidden
 

@@ -32,20 +32,20 @@ who catches one will discount everything else.
    use them rather than inventing its own wording.
 
 2. **`verifyReceipt` fails a non-charging receipt that claims a charge.**
-   [`../engine/src/receipt.ts`](../engine/src/receipt.ts) lines 127-129:
+   [`../engine/src/receipt.ts`](../engine/src/receipt.ts) lines 142-144:
    ```ts
    if (!capabilityOf(receipt.rail).charges && charged !== 0) {
      errors.push(`${receipt.rail} receipt reports a charged amount — no card is charged on this rail`)
    }
    ```
-   `charged` is recomputed from the receipt entries at line 119, not read from `totals`, so a
+   `charged` is recomputed from the receipt entries at line 134, not read from `totals`, so a
    forged `totals.charged` cannot slip past. This check was originally hardcoded to
    `receipt.rail === 'at_venue'`; it is now driven by `capabilityOf()` so that every
    non-charging rail is covered automatically as rails are added. Do not narrow it back to a
    single rail name.
 
 3. **An OpenStreetMap venue is always on the `at_venue` rail.**
-   [`../engine/src/plan/service.ts`](../engine/src/plan/service.ts) lines 591-595:
+   [`../engine/src/plan/service.ts`](../engine/src/plan/service.ts) lines 620-624:
    ```ts
    const rail: Rail = option.source === 'overpass'
      ? 'at_venue'
@@ -63,7 +63,7 @@ who catches one will discount everything else.
    in-person counter.
 
 4. **Never invent a price.** OSM knows where a restaurant is, not what dinner costs.
-   [`../engine/src/plan/service.ts`](../engine/src/plan/service.ts) lines 571-578 throw rather
+   [`../engine/src/plan/service.ts`](../engine/src/plan/service.ts) lines 601-607 throw rather
    than guess: *"this option has no price attached — enter the amount, or split the real bill
    once you have it"*. Every Overpass venue is ingested with `price: null`.
 
@@ -92,7 +92,7 @@ who catches one will discount everything else.
    UI. **No LLM gets a vote in the ordering.**
 
 7. **The LLM only fills slots.**
-   [`../engine/src/agent/extract.ts`](../engine/src/agent/extract.ts) lines 501-513: if there
+   [`../engine/src/agent/extract.ts`](../engine/src/agent/extract.ts) lines 520-531: if there
    is no `OPENAI_API_KEY`, or the model call throws, `extractDeterministic` runs.
    ```ts
    /** LLM when a key exists, deterministic otherwise — and on any LLM failure. */
@@ -109,9 +109,9 @@ who catches one will discount everything else.
      return extractDeterministic(text, now)
    }
    ```
-   That is the floor, not a stub — `extractDeterministic` (line 70) is pure regex and date
+   That is the floor, not a stub — `extractDeterministic` (line 71) is pure regex and date
    arithmetic with no network. Even on the model path, the deterministic pass still runs
-   underneath (line 446) and supplies the concrete date maths. The model never picks a venue,
+   underneath (line 457) and supplies the concrete date maths. The model never picks a venue,
    sets a price, or decides who pays what.
 
 8. **Unknown charge state is never treated as failure.**
@@ -132,7 +132,7 @@ who catches one will discount everything else.
    the state is declared unknown. **Never guess.**
 
 9. **Currency is never taken from a schema default.** It is inferred from the geocoded country
-   ([`../engine/src/routes-plan.ts`](../engine/src/routes-plan.ts) lines 401-420) or from the
+   ([`../engine/src/routes-plan.ts`](../engine/src/routes-plan.ts) lines 432-451) or from the
    bill's tax regime ([`../engine/src/bill/currency.ts`](../engine/src/bill/currency.ts) lines
    63-79), and the inference is always disclosed as an uncertainty. An explicit currency symbol
    always wins — `inferBillCurrency` returns `basis: 'symbol'` for those and `basis:
@@ -141,11 +141,11 @@ who catches one will discount everything else.
 
    Two known soft spots found while verifying this, both worth fixing if you have time:
    `POST /v1/bill/split` applies a tax-regime inference without surfacing the `why`
-   ([`../engine/src/routes-v2.ts`](../engine/src/routes-v2.ts) line 567 — it calls
+   ([`../engine/src/routes-v2.ts`](../engine/src/routes-v2.ts) line 640 — it calls
    `inferBillCurrency(...).currency` and discards the guess object), unlike `/v1/bill/parse`
-   which pushes `guess.why` into `parsed.warnings` at lines 530-533; and `convertToGroup` has
+   which pushes `guess.why` into `parsed.warnings` at lines 605-606; and `convertToGroup` has
    an undisclosed `?? 'USD'` fallback at
-   [`../engine/src/plan/service.ts`](../engine/src/plan/service.ts) line 570.
+   [`../engine/src/plan/service.ts`](../engine/src/plan/service.ts) line 599.
 
 ---
 

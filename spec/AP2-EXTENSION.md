@@ -97,10 +97,11 @@ From building GMP/1 on Prava, the minimal set:
    AP2: a closed Checkout Mandate already binds a cart, and an open Payment
    Mandate already binds a budget. What is missing is that the cart is *shared*
    and the budget is *a share of it*.
-4. **An atomic-enough commit** — charges do not roll back, so the layer needs
-   decoupled approve-then-charge (AP2's mandates already have this shape),
-   per-charge idempotency references, an unknown-is-never-failed reconciliation
-   rule, straggler policies, and an append-only decision log.
+4. **A crash-safe sequential commit** — charges are not atomic and do not roll
+   back, so the layer needs decoupled approve-then-charge (AP2's mandates
+   already have this shape), per-charge idempotency references, an
+   unknown-is-never-failed reconciliation rule, straggler policies, and an
+   append-only decision log.
 5. **Delegated shortfall absorption** — a standing, capped, pre-signed
    commitment by member B to absorb member A's dropped share (the *backstop*).
    This is the primitive that makes a group robust to individual failure, and

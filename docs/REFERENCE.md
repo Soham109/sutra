@@ -84,8 +84,15 @@ strings appear only at the Prava boundary.
 Everything is JSON. `bearer` means `Authorization: Bearer <ENGINE_API_TOKEN>`;
 `session` means a signed-in principal (cookie `sutra_uid` or header
 `x-sutra-user`); `none` means the (unguessable) id in the path is the
-capability. 61 routes are documented below, one row per table entry (some
-rows cover more than one HTTP method on the same path).
+capability. This table has 65 rows, one per table entry (some rows cover more
+than one HTTP method or path) — that is a count of documentation rows, not a
+claim of full coverage; re-grep `app\.(get|post|put|patch|delete)\(` across
+`engine/src/routes*.ts` and the route modules under `engine/src/*/routes.ts`
+for the exact current number of registered JSON routes, which runs higher
+than the row count once every method on a shared path is counted separately.
+Page/asset routes served by the engine's own zero-build HTML fallback
+(`/`, `/new`, `/app.js`, `/widget.js`, `/g/:groupId/*`, and similar) are
+deliberately out of scope here — this section documents the JSON API only.
 
 ### GMP/1 protocol
 
@@ -98,6 +105,8 @@ rows cover more than one HTTP method on the same path).
 | GET | `/v1/groups/:id/receipt` | none | the signed receipt |
 | GET | `/v1/groups/:id/joinable` | none | which member seats are still claimable |
 | GET | `/v1/groups/:id/join-qr.png` | none | QR for the shared-join page |
+| GET | `/v1/shopify-test/status` | none | whether the Shopify development-store proof adapter is configured on this deployment, and why not if it isn't |
+| POST | `/v1/groups/:id/shopify-test-order` | session (organiser) or bearer | organiser-only: mirror a committed `prava_mandates` group created via the test-order checkout mode into one labelled Shopify test order |
 | GET | `/v1/members/:id` | none | one member's own view |
 | POST | `/v1/members/:id/open` | none | first open — lazily mints the Prava session |
 | POST | `/v1/members/:id/decline` | none | decline |
@@ -133,12 +142,14 @@ rows cover more than one HTTP method on the same path).
 |---|---|---|---|
 | POST | `/v1/bill/parse` | none | bill text (or a photo, with a vision key) → itemised, reconciled lines |
 | POST | `/v1/bill/split` | none | parsed bill + who-claimed-what → a group on the `at_venue` rail |
+| GET | `/v1/discover/featured` | none | a curated shelf of products, shown before anyone searches |
 | GET | `/v1/discover/search?q=` | none | federated product search, or resolve a pasted URL |
 | GET | `/v1/discover/compare?q=` | none | the same search, grouped into like-for-like offers and ranked per unit |
 | POST | `/v1/discover/resolve` | none | one product URL → a priced cart line |
 | GET | `/v1/discover/sources` | none | which catalog sources answered |
 | POST | `/v1/auth/register`, `/v1/auth/login` | — | email + password; sets a session cookie |
 | POST/GET | `/v1/me` | — / session | pick a handle / read yourself |
+| POST | `/v1/me/profile` | session | rename yourself or change your handle |
 | POST | `/v1/me/signout` | session | |
 | POST | `/v1/me/extension-token`, `/extension-token/revoke` | session | mint or revoke a browser-extension credential |
 | POST | `/v1/extension/groups` | session | group creation from the extension; invitees must be you or a friend |
@@ -369,7 +380,7 @@ Next.js app (dashboard, plan board, participant answer page, approval page, war
 room with replay, receipts, bill splitter, discover, people, circles,
 settings) · the coordination layer end-to-end · real OpenStreetMap venue
 discovery · federated product search and SSRF-hardened URL resolution ·
-deterministic bill parsing with reconciliation · the two settlement rails ·
+deterministic bill parsing with reconciliation · the four settlement rails ·
 notifications (inbox always, Web Push when VAPID keys exist) · the shared page
 detector behind widget, bookmarklet and Chrome extension · MCP server · CLI ·
 zero-build HTML fallback surfaces.

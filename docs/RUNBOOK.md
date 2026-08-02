@@ -15,7 +15,7 @@ directory unless it says otherwise.
 
 Two things break in Git Bash on this machine.
 
-**The test suite.** `npm test -w engine` from Git Bash fails all 14 test files with:
+**The test suite.** `npm test -w engine` from Git Bash fails every test file with:
 
 ```
 TypeError: Cannot read properties of undefined (reading 'config')
@@ -50,8 +50,9 @@ shows how to set a secret without it appearing in your shell history or process 
 
 ### 0.3 The Prava sandbox has a hard budget
 
-The team test card allows **30 transactions per day**. Never point the chaos suite, a load
-test, or a hand-written loop at the sandbox. `npm run chaos` is structurally incapable of
+The team test card has a daily transaction budget that depletes with use, not a number that
+holds still — **20 transactions remained as of this session**. Never point the chaos suite, a
+load test, or a hand-written loop at the sandbox. `npm run chaos` is structurally incapable of
 touching it — `ChaosPrava` refuses to wrap a non-mock adapter and never reads
 `PRAVA_API_KEY` — but nothing protects you from a `for` loop you wrote yourself.
 
@@ -110,7 +111,7 @@ Useful local URLs once `npm run dev` is running:
 | `npm run dev` | `concurrently` engine + web | Both halves, ports 4100 and 3000. | nothing |
 | `npm run dev:engine` | `npm run start -w engine` | Engine only, port 4100. | nothing |
 | `npm run dev:web` | `npm run dev -w web` | Next.js dev server, port 3000. | nothing |
-| `npm run build` | `npm run build -w web` | Next.js production build. Observed: succeeds, **21 routes, 14 static pages** — this count moves as routes are added; believe what the build prints. | nothing |
+| `npm run build` | `npm run build -w web` | Next.js production build. Observed most recently: succeeds, **23 routes** — this count moved twice during the same session this runbook was edited in; believe what the build prints, not this number. | nothing |
 | `npm start` | `npm run start -w engine` | Engine in the foreground. This is Railway's start command. | nothing |
 | `npm test` | `npm run test -w engine` | Vitest. Believe the count it prints; every number written into a doc here has gone stale within hours. | **PowerShell** |
 | `npm run test:widget` | `node --test widget/detect.test.mjs` | The page detector against captured real pages. Observed: **33 pass, 0 fail** — believe the count it prints. Includes a test that `widget/widget.js` and `extension/detect.js` carry an identical copy of `widget/detect.js`. | nothing |
@@ -261,7 +262,7 @@ Facts about the Railway side:
    double-poll and split the SSE fan-out.
 2. **The `/data` volume and `DB_PATH=/data/gmp.db`.** Without them every redeploy wipes all
    groups, accounts and receipts. [`../engine/src/server.ts`](../engine/src/server.ts) lines
-   39-41 throw on boot if `NODE_ENV=production` and `DB_PATH` is unset, so a missing volume
+   44-45 throw on boot if `NODE_ENV=production` and `DB_PATH` is unset, so a missing volume
    fails loudly rather than quietly writing to a disk that is about to disappear.
 3. **`ENGINE_SIGNING_SEED` must be fixed.** If it is unset the engine mints a new Ed25519 key
    at every boot and every receipt signed before the redeploy stops verifying.
@@ -299,7 +300,8 @@ Facts about the Railway side:
 | `SHOPIFY_TEST_ORDER_ENABLED` | dedicated demo only | — | `false` | Enables only the development-store `test: true` order proof. Never point it at a live merchant store. |
 | `SHOPIFY_TEST_STORE` | dedicated demo only | — | `your-store.myshopify.com` | Admin API hostname for the development store. |
 | `SHOPIFY_STOREFRONT_DOMAIN` | dedicated demo only | — | demo storefront host | Public hostname whose products may unlock the proof rail. |
-| `SHOPIFY_ADMIN_ACCESS_TOKEN` | dedicated demo secret | — | empty | Offline token with `write_orders`; never expose as `NEXT_PUBLIC_*` or record it. |
+| `SHOPIFY_ADMIN_ACCESS_TOKEN` | dedicated demo secret | — | empty | Offline token with `write_orders`; never expose as `NEXT_PUBLIC_*` or record it. Either this alone, or the `SHOPIFY_ADMIN_CLIENT_ID`/`SHOPIFY_ADMIN_CLIENT_SECRET` pair below, satisfies the adapter — not both. |
+| `SHOPIFY_ADMIN_CLIENT_ID` / `SHOPIFY_ADMIN_CLIENT_SECRET` | dedicated demo secret | — | empty | Alternative to a static access token: a Shopify Dev Dashboard client-credentials pair the engine exchanges for a token itself (`engine/src/server.ts:94-95`). |
 | `SHOPIFY_API_VERSION` | dedicated demo only | — | `2026-07` | Shopify Admin GraphQL version for the proof adapter. |
 | `ALLOW_DEV_AUTH` | **unset** | — | — | Leave unset in production. It re-enables the header-based identity bypass. |
 
@@ -677,7 +679,7 @@ $env:ENGINE_API_TOKEN = "<from secrets.env>"
 npm run e2e:proof -- --watch
 ```
 
-Remember the 30-transactions-per-day budget on the team test card. Do not burn it retrying.
+Remember the team test card's daily transaction budget — about 20 remained as of this session. Do not burn it retrying.
 
 ### 7.8 A member approved but the group has not moved
 
@@ -786,7 +788,7 @@ curl.exe -s -o NUL -w "catalog %{http_code}`n" https://sutra-gmp.vercel.app/api/
 curl.exe -s -o NUL -w "places %{http_code}`n" https://sutra-gmp.vercel.app/api/v1/places/status
 ```
 
-All seven returned 200 on 2026-08-01, and `/health` reported `"prava_adapter":"sandbox"`.
+All seven returned 200 as of 2026-08-02, and `/health` reported `"prava_adapter":"sandbox"`.
 
 Then the local suites:
 
