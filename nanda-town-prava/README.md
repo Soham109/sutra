@@ -14,12 +14,15 @@ layers:
 
 ## See it happen
 
-One command, narrated on screen: four named town agents — Soham, Arsh, Dev,
-Maya — mint a real `pay_group()` mandate each, Dev declines mid-flight, Maya's
-backstop absorbs the shortfall, the group commits, the signed receipt and
-`conservation_report()` print with all three invariants ticked — and the same
-purchase is then attempted against the bundled `prepaid_credits` side by side,
-plus a direct demonstration that one agent cannot pay another on this rail.
+One command, narrated on screen, PASS/FAIL on every line and a non-zero exit
+if anything fails: `nest` really discovers this as a `nest.plugins.payments`
+entry point (read straight off `importlib.metadata`, not asserted), then four
+named town agents — Soham, Arsh, Dev, Maya — mint a real `pay_group()`
+mandate each, Dev declines mid-flight, Maya's backstop absorbs the shortfall,
+the group commits, the signed receipt and `conservation_report()` print with
+all three invariants ticked — and the same purchase is then attempted against
+the bundled `prepaid_credits` side by side, plus a direct demonstration that
+one agent cannot pay another on this rail.
 
 ```bash
 python scripts/town_scene.py
@@ -27,7 +30,9 @@ python scripts/town_scene.py
 
 Zero network, zero keys, fully reproducible. Point the identical `pay_group()`
 call at a real GMP/1 engine instead — it mints real
-`sandbox.collect.prava.space` approval URLs:
+`sandbox.collect.prava.space` approval URLs (needs `ENGINE_API_TOKEN` for the
+deployed engine's authenticated `POST /v1/groups`; without one the script
+still runs to completion and says exactly that — see [Verified](#verified)):
 
 ```bash
 python scripts/town_scene.py --mode live
@@ -259,9 +264,19 @@ real mandate.
 
 ## The multi-principal extra
 
-`prepaid_credits` cannot express this, and neither can any single-mandate protocol:
-AP2, ACP, Visa Intelligent Commerce and Prava all encode *one user grants one agent
-one mandate*. Groups are invisible to payments infrastructure.
+`prepaid_credits` cannot express this — that part is checkable here: the class has
+no `pay_group` attribute at all, and `tests/` asserts the `AttributeError`.
+
+The wider claim we would like to make — that no single-mandate protocol can express
+it either — is *not* checkable from this repository, so it is stated as a reading
+rather than a fact. Our reading of the public specifications, as of 1 August 2026,
+is that AP2's mandate types bind one user to one payment instrument, and that the
+same one-principal shape holds across the agentic-payment protocols shipping today,
+including Prava's own. The argument is worked through against the dated AP2 text in
+[`../spec/AP2-EXTENSION.md`](../spec/AP2-EXTENSION.md); anyone is welcome to read
+that and disagree. What this package demonstrates is narrower and entirely its own:
+several principals, each capped at their own amount, committing or cancelling
+together, with no pooled balance at any point.
 
 ```python
 from nanda_town_prava import PravaMandates, Principal
