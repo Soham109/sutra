@@ -160,9 +160,10 @@ Set-Location c:\Users\acer\sutra\nanda-town-prava
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Observed: **46 passed, 1 skipped**. Note that
-[`../nanda-town-prava/README.md`](../nanda-town-prava/README.md) still says "44 passed,
-1 skipped" — that number is stale; 46 is correct.
+Whatever it prints is the answer. This count has moved repeatedly — 44, then 46,
+then 51, then 117 as property-based cases landed — and every document that
+copied a number instead of a command has been wrong within hours of being
+written. Do not quote it anywhere; run it.
 
 Return to the repository root afterwards:
 

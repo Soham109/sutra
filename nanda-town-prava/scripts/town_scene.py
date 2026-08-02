@@ -22,6 +22,9 @@ is asserted without being run.
 
 What you will see, simulated mode:
 
+0. This package really is discovered as a ``nest.plugins.payments`` entry
+   point — read straight off ``importlib.metadata``, the same call
+   ``nest_core.plugins.PluginRegistry`` makes, not a shelled-out CLI.
 1. The mandates mint — four principals, four caps, each capped at their own
    number.
 2. Maya arms a backstop; Soham approves; **Dev declines mid-flight**; Arsh's
@@ -63,6 +66,7 @@ import json
 import os
 import sys
 import time
+from importlib.metadata import entry_points
 from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -111,6 +115,54 @@ def check(label: str, ok: bool, detail: str = "") -> None:
 
 def skip(label: str, why: str) -> None:
     print(f"  [SKIP] {label} — {why}")
+
+
+def check_entry_point_registration() -> None:
+    """Is this really discovered as a nest.plugins.payments entry point?
+
+    Two separate claims, checked separately because they are proven two
+    different ways in the real ``PluginRegistry``
+    (``nest_core/plugins.py``):
+
+    1. ``prava_mandates`` is a genuine ``nest.plugins.payments`` **entry
+       point** — read via ``importlib.metadata.entry_points()``, the exact
+       call ``PluginRegistry._discover_entry_points`` makes. This is what
+       ``pip install -e .`` wrote to this interpreter's package metadata; no
+       subprocess, no PATH lookup, no CLI.
+    2. ``prepaid_credits`` is *not* an entry point at all — it is one of
+       nest-core's twelve hardcoded ``_BUILTINS`` fallbacks, resolved only
+       when no entry point claims the name. Claiming it as "discovered via
+       entry points" would be false, so instead this asks the same
+       ``PluginRegistry`` the ``nest`` CLI itself uses to resolve both names
+       for the ``payments`` layer — which is what ``nest plugins list
+       payments`` and ``nest run`` actually do under the hood.
+
+    Zero network, zero keys either way.
+    """
+    act("0", "plugin discovery — a real nest.plugins.payments entry point?")
+    eps = {ep.name: ep.value for ep in entry_points(group="nest.plugins.payments")}
+    say(f"nest.plugins.payments entry points on this interpreter: {json.dumps(eps, indent=2)}")
+    check(
+        "prava_mandates is a real entry point, not a builtin fallback — "
+        "resolves to nanda_town_prava.plugin:PravaMandates",
+        eps.get("prava_mandates") == "nanda_town_prava.plugin:PravaMandates",
+        eps.get("prava_mandates", "MISSING"),
+    )
+
+    from nest_core.plugins import PluginRegistry
+
+    registry = PluginRegistry()
+    payments_layer = {name for _, name in registry.list_plugins("payments")}
+    say(f"PluginRegistry resolves these names for layer='payments': {sorted(payments_layer)}")
+    check(
+        "the bundled prepaid_credits still resolves too — this plugin adds "
+        "an option, it does not remove one",
+        "prepaid_credits" in payments_layer,
+    )
+    check(
+        "registry.resolve('payments', 'prava_mandates') is this package's class",
+        registry.resolve("payments", "prava_mandates").__module__ == "nanda_town_prava.plugin",
+    )
 
 
 def members_by_name(view: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -569,6 +621,8 @@ def parse_args() -> argparse.Namespace:
 async def main() -> int:
     args = parse_args()
     print(f"mode: {args.mode}")
+
+    check_entry_point_registration()
 
     if args.mode == "simulated":
         await run_simulated_scene()

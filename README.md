@@ -554,9 +554,13 @@ returns remaining authorization headroom rather than custody of anything, and
 `refund()` raises `RefundNotSupportedError` post-capture rather than pretending
 a settled card charge can be rolled back. That README also records the run
 transcript it was verified against (`nest-core` 0.1.4, CPython 3.12,
-`nest plugins list payments` showing both plugins, the three `marketplace`
-validators passing, `pytest` at 44 passed / 1 skipped) — reproducing it needs a
-Python environment, which this README's other numbers do not.
+`nest plugins list payments` showing both plugins, and the three `marketplace`
+validators passing) — reproducing it needs a Python environment, which this
+README's other numbers do not.
+
+Its test count is deliberately not quoted here. It has moved several times in a
+day, and a number copied into a second file is a number that goes stale without
+anybody noticing. Run `pytest -q` in that directory and believe what it prints.
 
 `engine/src/discovery/` builds an A2A AgentCard, a NANDA AgentFacts record, an
 AI Catalog entry and a served copy of `SKILL.md`, all generated from a single
