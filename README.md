@@ -1,15 +1,26 @@
-# sutra — one cart, everyone's own card, nobody fronts the money
+<div align="center">
 
-sutra lets a group pay for one thing together without one person's card taking
+# Sutra
+
+### One cart. Everyone's own card. Nobody fronts the money.
+
+Sutra lets a group pay for one thing together without one person's card taking
 the whole hit. Each person approves a permission capped at their own share, on
-their own card — and either everyone gets charged at once, or nobody does.
+their own card — and either everyone is charged at once, or nobody is.
 
-Live product: **[sutra-gmp.vercel.app](https://sutra-gmp.vercel.app)** ·
-Live engine: **[engine-production-e6fa.up.railway.app/health](https://engine-production-e6fa.up.railway.app/health)**
-· Built on [Prava](https://docs.prava.space) · Team `__init__ to win it`
-(Soham + Arshjeet), Agentic Commerce Hackathon, Aug 2026.
+**[Open the product](https://sutra-gmp.vercel.app)** &nbsp;·&nbsp;
+**[Engine health](https://engine-production-e6fa.up.railway.app/health)** &nbsp;·&nbsp;
+**[Architecture](https://sutra-gmp.vercel.app/docs)** &nbsp;·&nbsp;
+**[Protocol](spec/PROTOCOL.md)**
 
-![The sutra landing page](docs/screenshots/01-landing-light.png)
+<sub>Built on [Prava](https://docs.prava.space) · Team `__init__ to win it` —
+Soham + Arshjeet · Agentic Commerce Hackathon, August 2026</sub>
+
+<br />
+
+![The Sutra landing page](docs/screenshots/01-landing-light.png)
+
+</div>
 
 ## The problem
 
@@ -31,7 +42,7 @@ one payer says yes. A group almost never is one person.
 5. A signed, hash-chained receipt records exactly who was asked, who approved,
    and what — if anything — actually moved.
 
-No balance is ever held by sutra. There is no such column in the schema.
+No balance is ever held by Sutra. There is no such column in the schema.
 
 ![The approval page: one person's mandate, capped at their own share](docs/screenshots/06-approval-pending-light.png)
 
@@ -39,7 +50,7 @@ No balance is ever held by sutra. There is no such column in the schema.
 
 **Your dashboard.** What needs an answer from you, what you are waiting on from
 other people, and exactly what your card is exposed to right now — never a
-running balance, because sutra never holds one.
+running balance, because Sutra never holds one.
 
 ![The dashboard: what needs you, and what your card is exposed to right now](docs/screenshots/02-dashboard-light.png)
 
@@ -49,7 +60,7 @@ answers with a score you can read the reasons for, not just trust.
 
 ![A ranked plan board: real venues, each score explained in a sentence](docs/screenshots/09-plan-board-light.png)
 
-**Paste a link, split it.** Paste a product URL or search a catalog; sutra
+**Paste a link, split it.** Paste a product URL or search a catalog; Sutra
 resolves it to a priced line and figures out whether it's a whole-cart split
 or everyone buying their own thing (see *the honest boundary* below).
 
@@ -83,12 +94,12 @@ and breaks in a third:
 |  | Everyone buys their own item | Paying in person | One shared cart, split online |
 |---|---|---|---|
 | Example | four tickets, one each | a restaurant bill, a bar tab | one Amazon cart, four people |
-| Completes today? | yes, unassisted | yes — sutra does the arithmetic, people hand over cards at the till | **no** |
+| Completes today? | yes, unassisted | yes — Sutra does the arithmetic, people hand over cards at the till | **no** |
 | Why | each card covers exactly one whole order | any till has always taken more than one card | the merchant's checkout has one card field, and cannot take four |
 
-**sutra does not place the merchant order for a shared cart.** Doing that
+**Sutra does not place the merchant order for a shared cart.** Doing that
 needs the merchant to accept more than one card for one order — split tender
-— which is routine at a physical till and rare online. sutra detects which of
+— which is routine at a physical till and rare online. Sutra detects which of
 these three situations a cart is actually in from what people claimed, rather
 than guessing, and says so before anyone approves anything — see
 [`web/src/components/discover/how-it-completes.tsx`](web/src/components/discover/how-it-completes.tsx).
@@ -183,7 +194,7 @@ read, not because they're less true.
 
 61 documented HTTP routes across the protocol, the coordination layer, bills,
 discovery, people, and threads — plus the 36-case failure taxonomy (every way
-a group payment can go wrong, and what sutra does about it), the honest notes
+a group payment can go wrong, and what Sutra does about it), the honest notes
 on the Prava integration, and what's built versus only designed:
 **[`docs/REFERENCE.md`](docs/REFERENCE.md)**.
 

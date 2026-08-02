@@ -36,7 +36,10 @@ for (const name of readdirSync(here).filter((f) => f.endsWith('.png')).sort()) {
   const file = join(here, name)
   const { w, h, bytes } = size(file)
   const ratio = h / w
-  if (ratio <= MAX_RATIO) {
+  // A pixel of rounding is not a reason to re-encode. Without this slack an
+  // already-cropped image reports as needing cropping forever, because
+  // round(2880 * 0.62) / 2880 is 0.6201, not 0.62.
+  if (ratio <= MAX_RATIO + 0.005) {
     console.log(`  keep  ${name.padEnd(32)} ${w}x${h}  ratio ${ratio.toFixed(2)}`)
     continue
   }
