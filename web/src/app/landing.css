@@ -241,7 +241,7 @@
 .l-hero-proof span::before { content: ''; display: inline-block; width: 6px; height: 6px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--l-green); }
 
 /* The code-native 3D mandate object. Pointer movement only updates CSS vars. */
-.orbit-shell { --orbit-rx: 0deg; --orbit-ry: 0deg; position: relative; min-height: 620px; perspective: 1200px; isolation: isolate; }
+.orbit-shell { --orbit-rx: 0deg; --orbit-ry: 0deg; position: relative; min-height: 620px; margin-top: -60px; perspective: 1200px; isolation: isolate; }
 .orbit-atmosphere { position: absolute; inset: 7% 1% 0; border-radius: 50%; background: radial-gradient(circle at 50% 45%, rgb(53 43 221 / .18), rgb(255 101 67 / .08) 33%, transparent 68%); filter: blur(18px); }
 .orbit-stage { position: absolute; inset: 4%; transform-style: preserve-3d; transform: rotateX(var(--orbit-rx)) rotateY(var(--orbit-ry)); transition: transform .22s ease-out; }
 .orbit-ring { position: absolute; left: 50%; top: 50%; border: 1px solid rgb(53 43 221 / .22); border-radius: 50%; transform-style: preserve-3d; }
