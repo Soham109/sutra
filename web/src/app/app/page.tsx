@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Composer } from '@/components/home/composer'
 import { ExposureMeter } from '@/components/home/exposure'
 import { NeedsYou } from '@/components/home/needs-you'
+import { ProvenChargeNote } from '@/components/receipt/proven-charge'
 import { Waiting } from '@/components/home/waiting'
 import { StatRow } from '@/components/home/stat-row'
 import { ReliabilityPanel } from '@/components/home/reliability'
@@ -137,6 +138,7 @@ export default function HomePage() {
               <div className="home-secondary-body">
                 <StatRow data={data} />
                 <ExposureMeter exposure={data.exposure} />
+                <ProvenChargeNote />
                 <ReliabilityPanel reliability={data.reliability} />
               </div>
             </details>
