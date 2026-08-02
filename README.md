@@ -9,7 +9,7 @@ Live engine: **[engine-production-e6fa.up.railway.app/health](https://engine-pro
 · Built on [Prava](https://docs.prava.space) · Team `__init__ to win it`
 (Soham + Arshjeet), Agentic Commerce Hackathon, Aug 2026.
 
-![The dashboard: what needs you, and what your card is exposed to right now](docs/screenshots/02-dashboard-light.png)
+![The sutra landing page](docs/screenshots/01-landing-light.png)
 
 ## The problem
 
@@ -36,6 +36,12 @@ No balance is ever held by sutra. There is no such column in the schema.
 ![The approval page: one person's mandate, capped at their own share](docs/screenshots/06-approval-pending-light.png)
 
 ## What it does
+
+**Your dashboard.** What needs an answer from you, what you are waiting on from
+other people, and exactly what your card is exposed to right now — never a
+running balance, because sutra never holds one.
+
+![The dashboard: what needs you, and what your card is exposed to right now](docs/screenshots/02-dashboard-light.png)
 
 **Planning.** One sentence — *"dinner saturday near Koramangala, under 900
 each"* — becomes real venues from OpenStreetMap, ranked against everyone's
