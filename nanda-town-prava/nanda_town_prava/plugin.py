@@ -296,6 +296,17 @@ class _Bundle:
     authorizations: dict[str, Authorization] = field(default_factory=dict)
     merchant_credited: dict[str, int] = field(default_factory=dict)
     initial_headroom: dict[str, int] = field(default_factory=dict)
+    # One lock per agent name. Guards the window between "read remaining
+    # headroom" and "commit the reservation for it" in `_pay_principals`.
+    # Without it, two `pay()` calls for the same agent that both suspend on
+    # a real network round trip (an `await` that actually yields — nothing
+    # in `_simulator.py` does, `GmpHttpClient` always does) can both read the
+    # same starting headroom, both pass the check, and both reserve: the
+    # agent authorizes more than its configured cap and `balance()` goes
+    # negative with nothing in `conservation_report()` naming it. Locks are
+    # per *agent*, not global, so two different agents paying at once never
+    # contend.
+    locks: dict[str, asyncio.Lock] = field(default_factory=dict)
 
 
 _BUNDLES: dict[tuple[str, str, str], _Bundle] = {}
@@ -492,6 +503,13 @@ class PravaMandates:
             Every unit captured from a card is credited to exactly one
             merchant outside the simulator. Funds are conserved across the
             boundary rather than within it.
+        ``no_agent_overspent_its_cap``
+            No agent's headroom ever goes negative. Distinct from
+            ``no_pooled_funds`` above: that one catches being *credited* by
+            someone else's payment; this one catches authorizing *more* than
+            the agent's own configured cap — the failure mode a same-agent
+            concurrency race produces, which ``headroom_consistent`` alone
+            does not name (see ``_pay_principals``'s per-agent lock).
 
         Example::
 
@@ -541,6 +559,20 @@ class PravaMandates:
             for agent, initial in self._bundle.initial_headroom.items()
             if agent in audited and self._headroom.get(AgentId(agent), 0) > initial
         ]
+        # Distinct from `overdrawn` above: this catches an agent authorizing
+        # *more* than its own configured cap, not being credited by someone
+        # else's payment. `headroom_consistent` alone would miss this — a
+        # race that reserves twice against the same starting balance still
+        # matches "actual == initial - reserved + released" on the nose, it
+        # just does it with a reserved total nobody's balance could actually
+        # cover. This is the check that would have caught the concurrent
+        # same-agent `pay()` race in `tests/test_concurrency.py` even before
+        # that race was closed with the per-agent lock in `_pay_principals`.
+        negative = [
+            agent
+            for agent in audited
+            if self._headroom.get(AgentId(agent), 0) < 0
+        ]
         return {
             "reserved": reserved,
             "captured": captured,
@@ -553,6 +585,8 @@ class PravaMandates:
             "headroom_consistent": not drift,
             "headroom_drift": drift,
             "agents_credited_by_others": overdrawn,
+            "no_agent_overspent_its_cap": not negative,
+            "agents_over_their_cap": negative,
             "merchants": dict(self._bundle.merchant_credited),
         }
 
@@ -721,6 +755,22 @@ class PravaMandates:
                 view = await self._bundle.transport.cancel_group(auth.group_id)
                 self._absorb_group_view(auth, view)
             except (EngineError, KeyError, ValueError) as exc:
+                # The group can commit in the gap between the refresh above
+                # and this cancel call — a real race, not a hypothetical one:
+                # nothing serialises "someone's passkey tap lands" against
+                # "the organizer calls refund()". Re-check before reporting
+                # anything, so a charge that landed during that gap is never
+                # flattened into a generic "could not cancel" error. That
+                # would be the dishonest failure mode here: money moved and
+                # the caller was told only that an operation didn't work.
+                with contextlib.suppress(EngineError, KeyError):
+                    self._absorb_group_view(
+                        auth, await self._bundle.transport.get_group(auth.group_id)
+                    )
+                if auth.captured > 0:
+                    raise RefundNotSupportedError(
+                        ref=str(ref), captured=auth.captured, currency=auth.currency
+                    ) from None
                 msg = f"could not cancel group for {ref}: {exc}"
                 raise ValueError(msg) from None
 
@@ -822,11 +872,6 @@ class PravaMandates:
         if amount.amount <= 0:
             msg = f"Payment amount must be positive: {amount.amount}"
             raise ValueError(msg)
-        if str(ref) in self._bundle.authorizations:
-            # `ref` is the provider idempotency key. Reusing one is how a
-            # retry becomes a double charge.
-            msg = f"Duplicate payment reference: {ref}"
-            raise ValueError(msg)
         if not principals:
             msg = "at least one principal is required"
             raise ValueError(msg)
@@ -839,12 +884,34 @@ class PravaMandates:
         # runs. A coordinating agent that is not itself a principal reserves
         # nothing — it fronts nothing, which is the point.
         self_share = self._self_reservation(principals, total_minor, tolerance)
-        if self_share > self.balance(self._agent_id):
-            msg = (
-                f"Insufficient authorization headroom: "
-                f"{self.balance(self._agent_id)} < {self_share}"
-            )
-            raise ValueError(msg)
+
+        # The duplicate-ref check and the headroom check-and-reserve both
+        # read shared state (`self._bundle`) and must not straddle an
+        # `await`, or a second `pay()` for this same agent can observe the
+        # pre-reservation balance and over-authorize. `create_group` is a
+        # real suspension point in `live` mode (`GmpHttpClient` hands the
+        # HTTP call to a worker thread and awaits it) even though nothing in
+        # `_simulator.py` yields, so this lock is live-mode load-bearing,
+        # not theoretical. See `tests/test_concurrency.py`.
+        lock = self._bundle.locks.setdefault(str(self._agent_id), asyncio.Lock())
+        async with lock:
+            if str(ref) in self._bundle.authorizations:
+                # `ref` is the provider idempotency key. Reusing one is how a
+                # retry becomes a double charge.
+                msg = f"Duplicate payment reference: {ref}"
+                raise ValueError(msg)
+            if self_share > self.balance(self._agent_id):
+                msg = (
+                    f"Insufficient authorization headroom: "
+                    f"{self.balance(self._agent_id)} < {self_share}"
+                )
+                raise ValueError(msg)
+            # Commit the reservation now, before releasing the lock, so a
+            # concurrent `pay()` for this agent sees the reduced headroom the
+            # instant it acquires the lock — not after this call's network
+            # round trip finishes. `_reserve` below (against the engine's
+            # real caps) only ever ratchets this up, never re-deducts it.
+            self._headroom[self._agent_id] = self.balance(self._agent_id) - self_share
 
         body = self._group_body(
             to=to,
@@ -856,7 +923,19 @@ class PravaMandates:
             deadline_minutes=deadline_minutes or self._deadline_minutes,
             ref=ref,
         )
-        created = await self._bundle.transport.create_group(body)
+        try:
+            created = await self._bundle.transport.create_group(body)
+        except BaseException:
+            # Nothing was minted at the engine — including when the scenario
+            # itself aborted this call (`asyncio.CancelledError`, a
+            # `BaseException`, not an `Exception`: a scenario timeout or a
+            # cancelled task must release the hold too, not just an engine
+            # error). Give the provisional hold back rather than leaving this
+            # agent's headroom permanently short for a purchase that never
+            # happened.
+            async with lock:
+                self._headroom[self._agent_id] = self.balance(self._agent_id) + self_share
+            raise
 
         auth = Authorization(
             ref=str(ref),
@@ -868,6 +947,10 @@ class PravaMandates:
             principals=tuple(p.name for p in principals),
             member_ids=tuple(str(m["member_id"]) for m in created.get("members", [])),
             simulated=self._mode == MODE_SIMULATED,
+            # The provisional hold above already moved this agent's headroom;
+            # record it here so `_reserve` below only accounts for the delta
+            # against the engine's real caps instead of re-deducting it.
+            agent_reserved=self_share,
         )
         self._bundle.authorizations[str(ref)] = auth
 
