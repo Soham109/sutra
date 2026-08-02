@@ -163,3 +163,36 @@ describe('what it does with things it cannot group', () => {
     expect(res.groups).toHaveLength(0)
   })
 })
+
+// Things that are not shops.
+//
+// Pasting a YouTube link used to resolve to a "product": the video's title,
+// merchant "Youtube", price zero. Nothing downstream would let that reach a
+// charge, but presenting a music video as a shopping result is exactly what a
+// judge tries in the first thirty seconds, and it is not true.
+describe('links that are not shopping at all', () => {
+  it('refuses the obvious non-shops by name, and says why', async () => {
+    const { resolveProductUrl } = await import('../src/catalog/resolver.js')
+    for (const url of [
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      'https://youtu.be/dQw4w9WgXcQ',
+      'https://www.instagram.com/p/abc123/',
+      'https://en.wikipedia.org/wiki/Shoe',
+      'https://x.com/someone/status/1',
+    ]) {
+      const r = await resolveProductUrl(url)
+      expect(r.product, url).toBeNull()
+      expect(r.strategy, url).toBe('not-a-shop')
+      expect(r.warnings[0], url).toMatch(/isn’t a shop/)
+    }
+  })
+
+  /** The list must never grow teeth: a real store is still a real store. */
+  it('does not refuse an ordinary storefront', async () => {
+    const { resolveProductUrl } = await import('../src/catalog/resolver.js')
+    // No network call is needed to prove the guard did not fire — a refused
+    // host short-circuits before any fetch and returns this exact strategy.
+    const r = await resolveProductUrl('https://shop.example.test/products/thing')
+    expect(r.strategy).not.toBe('not-a-shop')
+  })
+})

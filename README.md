@@ -262,17 +262,38 @@ capability.
 | POST | `/v1/bill/parse` | none | bill text (or a photo, with a vision key) → itemised, reconciled lines |
 | POST | `/v1/bill/split` | none | parsed bill + who-claimed-what → a group on the `at_venue` rail |
 | GET | `/v1/discover/search?q=` | none | federated product search, or resolve a pasted URL |
+| GET | `/v1/discover/compare?q=` | none | the same search, grouped into like-for-like offers and ranked per unit |
 | POST | `/v1/discover/resolve` | none | one product URL → a priced cart line |
 | GET | `/v1/discover/sources` | none | which catalog sources answered |
+| POST | `/v1/auth/register`, `/v1/auth/login` | — | email + password; sets a session cookie |
 | POST/GET | `/v1/me` | — / session | pick a handle / read yourself |
 | POST | `/v1/me/signout` | session | |
+| POST | `/v1/me/extension-token`, `/extension-token/revoke` | session | mint or revoke a browser-extension credential |
+| POST | `/v1/extension/groups` | session | group creation from the extension; invitees must be you or a friend |
 | GET | `/v1/people`, `/v1/people/:id/reliability` | none | |
 | POST | `/v1/people/:id/friend`, `/unfriend` | session | |
+| GET | `/v1/people/requests` | session | friend requests in both directions |
+| POST | `/v1/people/:id/accept`, `/decline` | session | answer a friend request |
 | GET/POST | `/v1/circles`, `POST /v1/circles/:id/delete` | session | recurring groups |
 | GET | `/v1/my/groups`, `/v1/my/dashboard` | session | what needs you, and your live card exposure per currency |
 | GET | `/v1/notify/status`, `/v1/notify/inbox` | mixed | |
 | POST | `/v1/notify/subscribe`, `/unsubscribe`, `/read/:id`, `/read-all`, `/test` | mixed | |
 | POST | `/v1/agent/propose` | none | free text → an editable cart proposal (predates `/v1/agent/plan`) |
+
+### Threads and delegates
+
+The thread is not a new transport: a message is a `message.posted` event on the
+plan's or group's existing log, so it replays and streams over the SSE endpoints
+already listed above. Tagging `@sutra` answers from real state and refuses
+anything payment-shaped — see [`engine/src/messages/bot.ts`](engine/src/messages/bot.ts).
+
+| Method | Path | Auth | |
+|---|---|---|---|
+| GET/POST | `/v1/plans/:id/messages` | session or link | the plan's thread |
+| GET/POST | `/v1/groups/:id/messages` | session or link | the group's thread |
+| PUT/GET | `/v1/delegate/rules` | session | standing rules your own agent may answer from |
+| GET | `/v1/plans/:planId/questions` | session | what this plan still wants from you |
+| POST | `/v1/participants/:id/delegate-answer` | session | answer from those rules, tagged as delegated in the log |
 
 ### Discovery
 

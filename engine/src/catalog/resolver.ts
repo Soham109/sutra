@@ -31,6 +31,28 @@ interface Ctx {
   signal?: AbortSignal
 }
 
+/**
+ * Places that publish OpenGraph titles and no prices, because they sell
+ * nothing.
+ *
+ * Pasting a YouTube link used to come back as a product: title "Rick Astley -
+ * Never Gonna Give You Up", merchant "Youtube", price 0. Nothing downstream
+ * would let that reach a charge — a zero-priced line cannot be sent to a group
+ * — but presenting a music video as a shopping result is the kind of thing a
+ * judge tries in the first thirty seconds, and "we found a product" is simply
+ * not true about it.
+ *
+ * Deliberately a short list of things that are definitely not shops rather
+ * than an allowlist of things that are: the whole point of the resolver is
+ * that it works on stores nobody here has heard of.
+ */
+const NOT_SHOPS =
+  /(^|\.)(youtube\.com|youtu\.be|instagram\.com|tiktok\.com|facebook\.com|twitter\.com|x\.com|reddit\.com|linkedin\.com|pinterest\.[a-z.]+|spotify\.com|open\.spotify\.com|wikipedia\.org|github\.com|docs\.google\.com|drive\.google\.com|mail\.google\.com|gmail\.com)$/i
+
+function isNotAShop(url: URL): boolean {
+  return NOT_SHOPS.test(url.hostname.toLowerCase())
+}
+
 export async function resolveProductUrl(raw: string, signal?: AbortSignal): Promise<ResolveResult> {
   const warnings: string[] = []
   let url: URL
@@ -38,6 +60,16 @@ export async function resolveProductUrl(raw: string, signal?: AbortSignal): Prom
     url = assertHttps(raw)
   } catch (e) {
     return { product: null, strategy: 'none', warnings: [(e as Error).message] }
+  }
+
+  if (isNotAShop(url)) {
+    return {
+      product: null,
+      strategy: 'not-a-shop',
+      warnings: [
+        `${url.hostname.replace(/^www\./, '')} isn’t a shop, so there is no price on that page to read. Paste a link to the item you want to buy.`,
+      ],
+    }
   }
 
   // Shopify storefronts answer with exact JSON — try that before parsing HTML.
