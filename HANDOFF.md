@@ -284,13 +284,13 @@ they are *lower*, or anything fails, that is a regression worth investigating.
 
 | Command | Observed result |
 |---|---|
-| `npm test -w engine` | **14 test files, 365 tests passed.** Vitest v4.1.10, ~1.3s. **PowerShell only — read 4.1.** |
+| `npm test -w engine` | Vitest. **PowerShell only — read 4.1.** Believe the count it prints; every number written into a doc here has gone stale within hours. |
 | `npm run test:widget` | **30 pass, 0 fail.** |
 | `npm run chaos` | 60 iterations, seed base 42, terminal states `{"partial":9,"committed":38,"aborted":13}`, all six invariants pass, prints `GREEN WALL`. |
 | `npm run demo` | `COMMITTED`, four members each charged $46.50, `receipt: ✓ chain + signature verified`. Needs a running engine — start one with `npm run dev:engine` first. |
 | `npm run build` | Next.js production build succeeds. **19 routes, 14 static pages.** |
 | `npx tsc --noEmit -p engine/tsconfig.json` | Clean, exit code 0. |
-| `pytest -q` in `nanda-town-prava/` | **46 passed, 1 skipped.** |
+| `pytest -q` in `nanda-town-prava/` | Run it. The count has more than doubled since this line first claimed 46. |
 
 `npm run e2e:plan`, `npm run e2e:product` and `npm run e2e:auth` need a reachable engine and
 hit live third-party services. They are described in [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
@@ -301,7 +301,7 @@ section 2.
 This is a real, reproducible trap on this machine.
 
 ```
-PowerShell:  npm test -w engine   →  14 test files, 365 tests passed
+PowerShell:  npm test -w engine   →  every file passes
 Git Bash:    npm test -w engine   →  14 test files FAILED, 0 tests run
 ```
 
@@ -318,7 +318,7 @@ The code is fine. If you are in Git Bash and need to run the tests, this works:
 cd /c/Users/acer/sutra/engine && npx vitest run
 ```
 
-That also reports 14 files and 365 tests passing. The failure only happens when npm's
+That passes too. The failure only happens when npm's
 workspace runner (`-w engine`, or the root `npm test`) is invoked from Git Bash. **Do not
 "fix" any test file in response to this error.**
 
@@ -627,6 +627,10 @@ Newest last. Dates are the day the work landed.
   **Vercel git auto-deploy does not fire on push** — see section 2.1.
 - **2026-08-01** — NANDA SkillMD submission went through: entry id
   `47063b5f-5000-4c03-8f33-c98555618f85`, registry count 273. `reachable` reads `null`.
+> Numbers in the entries below are what was observed ON THAT DATE. They are a
+> record, not a current claim — several have since more than doubled. For what is
+> true now, run the command.
+
 - **2026-08-01** — Documentation rewritten for handover: this file,
   [`docs/HACKATHON.md`](docs/HACKATHON.md) and [`docs/RUNBOOK.md`](docs/RUNBOOK.md) created,
   [`docs/README.md`](docs/README.md) re-indexed. Corrections made while verifying: the engine

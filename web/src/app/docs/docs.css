@@ -1,0 +1,159 @@
+/* ==========================================================================
+   Architecture page — every token below is one already declared at the top
+   of globals.css. No new hex, no new palette. The diagrams reuse the same
+   --ok / --warn / --bad vocabulary the product already uses for
+   approved / pending / declined, so "committed" and "aborted" read the same
+   way here as they do on a real group board.
+   ========================================================================== */
+
+.docs { min-height: 100vh; background: var(--paper); color: var(--ink); }
+.docs a { color: inherit; }
+.docs ::selection { background: var(--brand-soft); color: var(--brand-ink); }
+
+/* --- nav -------------------------------------------------------------- */
+
+.docs-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 60px;
+  padding-inline: clamp(18px, 4vw, 40px);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+}
+.docs-nav-brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: -0.03em; font-size: 14.5px; }
+.docs-nav-brand svg { width: 20px; height: 20px; }
+.docs-nav-sep { color: var(--ink-3); }
+.docs-nav-title { color: var(--ink-2); font-size: 13px; }
+.docs-nav-back { margin-left: auto; font-size: 13px; color: var(--ink-2); transition: color 0.13s; }
+.docs-nav-back:hover { color: var(--ink); }
+
+/* --- shell -------------------------------------------------------------- */
+
+.docs-wrap { width: min(100%, 900px); margin-inline: auto; padding: 0 clamp(18px, 4vw, 28px) 110px; }
+
+.docs-hero { padding-block: clamp(30px, 6vw, 56px) clamp(30px, 5vw, 48px); border-bottom: 1px solid var(--line); margin-bottom: clamp(36px, 6vw, 56px); }
+.docs-hero h1 { margin-top: 12px; font-size: clamp(30px, 4.6vw, 46px); letter-spacing: -0.045em; line-height: 1.06; max-width: 17ch; }
+.docs-hero-lede { margin-top: 16px; max-width: 66ch; color: var(--ink-2); font-size: 15px; line-height: 1.65; }
+.docs-hero-lede + .docs-hero-lede { margin-top: 12px; }
+.docs-hero-facts { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-top: 20px; }
+
+/* --- the one-paragraph summary ------------------------------------------ */
+
+.docs-tldr { padding: 18px 20px; margin-bottom: clamp(40px, 6vw, 64px); }
+.docs-tldr p { font-size: 14.5px; line-height: 1.7; max-width: 74ch; }
+.docs-tldr p + p { margin-top: 10px; }
+.docs-tldr b { color: var(--ink); }
+
+/* --- sections ------------------------------------------------------------ */
+
+.docs-section { margin-bottom: clamp(56px, 8vw, 92px); scroll-margin-top: 76px; }
+.docs-section-head { margin-bottom: 20px; max-width: 72ch; }
+.docs-section-head h2 { margin-top: 8px; font-size: clamp(21px, 2.8vw, 27px); letter-spacing: -0.03em; }
+.docs-section-head p { margin-top: 10px; color: var(--ink-2); font-size: 14px; line-height: 1.62; }
+
+/* diagram + prose, side by side on wide screens */
+.doc-diagram-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 400px) 1fr;
+  gap: clamp(20px, 4vw, 40px);
+  align-items: start;
+}
+.doc-diagram {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+  padding: 18px;
+}
+.doc-diagram svg { width: 100%; height: auto; display: block; }
+
+.doc-prose { font-size: 13.5px; line-height: 1.68; color: var(--ink-2); }
+.doc-prose p { margin-bottom: 12px; }
+.doc-prose p:last-child { margin-bottom: 0; }
+.doc-prose b { color: var(--ink); font-weight: 620; }
+.doc-prose code { font-family: var(--font-mono); font-size: 0.9em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0.08em 0.4em; color: var(--ink); overflow-wrap: break-word; }
+.docs-gap code { font-family: var(--font-mono); font-size: 0.92em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0.05em 0.35em; color: var(--ink); overflow-wrap: break-word; }
+.doc-prose ul { margin: 8px 0 12px 18px; padding: 0; }
+.doc-prose li { margin-bottom: 6px; }
+.doc-prose li:last-child { margin-bottom: 0; }
+.doc-prose a { color: var(--brand-ink); text-decoration: underline; text-underline-offset: 2px; }
+
+/* --- legend --------------------------------------------------------------- */
+
+.doc-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 12px 2px 0; }
+.doc-legend-item { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--ink-2); }
+.doc-legend-item i { width: 18px; height: 2px; border-radius: 1px; flex: none; }
+.doc-legend-item.is-money i { background: var(--brand); height: 3px; }
+.doc-legend-item.is-muted i { background: var(--ink-3); }
+
+/* --- real product screenshots --------------------------------------------- */
+
+.doc-shot { margin-top: 22px; }
+.doc-shot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+.doc-shot figcaption { margin-top: 10px; font-size: 12px; line-height: 1.55; color: var(--ink-3); max-width: 68ch; }
+.doc-shot figcaption code { font-family: var(--font-mono); font-size: 0.95em; color: var(--ink-2); }
+
+/* --- callouts: the honest boundary, the open finding ---------------------- */
+
+.doc-note {
+  border: 1px solid var(--warn-line);
+  background: var(--warn-soft);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--ink);
+  margin-top: 14px;
+}
+.doc-note b { color: var(--warn); }
+.doc-note.is-open { border-color: var(--line-2); background: var(--surface-2); }
+.doc-note.is-open b { color: var(--ink); }
+
+/* --- verify: endpoints + commands ------------------------------------------ */
+
+.doc-verify-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.doc-verify-card { padding: 14px 16px; }
+.doc-verify-card h3 { font-size: 12.5px; margin-bottom: 8px; color: var(--ink-2); font-weight: 650; }
+.doc-verify-card pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--ink); }
+.doc-verify-card p { font-size: 12px; color: var(--ink-3); margin-top: 8px; line-height: 1.5; }
+
+/* --- what's not built, printed plainly ------------------------------------- */
+
+.docs-gap-list { display: flex; flex-direction: column; gap: 10px; }
+.docs-gap { display: flex; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+.docs-gap-mark { flex: none; font-family: var(--font-mono); font-size: 11px; font-weight: 650; color: var(--warn); margin-top: 1px; }
+.docs-gap p { font-size: 13px; line-height: 1.58; color: var(--ink-2); }
+.docs-gap b { color: var(--ink); }
+
+/* --- footer -------------------------------------------------------------- */
+
+.docs-foot { padding-top: 24px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.docs-foot a { font-size: 12.5px; color: var(--ink-2); }
+.docs-foot a:hover { color: var(--ink); text-decoration: underline; }
+
+/* --- responsive ------------------------------------------------------------ */
+
+@media (max-width: 860px) {
+  .doc-diagram-row { grid-template-columns: 1fr; }
+  .doc-diagram { max-width: 420px; margin-inline: auto; }
+}
+@media (max-width: 520px) {
+  .docs-nav-sep, .docs-nav-title { display: none; }
+  .doc-diagram { padding: 14px; }
+}
+@media (max-width: 400px) {
+  .docs-wrap { padding-inline: 14px; }
+  .doc-diagram { padding: 10px; }
+}

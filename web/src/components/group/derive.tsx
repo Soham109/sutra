@@ -185,6 +185,28 @@ export function deriveAt(group: Group, events: GmpEvent[], upto: number = events
           m.cap_amount = pNum(p, 'cap') ?? m.cap_amount
         }
         break
+      // The at_venue rail's two events. Without these, every bill split's
+      // group page sat at "0/3 approved — waiting on" all three people
+      // forever, naming people who had already agreed, live and on reload,
+      // for the life of the group. The member's own page, the receipt and the
+      // dashboard were all correct; only this shared screen — the one the
+      // organiser watches while chasing people — was wrong.
+      //
+      // Found by screenshotting the product rather than by reading it.
+      case 'member.accepted':
+        if (m) {
+          m.status = 'approved'
+          m.share_amount = pNum(p, 'amount') ?? m.share_amount
+        }
+        break
+      case 'member.settled':
+        if (m) {
+          m.status = 'settled'
+          // Deliberately not charged_amount: nothing was charged on this rail,
+          // and the receipt must never be able to say otherwise.
+          m.share_amount = pNum(p, 'owed') ?? m.share_amount
+        }
+        break
       case 'member.declined':
         if (m) m.status = 'declined'
         break

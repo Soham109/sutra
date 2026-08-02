@@ -4,7 +4,16 @@ Deadline: **3 PM Pacific, Sun 2 Aug** (treat as real; the public schedule says 7
 the handbook reportedly says 3 PM, and being wrong the other way means not submitting).
 
 Live: web https://sutra-gmp.vercel.app · engine https://engine-production-e6fa.up.railway.app
-Tests: **479 engine across 25 files**, 33 widget, `npm run build` clean.
+Tests: run them, do not trust a number written here. Four documents in this repo
+quoted four different engine counts on the same day — 346, 365, 479, 519 — and
+this file contradicted itself between its header and its own §4b. The real
+figure moves several times a day on an active repo.
+
+```
+npm test -w engine          # PowerShell only, see section 8
+npm run test:widget
+cd nanda-town-prava; .\.venv\Scripts\python.exe -m pytest -q
+```
 
 ---
 

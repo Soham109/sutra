@@ -12,7 +12,8 @@ import { Mark } from '@/components/shell'
 // part of the page; in motion it should feel like it is above it.
 
 // "Architecture" used to point at #proof, a section that is commented out in
-// page.tsx — so the link scrolled nowhere.
+// page.tsx, so the link scrolled nowhere. It now points at the real thing:
+// /docs, five hand-drawn diagrams built from the actual state machine.
 const LINKS = [
   { href: '#how', label: 'How it works' },
   { href: '#product', label: 'Product' },
@@ -43,6 +44,7 @@ export function LandingNav({ specUrl }: { specUrl: string }) {
               {l.label}
             </a>
           ))}
+          <Link href="/docs">Architecture</Link>
           <Link href="/nanda">NANDA proof</Link>
           <a href={specUrl}>Developers</a>
         </nav>

@@ -14,7 +14,9 @@ Start with [`../HANDOFF.md`](../HANDOFF.md). It is the entry point and it says w
 
 | Document | One line |
 |---|---|
-| [`../README.md`](../README.md) | The front door: what this is, where the money flows, the quickstart, the full endpoint list, and the 36-case failure taxonomy. |
+| [`../README.md`](../README.md) | The front door: what this is, how the money moves, what the product does, where it honestly stops, and a 60-second quickstart. |
+| [`REFERENCE.md`](REFERENCE.md) | The long tail the front page should not carry: the full endpoint inventory, the 36-case failure taxonomy, built vs designed-not-built, and the pre-existing-work disclosure. |
+| [`REPO-MAP.md`](REPO-MAP.md) | What the code actually contains, with a file:line on every claim — the data model, the state machines, and the four main request flows traced through real function calls. Written to be checked, not trusted. |
 | [`../spec/PROTOCOL.md`](../spec/PROTOCOL.md) | GMP/1 formally: objects, state machines, the decision, the commit saga, crash recovery, receipts, and the two settlement rails. |
 | [`COORDINATION.md`](COORDINATION.md) | The layer above the protocol: the signal model, common-window sweeping, spherical geometry, and the exact arithmetic behind every option's score. |
 | [`../spec/AP2-EXTENSION.md`](../spec/AP2-EXTENSION.md) | A positioning memo against AP2 v0.2: where the multi-principal gap is and what an extension would need. |
