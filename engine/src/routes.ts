@@ -88,7 +88,7 @@ export function registerRoutes(
       const { group, members } = service.createGroup({ ...input, created_by: viewer.id })
       return reply.status(201).send({
         group_id: group.id,
-        board_url: `${cfg.appBaseUrl}/g/${group.id}/board`,
+        board_url: `${cfg.appBaseUrl}/app/groups/${group.id}`,
         members: members.map((m) => ({
           member_id: m.id,
           name: m.display_name,
@@ -103,7 +103,7 @@ export function registerRoutes(
     const { group, members } = service.createGroup(input)
     return reply.status(201).send({
       group_id: group.id,
-      board_url: `${cfg.appBaseUrl}/g/${group.id}/board`,
+      board_url: `${cfg.appBaseUrl}/app/groups/${group.id}`,
       members: members.map((m) => ({
         member_id: m.id,
         name: m.display_name,

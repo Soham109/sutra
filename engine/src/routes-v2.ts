@@ -164,7 +164,7 @@ export function registerProductRoutes(
     const base = service.cfg.appBaseUrl.replace(/\/$/, '')
     return reply.status(201).send({
       group_id: created.group.id,
-      board_url: `${base}/g/${created.group.id}/board`,
+      board_url: `${base}/app/groups/${created.group.id}`,
       members: created.members.map((member) => ({
         member_id: member.id,
         name: member.display_name,

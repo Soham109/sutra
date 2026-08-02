@@ -177,6 +177,29 @@ export function locationPhrase(text: string): string | null {
   return phrase.length >= 3 ? phrase : null
 }
 
+/**
+ * A stand-in a model produced instead of admitting the sentence named nobody.
+ *
+ * "friend1", "Friend 2", "person 3", "guest1", "Someone", "Other" — all of them
+ * are the model filling a headcount, and every one of them ends up printed to a
+ * real human as their own name on their approval page.
+ *
+ * Deliberately narrow. A real person can be called Guest — it is a surname —
+ * so only the numbered forms and the handful of bare generics are refused, and
+ * anything with a second word that is not a digit survives.
+ */
+export function isPlaceholderName(raw: string): boolean {
+  const s = raw.trim().toLowerCase().replace(/\s+/g, ' ')
+  if (!s) return true
+  // "friend 1", "person2", "guest #3", "attendee 04"
+  if (/^(friend|person|people|guest|attendee|participant|member|user|player|buddy|mate|pal|companion)\s*#?\d+$/.test(s)) return true
+  // Bare generics with no number at all.
+  if (/^(friend|friends|person|people|guest|guests|someone|somebody|other|others|another|unknown|tbd|n\/?a|anon|anonymous|placeholder|name)$/.test(s)) return true
+  // "two friends", "3 people" — a count that was never a name.
+  if (/^(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|an|the)\s+(friends?|people|persons?|guests?|others?)$/.test(s)) return true
+  return false
+}
+
 /** True when the text names a currency outright, so nothing may override it. */
 export function statedCurrency(text: string): string | null {
   return CURRENCY_HINTS.find(([re]) => re.test(text))?.[1] ?? null
@@ -433,8 +456,27 @@ export async function extractWithOpenAI(
     when: { ...base.slots.when, hint: (parsed.when_hint as string) || base.slots.when.hint },
   })
 
+  // A model asked for "the names of other people mentioned" will answer a
+  // headcount with placeholders. "dinner saturday with two friends" came back
+  // as ["friend1","friend2"] — twice, from the same sentence — despite the tool
+  // schema saying "Do not invent names" in those words.
+  //
+  // Those placeholders became real plan participants, then real group members,
+  // and then a real human opened their approval link and was told, on the only
+  // page most people ever see of this product: "You are friend1."
+  //
+  // The deterministic extractor gets this right by requiring a capitalised
+  // token, so a name it did not find is evidence, not an absence. Anything
+  // placeholder-shaped is dropped and the deterministic read stands.
   const people = Array.isArray(parsed.people)
-    ? [...new Set((parsed.people as string[]).filter((p) => typeof p === 'string' && p.trim()))]
+    ? [
+        ...new Set(
+          (parsed.people as string[])
+            .filter((p) => typeof p === 'string' && p.trim())
+            .map((p) => p.trim())
+            .filter((p) => !isPlaceholderName(p)),
+        ),
+      ]
     : base.people
 
   // Solo stays a deterministic read: it is a plain keyword test on the original
