@@ -1,0 +1,25 @@
+{
+  "_note": "Sound cues, in absolute film milliseconds — the same clock render.mjs asks for frames on, so sync is arithmetic rather than something to nudge. Gains are deliberately low: this plays to a judge who has already watched thirty demos, and a startle costs more than it gains. Cue points in scenes 1-3 were reported by the scene author against their own code.",
+
+  "cues": [
+    { "atMs": 2600,  "sound": "tick",    "gain": 0.85, "_": "the booking confirmation lands" },
+    { "atMs": 3800,  "sound": "tick",    "gain": 0.7,  "_": "Ada asks for the money" },
+    { "atMs": 5200,  "sound": "tick",    "gain": 0.9,  "_": "Arsh pays — the only clean one" },
+    { "atMs": 6600,  "sound": "pending", "gain": 0.9,  "_": "Maya: paying tonight" },
+    { "atMs": 11600, "sound": "pending", "gain": 0.85, "_": "Dev: remind me tomorrow" },
+    { "atMs": 15000, "sound": "pending", "gain": 0.6,  "_": "Priya types, then stops. Quietest of the three." },
+
+    { "atMs": 19000, "sound": "tick",    "gain": 0.35, "_": "Ada follows up. Deliberately faint —" },
+    { "atMs": 20400, "sound": "tick",    "gain": 0.28, "_": "each reminder should sound smaller" },
+
+    { "atMs": 28200, "sound": "whoosh",  "gain": 1.0,  "_": "the turn" },
+
+    { "atMs": 40200, "sound": "whoosh",  "gain": 0.8,  "_": "into the four phones" },
+    { "atMs": 42300, "sound": "tick",    "gain": 0.9,  "_": "first approval" },
+    { "atMs": 44700, "sound": "tick",    "gain": 0.9,  "_": "second" },
+    { "atMs": 48100, "sound": "tick",    "gain": 0.9,  "_": "third" },
+    { "atMs": 49100, "sound": "chord",   "gain": 1.0,  "_": "all four flip to paid in the same frame. The only satisfying sound in the film, and it is earned." },
+
+    { "atMs": 65200, "sound": "whoosh",  "gain": 0.7,  "_": "into the surfaces montage" }
+  ]
+}
