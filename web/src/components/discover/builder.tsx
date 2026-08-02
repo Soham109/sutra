@@ -382,7 +382,7 @@ export function Builder({
   const createLabel = checkoutMode === 'shopify_pos'
     ? 'Create Shopify POS split'
     : checkoutMode === 'shopify_test_order'
-      ? 'Start Shopify test-order proof'
+      ? 'Create the card-mandate group'
     : checkoutMode === 'checkout_handoff'
       ? 'Prepare checkout handoff'
       : 'Choose a finish line'
@@ -518,6 +518,26 @@ export function Builder({
             onCircle={setCircleId}
           />
 
+          {/* How the merchant gets paid decides everything downstream — roles,
+              backstops, the whole story on the approval page — so it is
+              decided right after the people are, not buried under policy and
+              deadline settings nobody has a reason to read first. */}
+          <CheckoutModePicker
+            value={checkoutMode}
+            onChange={setCheckoutMode}
+            isShopify={product.source === 'shopify' || strategy === 'shopify-json'}
+            testProof={{
+              enabled: !!shopifyTest?.enabled,
+              available: testProofAvailable,
+              adapter: shopifyTest?.adapter ?? 'mock',
+              store: shopifyTest?.storefront_domain ?? null,
+              reason: shopifyTest?.reason,
+              reasonDetail: shopifyTest?.reason_detail,
+            }}
+            posConfirmed={posConfirmed}
+            onPosConfirmed={setPosConfirmed}
+          />
+
           <ClaimsEditor items={items} members={members} currency={currency} onItems={setItems} />
 
           <PolicyEditor policy={policy} onPolicy={setPolicy} members={members} onMembers={handleMembers} />
@@ -534,19 +554,6 @@ export function Builder({
             sampleShare={split.shares.find((s) => s.payable > 0)?.payable ?? Math.round(split.total / Math.max(1, payers.length))}
             currency={currency}
             charges={checkoutMode === 'shopify_test_order'}
-          />
-
-          <CheckoutModePicker
-            value={checkoutMode}
-            onChange={setCheckoutMode}
-            isShopify={product.source === 'shopify' || strategy === 'shopify-json'}
-            testProof={{
-              available: testProofAvailable,
-              adapter: shopifyTest?.adapter ?? 'mock',
-              store: shopifyTest?.storefront_domain ?? null,
-            }}
-            posConfirmed={posConfirmed}
-            onPosConfirmed={setPosConfirmed}
           />
         </div>
 
@@ -570,8 +577,9 @@ export function Builder({
           <div className="card card-pad col" style={{ gap: 12 }}>
             {checkoutMode === 'shopify_test_order' ? (
               <p className="guardrail">
-                Test mode only. Sutra test approvals are mirrored into a valid Shopify test order after you add
-                the delivery address. No real money moves.
+                Each person approves their own capped Prava mandate before anything is charged. Once every mandate
+                clears, sutra mirrors the outcome into one labeled Shopify test order as independent proof. No real
+                money moves.
               </p>
             ) : checkoutMode === 'shopify_pos' ? (
               <p className="guardrail">
@@ -618,7 +626,7 @@ export function Builder({
 
             <p className="tiny faint" style={{ lineHeight: 1.55 }}>
               {checkoutMode === 'shopify_test_order'
-                ? 'Creating the group sends test approval links. The Shopify order is created only after every test share succeeds and you supply the delivery address.'
+                ? 'Creating the group sends each person their own approval link. Opening it mints a real, capped Prava mandate on their device — nothing is charged until everyone approves and the group’s policy passes.'
                 : 'Creating the group only sends agreement links. Sutra does not place the merchant order or charge a card on this finish line.'}
             </p>
           </div>

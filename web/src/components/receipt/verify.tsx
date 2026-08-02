@@ -35,9 +35,20 @@ export function VerifyPanel({ receipt }: { receipt: Receipt }) {
     }
   }, [receipt.public_key])
 
+  // `--engine` pins the CLI's check to THIS deployment's key explicitly — a
+  // flag, not an env var, so the command is the same on every shell (an
+  // inline `GMP_API=... command` is bash-only and silently wrong on
+  // Windows). Without it, `gmp verify` checks the receipt offline: hash
+  // chain, totals, and the Ed25519 signature against the key embedded in the
+  // file. It used to default to pinning against GMP_API instead, which
+  // defaults to localhost:4100 — so this exact command, run by a judge who
+  // happened to have a local dev engine open, pinned against THAT engine's
+  // unrelated key and printed "VERIFICATION FAILED" on a completely genuine
+  // receipt. Naming the engine explicitly here is what makes the printed
+  // command actually do what it says on any machine, in any state.
   const commands = [
     `curl -s ${origin || '<origin>'}/api/v1/groups/${receipt.group_id}/receipt > receipt.json`,
-    'npm run -w cli gmp -- verify receipt.json',
+    `npm run -w cli gmp -- verify receipt.json --engine ${origin || '<origin>'}/api`,
   ].join('\n')
 
   return (
@@ -47,7 +58,9 @@ export function VerifyPanel({ receipt }: { receipt: Receipt }) {
         <p className="small muted" style={{ maxWidth: '58ch', marginTop: 4 }}>
           Don&apos;t trust this page alone. The receipt is signed with Ed25519 over its canonical JSON. Check that the
           public key below matches the engine&apos;s live key from <code className="mono">/health</code>, then run the
-          CLI verifier — it pins against that same key when the engine is reachable.
+          CLI verifier below — <code className="mono">--engine</code> pins it to that same key. Drop{' '}
+          <code className="mono">--engine</code> to check the chain and signature offline instead, with no dependency
+          on this or any other engine being reachable.
         </p>
       </div>
 

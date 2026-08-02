@@ -57,6 +57,18 @@ const MAX_OPTIONS = 8
 
 export class PlanService {
   private readonly now: () => Date
+  // Serialises generateOptions per plan. It used to be safe to assume only
+  // one caller ever ran this for a given plan at a time, because every call
+  // site awaited it before doing anything else. That stopped being true once
+  // plan creation stopped blocking its HTTP response on the search (see
+  // routes-plan.ts) — a route can now fire a background search for a plan
+  // that a participant's location signal, arriving moments later, ALSO
+  // triggers a fresh search for. Two concurrent runs would interleave
+  // clearOptions()/insertOption() calls on the same rows and could leave a
+  // fresher board overwritten by a stale one. Queuing rather than locking
+  // means the second caller still gets a genuinely fresh run afterwards
+  // rather than a dropped or duplicated one.
+  private readonly searchQueue = new Map<string, Promise<void>>()
 
   constructor(private readonly d: PlanServiceDeps) {
     this.now = d.now ?? (() => new Date())
@@ -243,8 +255,25 @@ export class PlanService {
    * the group's actual centre of gravity; product plans hit the storefront
    * search or resolve a pasted URL. Every option keeps the raw source response
    * so the UI can show where it came from.
+   *
+   * Queued per plan (see `searchQueue`) rather than run directly: a caller
+   * that does not await this — the fire-and-forget kick-off at creation, see
+   * routes-plan.ts — must not be allowed to race a later, awaited call for
+   * the same plan.
    */
   async generateOptions(planId: string): Promise<PlanOptionRow[]> {
+    const prior = this.searchQueue.get(planId) ?? Promise.resolve()
+    const settle = (): Promise<void> => Promise.resolve()
+    const run = prior.then(() => this.generateOptionsNow(planId))
+    const tail = run.then(settle, settle)
+    this.searchQueue.set(planId, tail)
+    void tail.finally(() => {
+      if (this.searchQueue.get(planId) === tail) this.searchQueue.delete(planId)
+    })
+    return run
+  }
+
+  private async generateOptionsNow(planId: string): Promise<PlanOptionRow[]> {
     const plan = this.mustPlan(planId)
     if (PLAN_TERMINAL.has(plan.status)) throw new UserError('this plan is closed')
     const slots = SlotsSchema.parse(JSON.parse(plan.slots_json))

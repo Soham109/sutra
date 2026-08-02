@@ -42,7 +42,23 @@ export interface ShopifyTestOrderProof {
 interface ShopifyTestOrderConfig {
   storeDomain: string
   storefrontDomain?: string
-  accessToken: string
+  /**
+   * A permanent offline Admin API token, the kind a custom app created
+   * directly in a store's admin used to hand you as a copyable string.
+   * Shopify stopped letting merchants create *new* custom apps that way on
+   * 2026-01-01 — existing ones keep working with a token like this, but a
+   * store set up after that date will not have one to paste in.
+   */
+  accessToken?: string
+  /**
+   * What a Dev Dashboard custom app issues instead: a client ID/secret pair,
+   * not a copyable token. Supplying these makes the client mint its own
+   * access token via Shopify's client-credentials grant and refresh it
+   * before Shopify's ~24h expiry, rather than trusting a value pasted into
+   * an env var to still be valid whenever a judge actually looks.
+   */
+  clientId?: string
+  clientSecret?: string
   apiVersion?: string
   fetchImpl?: typeof fetch
 }
@@ -93,18 +109,28 @@ const ORDER_CREATE = `
 export class ShopifyTestOrderClient {
   readonly storeDomain: string
   readonly storefrontDomain: string
-  private readonly accessToken: string
+  private readonly staticAccessToken?: string
+  private readonly clientId?: string
+  private readonly clientSecret?: string
   private readonly apiVersion: string
   private readonly fetchImpl: typeof fetch
+  private cachedToken?: { token: string; expiresAt: number }
 
   constructor(config: ShopifyTestOrderConfig) {
     this.storeDomain = normaliseHost(config.storeDomain)
     this.storefrontDomain = normaliseHost(config.storefrontDomain || config.storeDomain)
-    this.accessToken = config.accessToken
+    this.staticAccessToken = config.accessToken
+    this.clientId = config.clientId
+    this.clientSecret = config.clientSecret
     this.apiVersion = config.apiVersion ?? '2026-07'
     this.fetchImpl = config.fetchImpl ?? fetch
     if (!this.storeDomain.endsWith('.myshopify.com')) {
       throw new Error('SHOPIFY_TEST_STORE must be the store\'s *.myshopify.com domain')
+    }
+    if (!this.staticAccessToken && !(this.clientId && this.clientSecret)) {
+      throw new Error(
+        'ShopifyTestOrderClient needs either accessToken (a legacy offline token) or both clientId and clientSecret (a Dev Dashboard custom app)',
+      )
     }
   }
 
@@ -114,6 +140,35 @@ export class ShopifyTestOrderClient {
     } catch {
       return false
     }
+  }
+
+  /**
+   * A static offline token is used as-is — it is the legacy, non-expiring
+   * kind. A client ID/secret pair is exchanged for a token that Shopify
+   * expires after ~24h (`expires_in`, typically 86399s), so this refreshes
+   * a few minutes ahead of that instead of caching one value forever.
+   */
+  private async resolveAccessToken(): Promise<string> {
+    if (this.staticAccessToken) return this.staticAccessToken
+    const REFRESH_MARGIN_MS = 5 * 60_000
+    if (this.cachedToken && Date.now() < this.cachedToken.expiresAt - REFRESH_MARGIN_MS) {
+      return this.cachedToken.token
+    }
+    const response = await this.fetchImpl(`https://${this.storeDomain}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: this.clientId!,
+        client_secret: this.clientSecret!,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!response.ok) throw new Error(`Shopify token exchange returned HTTP ${response.status}`)
+    const body = (await response.json()) as { access_token?: string; expires_in?: number }
+    if (!body.access_token) throw new Error('Shopify token exchange did not return an access_token')
+    this.cachedToken = { token: body.access_token, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000 }
+    return this.cachedToken.token
   }
 
   async create(input: CreateInput): Promise<ShopifyTestOrderProof> {
@@ -198,13 +253,14 @@ export class ShopifyTestOrderClient {
       options: { sendReceipt: false, inventoryBehaviour: 'BYPASS' },
     }
 
+    const accessToken = await this.resolveAccessToken()
     const response = await this.fetchImpl(
       `https://${this.storeDomain}/admin/api/${this.apiVersion}/graphql.json`,
       {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'x-shopify-access-token': this.accessToken,
+          'x-shopify-access-token': accessToken,
         },
         body: JSON.stringify({ query: ORDER_CREATE, variables }),
         signal: AbortSignal.timeout(20_000),

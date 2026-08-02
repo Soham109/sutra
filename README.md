@@ -162,6 +162,8 @@ In another terminal:
 npm run demo             # four approvals → commit → verified receipt
 ```
 
+`npm run demo` checks for an engine at `localhost:4100` first. If `npm run dev` isn't running yet, it starts one itself for the duration of the demo and stops it again afterward — so running the two commands out of order, or skipping straight to `npm run demo`, still works.
+
 Useful verification commands:
 
 ```bash

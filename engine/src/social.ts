@@ -167,6 +167,37 @@ export class Social {
     return user
   }
 
+  /**
+   * Change your own display name and/or handle. There was no way to do this
+   * at all — `createUser` only ever creates or returns-as-is, and `/v1/me`
+   * (POST) is handle-only sign-in, not a rename — so a demo account seeded
+   * as "test" stayed "test" everywhere: sidebar, thread messages, the "you…
+   * test" line in a circle roster, forever.
+   *
+   * Deliberately takes no id parameter beyond the caller's own — the route
+   * that calls this (routes-v2.ts's POST /v1/me/profile) resolves `userId`
+   * from the session the same way every other account route does
+   * (`requireUser`), so there is structurally no way to reach this for
+   * anybody but yourself.
+   */
+  updateProfile(userId: string, input: { name?: string; handle?: string }): User {
+    if (!this.byId(userId)) throw new UserError('no such user', 404)
+
+    if (input.handle !== undefined) {
+      const handle = input.handle.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '')
+      if (!handle) throw new UserError('handle cannot be empty')
+      const holder = this.byHandle(handle)
+      if (holder && holder.id !== userId) throw new UserError('that handle is already taken', 409)
+      this.db.sql.prepare(`UPDATE users SET handle = ? WHERE id = ?`).run(handle, userId)
+    }
+    if (input.name !== undefined) {
+      const name = input.name.trim()
+      if (!name) throw new UserError('display name cannot be empty')
+      this.db.sql.prepare(`UPDATE users SET name = ? WHERE id = ?`).run(name, userId)
+    }
+    return this.byId(userId)!
+  }
+
   authenticate(email: string, password: string): User | undefined {
     const row = this.db.sql.prepare(`SELECT * FROM users WHERE lower(email) = ?`).get(email.trim().toLowerCase()) as (User & { password_hash: string | null }) | undefined
     if (!row?.password_hash || !verifyPassword(password, row.password_hash)) return undefined
@@ -436,7 +467,16 @@ export class Social {
         .filter((e) => e.member_id === r.id)
 
       const invited = events.find((e) => e.type === 'member.invited')
-      const approved = events.find((e) => e.type === 'member.approved')
+      // `member.approved` is the card-mandate act (memberApproved); on the
+      // non-charging rails the equivalent act is acceptShare(), which emits
+      // `member.accepted` — a deliberately different event because the two
+      // are not the same thing everywhere (a receipt, an exposure figure, or
+      // a charged amount must never blur them). But "did this person honour
+      // a commitment they made" is true of both, so — for this count only —
+      // they are treated alike. Without this, every non-card rail is
+      // invisible here: an account that has honoured five at_venue/
+      // shopify_pos/checkout_handoff agreements would show 0% approved.
+      const approved = events.find((e) => e.type === 'member.approved' || e.type === 'member.accepted')
       const declined = events.find((e) => e.type === 'member.declined')
 
       if (approved) {

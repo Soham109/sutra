@@ -62,7 +62,16 @@ const SERVER_TIMEOUT_S = 15
 // up on comes back as a remark we can read rather than a dead socket.
 const ATTEMPT_TIMEOUT_MS = 18_000
 // How long a mirror gets to answer before the next one starts racing it too.
-const HEDGE_DELAY_MS = 3_000
+//
+// Measured against the live primary on 2026-08-02 (10 back-to-back queries):
+// overpass-api.de was the one to actually answer exactly once, in 1.6s: every
+// other run it was still silent when the hedge fired, and overpass.openstreetmap.fr
+// closed it out ~1-1.5s after ITS turn started. At the old 3000ms stagger that
+// made the typical demo wait ~4.2-5.3s — almost entirely spent waiting out a
+// primary that was not going to answer anyway, not doing useful work. 1200ms
+// keeps a real head start for the primary (a genuinely fast answer still wins
+// outright) while cutting the common-case floor to ~2.3s.
+const HEDGE_DELAY_MS = 1_200
 // Shared across every hedge: without it, a run of hung mirrors still costs a
 // caller the sum of their timeouts instead of one bounded wait.
 const TOTAL_BUDGET_MS = 20_000

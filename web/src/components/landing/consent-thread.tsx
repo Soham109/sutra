@@ -22,18 +22,18 @@ export function ConsentThreadDemo() {
     return scenario === 'cover' ? (index === 2 ? 'released' : 'paid') : 'released'
   }
   const copy = [
-    'Ada approves her own ₹780 cap.',
-    'Ben approves. Cleo drops out—₹0 charged.',
-    scenario === 'cover' ? 'Ada’s pre-agreed cover absorbs one share.' : 'The rule required all four people.',
-    scenario === 'cover' ? 'Three cards commit together. The cinema gets ₹3,120.' : 'Every hold disappears. Nobody is charged.',
+    'Ada approves — capped at her own ₹780.',
+    'Ben approves. Cleo says no — ₹0 charged so far.',
+    scenario === 'cover' ? 'Ada already agreed to cover Cleo’s share.' : 'The rule needed all four people.',
+    scenario === 'cover' ? 'Three cards go through. The cinema gets ₹3,120.' : 'Every pending charge is released. Nobody is charged.',
   ][step]
   return (
     <div className="consent-live">
       <div className="consent-controls">
-        <div><span>LIVE POLICY REPLAY</span><h3>Friday · 8:40 PM</h3><p>4 seats · ₹3,120 total</p></div>
+        <div><span>LIVE RULE REPLAY</span><h3>Friday · 8:40 PM</h3><p>4 people · ₹3,120 total</p></div>
         <div role="group" aria-label="Choose group rule">
-          <button aria-pressed={scenario === 'cover'} onClick={() => choose('cover')}>3 + one cover</button>
-          <button aria-pressed={scenario === 'cancel'} onClick={() => choose('cancel')}>All four</button>
+          <button aria-pressed={scenario === 'cover'} onClick={() => choose('cover')}>Ada covers Cleo</button>
+          <button aria-pressed={scenario === 'cancel'} onClick={() => choose('cancel')}>Needs all four</button>
         </div>
       </div>
       <div className="consent-stage">
@@ -45,7 +45,7 @@ export function ConsentThreadDemo() {
         <div className="consent-core" data-result={step === 3 ? scenario : 'live'}>
           <div className="consent-ring"><i /><i /><i /></div>
           <span>{step + 1}/4</span><strong>{step === 3 ? scenario === 'cover' ? 'COMMITTED' : 'CANCELLED' : 'COLLECTING'}</strong>
-          <small>{step === 3 ? scenario === 'cover' ? '₹3,120 · 3 capped outcomes recorded' : '₹0 moved · 4 permissions released' : 'Nothing can move yet'}</small>
+          <small>{step === 3 ? scenario === 'cover' ? '₹3,120 · 3 people charged, each their own amount' : '₹0 moved · all 4 permissions released' : 'Nothing can move yet'}</small>
         </div>
       </div>
       <div className="consent-caption"><p key={`${scenario}-${step}`}>{copy}</p><div>{[0,1,2,3].map((index) => <button key={index} aria-label={`Step ${index + 1}`} data-on={index <= step} onClick={() => { setStep(index); setPlaying(false) }} />)}</div><button className="consent-replay" onClick={() => { setStep(0); setPlaying(true) }}>{playing && step < 3 ? 'Playing' : 'Replay'} ↻</button></div>

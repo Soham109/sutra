@@ -8,7 +8,7 @@
 // `platform` and `note` exist so a failing row in the printed table is
 // legible without opening the fixture. `ownership` marks whether a fix for
 // that row lives in parse.ts (mine) or resolver.ts/sources.ts (the other
-// agent's, per the file split for this session) — see HANDOFF for the split.
+// agent's, per the file split for this session).
 
 export interface Fixture {
   id: string

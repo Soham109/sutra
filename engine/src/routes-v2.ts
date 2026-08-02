@@ -131,6 +131,32 @@ export function registerProductRoutes(
     }
   })
 
+  /**
+   * Edit your own display name and/or handle. `POST /v1/me` above only ever
+   * creates or logs into a handle — it cannot rename an existing account, so
+   * a demo user seeded as "test" had no route back out of that name. This is
+   * the one: it reads the caller off the session (`requireUser`), the same
+   * ownership guard as every other account route (extension tokens, circles,
+   * signout), and never accepts an id — there is no version of this call
+   * that can touch anyone else's profile.
+   */
+  app.post('/v1/me/profile', async (req) => {
+    const me = requireUser(req)
+    // Same bounds POST /v1/auth/register validates a new account against —
+    // this is a rename, not a looser rule for an existing one.
+    const body = z
+      .object({
+        name: z.string().min(1).max(60).optional(),
+        handle: z.string().min(2).max(30).optional(),
+      })
+      .parse(req.body)
+    if (body.name === undefined && body.handle === undefined) {
+      throw new UserError('nothing to update')
+    }
+    const user = social.updateProfile(me.id, body)
+    return { user, reliability: social.reliability(user.id) }
+  })
+
   app.post('/v1/me/signout', async (req, reply) => {
     const me = currentUser(req)
     if (me) social.revokeSessions(me.id)
@@ -187,28 +213,61 @@ export function registerProductRoutes(
   // ---- people ------------------------------------------------------------
 
   /**
-   * The directory. Public by design — you have to be able to find a friend by
-   * name — but it returns a display identity only. It used to spread the raw
-   * database row, which put every user's email, and eventually their password
-   * hash, in front of anybody who asked.
+   * The directory. It returns a display identity only — never the raw
+   * database row, which used to put every user's email, and eventually their
+   * password hash, in front of anybody who asked.
+   *
+   * It used to also return `social.allUsers()` — the entire user table,
+   * every throwaway QA account this engine has ever seen, to any signed-in
+   * caller. That reads as a leaked user table (it publishes display names
+   * nobody agreed to share) and, on a shared deployment, fires one
+   * `/reliability` lookup per stranger the client renders — a self-inflicted
+   * 403 storm, since that route only answers for yourself or a friend.
+   *
+   * Browsing everyone is gone. What replaces it, with no `q`: your friends,
+   * plus people you have actual evidence you know — a shared group or a
+   * shared plan. Searching (`q` set) still reaches the whole directory,
+   * because that is how a friend request to someone new begins; it requires
+   * you to already know enough to type their name or handle, which is a very
+   * different exposure than shipping the full table to everyone unasked.
    */
   app.get('/v1/people', async (req) => {
-    const q = String((req.query as { q?: string }).q ?? '').toLowerCase()
-    const me = currentUser(req)
-    const friendIds = new Set(me ? social.friendsOf(me.id).map((f) => f.id) : [])
-    const outgoing = new Set(me ? social.outgoingRequests(me.id).map((r) => r.id) : [])
-    const incoming = new Set(me ? social.incomingRequests(me.id).map((r) => r.id) : [])
-    return {
-      people: social
+    const q = String((req.query as { q?: string }).q ?? '').trim().toLowerCase()
+    // The directory is a signed-in feature — finding and friending people is
+    // something you do as an account, and an anonymous caller enumerating
+    // display names off this route is the exact shape of leak this rewrite
+    // closes for signed-in callers too.
+    const me = requireUser(req)
+    const friendIds = new Set(social.friendsOf(me.id).map((f) => f.id))
+    const outgoing = new Set(social.outgoingRequests(me.id).map((r) => r.id))
+    const incoming = new Set(social.incomingRequests(me.id).map((r) => r.id))
+
+    let candidates: User[]
+    if (q) {
+      candidates = social
         .allUsers()
-        .filter((u) => !q || u.name.toLowerCase().includes(q) || u.handle.includes(q))
-        .map((u) => ({
-          ...publicUser(u),
-          is_friend: friendIds.has(u.id),
-          is_me: u.id === me?.id,
-          request_sent: outgoing.has(u.id),
-          request_received: incoming.has(u.id),
-        })),
+        .filter((u) => u.name.toLowerCase().includes(q) || u.handle.includes(q))
+        .slice(0, 40) // a search result, not an export
+    } else {
+      const known = new Set<string>([...friendIds, ...outgoing, ...incoming])
+      for (const id of social.recentCollaborators(me.id, 500)) known.add(id)
+      for (const plan of planStore.plansFor(me.id)) {
+        for (const participant of planStore.participants(plan.id)) {
+          if (participant.user_id) known.add(participant.user_id)
+        }
+      }
+      known.delete(me.id)
+      candidates = [...known].map((id) => social.byId(id)).filter((u): u is User => !!u)
+    }
+
+    return {
+      people: candidates.map((u) => ({
+        ...publicUser(u),
+        is_friend: friendIds.has(u.id),
+        is_me: u.id === me.id,
+        request_sent: outgoing.has(u.id),
+        request_received: incoming.has(u.id),
+      })),
     }
   })
 
@@ -377,8 +436,22 @@ export function registerProductRoutes(
 
       if (mine) {
         // Money that could still leave my card without me touching anything
-        // again — the number nobody else shows you.
-        if (mine.status === 'approved') bump(g.currency, 'authorized', mine.cap_amount)
+        // again — the number nobody else shows you. This is real ONLY on a
+        // rail that can actually charge a card (today, prava_mandates): a
+        // `member.approved` status on shopify_pos/checkout_handoff/at_venue
+        // means the member accepted their exact share (service.ts's
+        // acceptShare also lands on `approved` — a different act from a card
+        // mandate, deliberately sharing the status name but not the
+        // capability), and there is no mandate and no card behind it. Bucket
+        // by capabilityOf(g.rail).charges, never by status alone, or an
+        // agreement on a non-charging rail reads as live card exposure.
+        if (mine.status === 'approved') {
+          if (cap.charges) {
+            bump(g.currency, 'authorized', mine.cap_amount)
+          } else {
+            bump(g.currency, g.rail === 'at_venue' ? 'owed_at_venue' : 'agreed_not_charged', mine.share_amount)
+          }
+        }
         if (mine.status === 'charging') bump(g.currency, 'charging', mine.share_amount)
         if (mine.status === 'charged') bump(g.currency, 'settled', mine.charged_amount)
         if (mine.status === 'settled') {

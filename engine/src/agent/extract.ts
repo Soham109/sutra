@@ -1,3 +1,4 @@
+import { CATEGORIES } from '../places/taxonomy.js'
 import { SlotsSchema, type PlanKind, type Slots } from '../plan/types.js'
 
 // ---------------------------------------------------------------------------
@@ -373,9 +374,19 @@ const EXTRACTION_TOOL = {
       properties: {
         title: { type: 'string', description: 'Short human title, max 70 chars' },
         kind: { type: 'string', enum: ['venue', 'product', 'bill', 'open'] },
+        // Closed enum, derived from the taxonomy so the two cannot drift apart.
+        // Left open, the model answers this with whatever noun it likes — it once
+        // returned "venue", which is the *kind* field above, not a category. An
+        // unrecognised category used to fall through to a name-substring search,
+        // so "venue" matched every road in Bangalore ending in "Avenue" and the
+        // board confidently offered a police station and a car dealership as
+        // places to eat brunch. taxonomy.ts now refuses that fallback as well;
+        // this is the other half, stopping it at the source.
         category: {
           type: 'string',
-          description: 'Kind of place or thing, e.g. cinema, restaurant, bar, hotel. Empty if unclear.',
+          enum: CATEGORIES.map((c) => c.id),
+          description:
+            'Kind of place, from the listed set only. Omit entirely if the sentence does not clearly name one.',
         },
         people: {
           type: 'array',
@@ -444,9 +455,16 @@ export async function extractWithOpenAI(
   // The deterministic pass still runs: it supplies the concrete date maths and
   // acts as a floor under anything the model declined to fill in.
   const base = extractDeterministic(text, now)
+  // Declaring the enum in the tool schema is a strong hint, not a guarantee —
+  // tool calling does not enforce it the way strict structured output does. So
+  // check rather than trust: an unrecognised category is dropped in favour of
+  // whatever the deterministic pass read, which is a real synonym match or
+  // nothing at all. Never let an unknown string through to the venue search.
+  const offered = typeof parsed.category === 'string' ? parsed.category.trim().toLowerCase() : ''
+  const known = CATEGORIES.some((c) => c.id === offered)
   const slots = SlotsSchema.parse({
     ...base.slots,
-    category: (parsed.category as string) || base.slots.category,
+    category: (known ? offered : '') || base.slots.category,
     party_size: (parsed.party_size as number) ?? base.slots.party_size,
     budget_ceiling_minor:
       (parsed.budget_ceiling_minor as number) ?? base.slots.budget_ceiling_minor,

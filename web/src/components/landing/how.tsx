@@ -31,13 +31,13 @@ const STEPS: Step[] = [
     n: '02',
     title: 'Or split the page you’re already on',
     body: 'The browser extension reads the active product or supported cart — price, currency, quantities and line items from the merchant page — and prepares a split without retyping it.',
-    aside: 'Detection works without a merchant app. Order placement and payment still require a named merchant finish line.',
+    aside: 'Reading the page works anywhere. Actually placing the order and charging cards only works where that specific merchant supports it — otherwise you finish checkout yourself, with the split already worked out.',
   },
   {
     n: '03',
     title: 'Everyone gets their own link',
     body: 'Show the QR at the table or drop the links in the chat. No account, no download — each person opens their own share on their own phone.',
-    aside: 'Account-linked seats stay person-scoped; payment approval, when supported, finishes on the provider’s hosted page.',
+    aside: 'If you’re signed in, that link is still only yours to act on. When payment is supported, you approve it on the payment company’s own secure page — never inside Sutra.',
   },
   {
     n: '04',
@@ -48,14 +48,14 @@ const STEPS: Step[] = [
   {
     n: '05',
     title: 'Everyone sees the exact boundary',
-    body: 'On the Prava test rail, each person approves a merchant-scoped, amount-capped credential. For Shopify POS, checkout handoff or a venue bill, the screen instead records agreement and plainly says no card was charged.',
-    aside: 'One interface, four explicit outcomes—never one vague “paid” state.',
+    body: 'When a card can actually be charged, each person approves a permission capped at their own share — never anyone else’s amount, never more than they agreed. When it can’t (a register, a checkout page, a paper bill), the screen says plainly that no card was charged and records the agreement instead.',
+    aside: 'One screen, but never one vague “paid.” It always says exactly what happened.',
   },
   {
     n: '06',
-    title: 'Commit, recover, and report exactly what happened',
-    body: 'Only after the policy passes does the charging rail begin its guarded sequence. Every attempt is idempotent, unknown provider results reconcile before retry, and an irreversible mixed result is reported as partial—not disguised as atomic success.',
-    aside: 'The signed receipt records charged, not charged, or handoff outcomes per person.',
+    title: 'Never charged twice. Never left guessing.',
+    body: 'Charging only starts once the rule is satisfied, and cards are charged one at a time, not all at once. If a result comes back unclear, Sutra checks with the payment company before ever trying again, so nobody is charged twice by accident. And if only some cards go through before something fails, the receipt says exactly that — it never claims everyone paid when they didn’t.',
+    aside: 'The signed receipt names, for each person, whether their card was charged, wasn’t, or still needs paying in person or at checkout.',
   },
 ]
 
@@ -333,7 +333,7 @@ function Scene({ index, on }: { index: number; on: boolean }) {
             <Phone key={f.name} className="ph-mini ph-approve" delay={i * 120}>
               <span className="ph-approve-lock"><Icon name="card" /></span>
               <b className="ph-mini-amt">₹780</b>
-              <span className="ph-mini-top">mandate</span>
+              <span className="ph-mini-top">permission</span>
               <span className="ph-approve-cap">approved · unpaid</span>
             </Phone>
           ))}

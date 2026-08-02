@@ -21,15 +21,28 @@ export function rateText(r: number | null): string {
   return `${Math.round(r * 100)}%`
 }
 
-/** The one-line version, for list rows. */
+/**
+ * The one-line version, for list rows.
+ *
+ * `loading` and `!r` used to be treated as the same case, which was fine
+ * while every row eventually got fetched — but /v1/people/:id/reliability
+ * only ever answers for yourself or a friend, so a non-friend row that is
+ * never even asked (see people/page.tsx) would show this skeleton forever,
+ * a permanent "loading" that never resolves. `loading` now means "a request
+ * for this person is in flight"; `!r` with `loading` false means "not
+ * fetched, on purpose" and says so instead of pretending to still be working.
+ */
 export function RecordLine({ r, loading }: { r?: Reliability; loading?: boolean }) {
-  if (loading || !r) {
+  if (loading) {
     return (
       <div className="row" style={{ gap: 8, width: 152, justifyContent: 'flex-end' }}>
         <Skeleton h={12} w={64} />
         <Skeleton h={12} w={48} />
       </div>
     )
+  }
+  if (!r) {
+    return <span className="tiny faint">Friends only</span>
   }
   if (r.groups === 0) {
     return <span className="tiny faint">No seats held yet</span>

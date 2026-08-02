@@ -144,6 +144,16 @@ describe('everything else stays generous — the demo must not trip it by existi
   it('the global default absorbs realistic polling load from one device untouched', async () => {
     const w = world()
     app = await ready(w)
+    // /v1/people is a signed-in surface (it used to answer for anyone, which
+    // was its own bug — see routes-v2.ts), so this needs a real session, the
+    // same as the "demo laptop" it stands in for would have.
+    const user = await w.social.registerUser({
+      email: 'laptop@example.com',
+      password: 'correct horse battery',
+      handle: 'laptop',
+      name: 'Laptop',
+    })
+    const cookie = `sutra_session=${w.social.createSession(user.id).token}`
     // Five people watching one plan poll roughly every 5-6s — on the order of
     // a dozen requests/minute each. 60 rapid requests from ONE device, well
     // above that, should still all clear the 300/minute global ceiling.
@@ -153,7 +163,7 @@ describe('everything else stays generous — the demo must not trip it by existi
           method: 'GET',
           url: '/v1/people',
           remoteAddress: '203.0.113.77',
-          headers: { 'user-agent': 'demo-laptop/1' },
+          headers: { 'user-agent': 'demo-laptop/1', cookie },
         }),
       ),
     )

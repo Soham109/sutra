@@ -298,9 +298,11 @@ Normative. Implementation: [`engine/src/rails.ts`](../engine/src/rails.ts).
 Each rail carries a one-sentence `disclosure`. It is copied verbatim into the
 receipt, returned by `POST /v1/bill/split`, and published in the engine's
 discovery documents; the bill splitter shows the same sentence to the organiser
-before the group is created. It is **not yet on the member approval page**,
-which is a consequence of the gap in §10.3 — the accept flow it belongs to does
-not exist over HTTP.
+before the group is created. The member approval page does not reprint the
+capability string verbatim; it states the same consequence in the rail's own
+words directly above the accept button ("No card is charged here. You pay
+{merchant} directly."), so no member can agree to an amount without having
+read what does and does not happen to their card.
 
 The verbs are not interchangeable: neither surface is allowed to borrow the
 other's language.
@@ -350,11 +352,22 @@ rather than to the permissive one.
    `totals.owed` equal to the sum of the agreed amounts, and rule 7.3(6) makes
    any later tampering with those numbers detectable.
 
-**Implementation gap, stated plainly:** `acceptShare` has no HTTP route in this
-build. Groups can be created on this rail and every amount is allocated,
-disclosed and recorded, but over the API today those members remain in
-`awaiting_approval`. Step 2 is reachable from the service layer and its tests,
-not from a browser.
+**Implementation status, stated plainly:** step 2 is reachable over HTTP at
+`POST /v1/members/:id/accept` ([`engine/src/routes.ts`](../engine/src/routes.ts)),
+it is live on the deployed engine, and the member approval page calls it — the
+button reads *"That's right — I owe {amount}"* and never borrows the card
+rail's language. The whole lifecycle runs end to end from a browser.
+
+The route carries a consent guard, and the reason is worth stating. A member id
+is a bearer capability by design — you get a personal link and need no account —
+but `GET /v1/groups/:id` hands out every member's id to anyone who can read the
+board, so knowing an id is not evidence of being that person. On this rail the
+output is a **signed receipt stating that someone agreed to owe money**. So if a
+seat belongs to an account, only that account (or the service token) may accept
+it; a seat with no account behind it stays link-only, which is the whole
+pass-the-phone design and cannot be tightened without deleting it. A
+tamper-evident record of a consent that never happened is the one lie this
+codebase exists to refuse.
 
 ---
 

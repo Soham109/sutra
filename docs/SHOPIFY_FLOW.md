@@ -134,24 +134,66 @@ order idempotency from this bridge.
 
 ### Configure the development store
 
+Shopify stopped letting merchants create *new* custom apps directly in a store's admin on
+2026-01-01 ("Legacy custom apps can't be created after January 1, 2026" — Shopify changelog). A
+store that already has an admin-created custom app from before that date keeps its permanent
+`shpat_…` token. A store set up from scratch after that date does not: the **Dev Dashboard** is now
+the only way to create one, and it issues a client ID/secret pair instead of a copyable token.
+Follow branch **A** if the store is brand new; follow branch **B** only if a qualifying legacy app
+already exists.
+
 1. Create a Shopify development store and a product with at least one active variant.
-2. Create/install a custom app with an **offline Admin API token** and `write_orders` scope.
-   Enable the protected customer-data access required to write a shipping address in the store.
+
+2. **Branch A — Dev Dashboard (the path for a new setup):**
+   1. In the store admin, go to **Settings → Apps and sales channels → Develop apps → Build apps
+      in Dev Dashboard**, then **Create app**.
+   2. Under the app's **Access** section, add the `write_orders` scope.
+   3. Open **API access requests → Protected customer data access → Request access**. Choose
+      **Protected customer data**, state the reason ("development-store demo, no production
+      access"), then select the **name**, **address**, **email** and **phone** fields (all needed
+      to write the shipping/billing address `orderCreate` accepts) and save. A development-store-only
+      app does not need Shopify review for this — it activates immediately.
+   4. **Release** the app, then **Install** it on the target development store.
+   5. The Dev Dashboard now shows a **Client ID** and **Client secret** — not a token. Copy both;
+      the secret is shown once.
+   6. Verify the exchange works before touching Railway:
+      ```bash
+      curl -s -X POST "https://your-store.myshopify.com/admin/oauth/access_token" \
+        -H 'content-type: application/x-www-form-urlencoded' \
+        --data 'grant_type=client_credentials&client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET'
+      ```
+      A working pair returns `{"access_token":"shpat_…","expires_in":86399,...}`. That returned
+      token itself expires in ~24h — do not paste it anywhere. Only the client ID/secret go in
+      env vars; `ShopifyTestOrderClient` (`engine/src/shopify/test-order.ts`) exchanges it for a
+      fresh access token on its own and refreshes automatically a few minutes before each expiry.
+
+   **Branch B — legacy admin-created custom app (only if one already exists on this store):**
+   Open it under **Settings → Apps and sales channels → Develop apps**, confirm `write_orders` is
+   granted and protected customer data is enabled, and reveal its permanent Admin API access token.
+
 3. Use a fictional demo recipient and address. Never put a real participant's address on screen.
-4. Add these values to the root `.env` and restart the engine:
+4. Add these values to the root `.env` (local) or the Railway service's variables (production) and
+   restart the engine. Use the Branch A block for a Dev Dashboard app, or the Branch B block for a
+   legacy token — never both:
 
 ```dotenv
 PRAVA_ENV=mock
 SHOPIFY_TEST_ORDER_ENABLED=true
 SHOPIFY_TEST_STORE=your-store.myshopify.com
 SHOPIFY_STOREFRONT_DOMAIN=your-public-storefront.example
-SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_redacted
 SHOPIFY_API_VERSION=2026-07
 SHOPIFY_DOMAINS=your-public-storefront.example,allbirds.com,gymshark.com
+
+# Branch A — Dev Dashboard custom app (new setups, 2026-01-01 onward)
+SHOPIFY_ADMIN_CLIENT_ID=client-id-from-dev-dashboard
+SHOPIFY_ADMIN_CLIENT_SECRET=client-secret-from-dev-dashboard
+
+# Branch B — legacy admin-created custom app (only if one already exists)
+# SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_redacted
 ```
 
 `SHOPIFY_STOREFRONT_DOMAIN` must match the host on the imported product URL. Never record or print
-the Admin token.
+the Admin token, client secret, or the `curl` command above with real values filled in.
 
 5. Verify the gate before creating demo state:
 
@@ -160,7 +202,19 @@ curl -s http://localhost:4100/v1/shopify-test/status
 ```
 
 The response must say `enabled: true`, show the intended store/front-end domains, identify a
-non-production adapter, and disclose that no real money moves.
+non-production adapter, and disclose that no real money moves. If `enabled` is `false`, the
+response also carries a `reason` so a stuck setup does not read as a silent failure:
+
+| `reason` | What it means |
+|---|---|
+| `not_configured` | `SHOPIFY_TEST_ORDER_ENABLED` is not `true` on this deployment — nobody has wired this up yet. |
+| `misconfigured` | The flag is `true` but `SHOPIFY_TEST_STORE` or `SHOPIFY_ADMIN_ACCESS_TOKEN` is still missing, so the engine refused to build the adapter. |
+| `blocked_in_production` | Prava is running in production on this deployment. This bridge refuses on principle here, regardless of Shopify configuration — see "Server gates" above. |
+| `ready` | Mirrored by `enabled: true`; included for completeness. |
+
+`reason_detail` is the same fact in one sentence. Neither field is a new gate — the boolean
+`enabled` (built from the same adapter presence and Prava-kind checks routes.ts has always used)
+is still the only thing any endpoint trusts before writing to Shopify.
 
 6. In **Find**, select a product from the configured storefront. Choose the finish line
    **Create a valid Shopify test order**, add the group and complete every Sutra/Prava test

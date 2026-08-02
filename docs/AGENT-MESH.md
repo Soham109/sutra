@@ -173,7 +173,7 @@ Run with:
 
 ```bash
 npx tsx e2e/agent-mesh.ts
-GMP_API=https://engine-production-e6fa.up.railway.app npx tsx e2e/agent-mesh.ts   # once deployed — see §6.1
+GMP_API=https://engine-production-e6fa.up.railway.app npx tsx e2e/agent-mesh.ts   # the deployed engine — see §6.1
 ```
 
 Everything below is a real, unedited run (colour codes stripped) against a
@@ -183,8 +183,9 @@ HTTP, on a real socket, on `127.0.0.1:4199`. **Step 1's discovery calls hit
 the real, live, public `https://sutra-gmp.vercel.app`** regardless of which
 engine the rest of the script drives — that is deliberate; discovery is a
 question about what sutra has published, not about which engine happens to
-be running this script. See §6.1 for exactly why the operational half is
-local rather than the live Railway host, and what that costs the claim.
+be running this script. The operational half of this transcript was recorded
+locally; the delegate routes are since live on the Railway host and the same
+script runs against it unchanged — see §6.1 for the probes that show it.
 
 ```
 discovery: https://sutra-gmp.vercel.app   engine api: http://127.0.0.1:4199
@@ -348,37 +349,45 @@ tool rather than the raw HTTP route.
 
 ## 6. What is honestly not built, and every place a claim got weakened
 
-### 6.1 Not live on the deployed Railway engine at the time of writing
+### 6.1 Now live on the deployed Railway engine
 
-The task called for running this against
-`https://engine-production-e6fa.up.railway.app`. As of the last check during
-this change, that running process does not have this code yet — confirmed
-by probing it directly rather than assumed:
+This section previously recorded a deploy-timing gap: the delegate routes
+existed in the code but the running Railway process had not picked them up,
+so `PUT /v1/delegate/rules` answered `404 Route not found`. **That gap is
+closed.** All four routes registered by
+[`engine/src/delegate/routes.ts`](../engine/src/delegate/routes.ts) are
+mounted on the deployed engine. Probed directly rather than assumed:
 
 ```
-$ curl -s -X PUT https://engine-production-e6fa.up.railway.app/v1/delegate/rules -d '{}'
-{"message":"Route PUT:/v1/delegate/rules not found","error":"Not Found","statusCode":404}
-$ curl -s https://engine-production-e6fa.up.railway.app/health | grep uptime_s
-"uptime_s": 2234
+$ curl -s -X PUT  https://engine-production-e6fa.up.railway.app/v1/delegate/rules -d '{}'
+{"error":"sign in to continue"}                       # HTTP 401
+$ curl -s -X GET  https://engine-production-e6fa.up.railway.app/v1/delegate/rules
+{"error":"sign in to continue"}                       # HTTP 401
+$ curl -s        "https://engine-production-e6fa.up.railway.app/v1/plans/pl_x/questions"
+{"error":"participant_id is required"}                # HTTP 400
+$ curl -s -X POST https://engine-production-e6fa.up.railway.app/v1/participants/pp_x/delegate-answer -d '{}'
+{"error":"no such participant"}                       # HTTP 404
 ```
 
-The uptime shows the running process has not restarted, so no deploy has
-picked up this code yet, regardless of what has or has not been pushed to
-`main` by the time this is read. This repository was mid-session, shared
-with other concurrent agents' work at the time this feature was built
-(`docs/HACKATHON.md`, and edits to `engine/src/service.ts` / `social.ts` /
-`routes.ts` for an unrelated auth fix were present and uncommitted in the
-working tree partway through); no `git commit` or `git push` was run as
-part of building this feature. **This is the one place the "run it against
-the live engine" instruction could not be satisfied as literally stated, and
-it is a deploy-timing gap, not a code gap.** §4's transcript is instead a
-real run of the identical code, over real HTTP, on real sockets, against
-real OpenStreetMap — the same standard of evidence `docs/NANDA-EVIDENCE.md`
-§3.3 accepted for its own local-mock-adapter run. Once this code is running
-on Railway, the exact same script against the exact same URL is the
-verification step — nothing about `e2e/agent-mesh.ts` is environment-specific
-beyond `GMP_API`, and `DISCOVERY_BASE` already points at the real deployed
-site regardless.
+Read the failures, because they are the evidence. A route that is *missing*
+returns Fastify's `{"message":"Route PUT:/v1/delegate/rules not found",
+"error":"Not Found","statusCode":404}`. None of these do. Two return the
+engine's own auth refusal, one returns its own query validation error, and
+one returns its own application-level "no such participant" — every one of
+which is a handler that ran. Auth-required and validation-rejected are
+proof of presence; only Fastify's route-not-found is proof of absence.
+
+**The "run it against the live engine" instruction is now satisfiable as
+literally stated.** §4's transcript is still a local run — it is retained
+as-is rather than re-recorded, because it is a real run of the identical
+code over real HTTP on real sockets against real OpenStreetMap, and its
+step 1 discovery calls already hit the live public site. Nothing in
+`e2e/agent-mesh.ts` is environment-specific beyond `GMP_API`, so
+`GMP_API=https://engine-production-e6fa.up.railway.app npx tsx
+e2e/agent-mesh.ts` now runs against the deployed host. The one caveat worth
+stating: the delegate-rules endpoints require a signed-in session, so a
+cold anonymous run gets 401 on those two calls — that is the auth guard
+working, not the deploy failing.
 
 ### 6.2 One file outside the stated ownership list
 

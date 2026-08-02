@@ -55,9 +55,13 @@ export function countdown(iso: string): string {
   const ms = new Date(iso).getTime() - Date.now()
   if (ms <= 0) return 'deadline passed'
   const total = Math.floor(ms / 1000)
-  const h = Math.floor(total / 3600)
+  const d = Math.floor(total / 86400)
+  const h = Math.floor((total % 86400) / 3600)
   const m = Math.floor((total % 3600) / 60)
   const s = total % 60
+  // A seven-day deadline used to render as "167h 57m left" — never a days
+  // branch, just hours climbing past any horizon a person reads at a glance.
+  if (d > 0) return `${d}d ${h}h left`
   if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m left`
   return `${m}:${String(s).padStart(2, '0')} left`
 }

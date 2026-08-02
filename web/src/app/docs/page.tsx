@@ -11,7 +11,7 @@ const ENGINE = 'https://engine-production-e6fa.up.railway.app'
 export const metadata: Metadata = {
   title: 'sutra — architecture',
   description:
-    'How sutra actually works: planning, Shopify discovery, explicit merchant capabilities, the GMP/1 state machine, and signed rail-aware outcomes.',
+    'How sutra actually works: planning, Shopify discovery, explicit merchant capabilities, the GMP/1 state machine, and a signed receipt that always names what actually got paid.',
 }
 
 export default function DocsPage() {
@@ -36,8 +36,9 @@ export default function DocsPage() {
           <h1 className="display">How sutra actually works.</h1>
           <p className="docs-hero-lede">
             A group plans and agrees one thing together without pooling money. Only a merchant with a real
-            payment adapter can turn that agreement into capped Prava charges. Shopify POS, checkout handoff,
-            and at-venue groups explicitly record zero charged by Sutra.
+            payment adapter can turn that agreement into capped charges through Prava, the payment platform
+            Sutra is built on. Shopify POS, checkout handoff, and at-venue groups explicitly record zero
+            charged by Sutra.
           </p>
           <div className="docs-hero-facts">
             <span className="chip mono">service.ts — the commit saga</span>
@@ -230,9 +231,10 @@ export default function DocsPage() {
             <span className="eyebrow">§4 · Settlement capabilities</span>
             <h2>What each outcome may claim — and the rule that catches a lie.</h2>
             <p>
-              <code>engine/src/rails.ts</code> separates a true Prava adapter from Shopify POS handoff, online
-              checkout handoff, and at-venue agreement. The last three cannot call Prava and are structurally
-              forbidden from claiming money moved.
+              <code>engine/src/rails.ts</code> — the code calls each of these four settlement paths a{' '}
+              <b>rail</b> — separates a true Prava adapter from Shopify POS handoff, online checkout handoff,
+              and at-venue agreement. The last three cannot call Prava and are structurally forbidden from
+              claiming money moved.
             </p>
           </div>
           <div className="doc-diagram-row">

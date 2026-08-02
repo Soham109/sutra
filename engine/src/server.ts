@@ -1,4 +1,4 @@
-import Fastify from 'fastify'
+import Fastify, { type FastifyInstance } from 'fastify'
 import { readFileSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -55,13 +55,47 @@ function buildAdapter(): PravaAdapter {
   return new PravaClient(process.env.PRAVA_BASE_URL ?? 'https://sandbox.api.prava.space', key)
 }
 
+/**
+ * routes.ts replaces Fastify's default JSON body parser so action endpoints
+ * with no body at all (POST /open, /decline, …) don't 400 on emptiness — but
+ * on genuinely malformed JSON it hands the shared error handler a bare
+ * SyntaxError with no `statusCode`. That handler only turns errors carrying a
+ * 4xx statusCode into a clean 4xx reply; anything else falls through to a
+ * bare 500 "internal error", which is what three independent reports of
+ * POST /v1/auth/register 500ing on bad JSON turned out to be. It is not one
+ * route's bug — every route on this app shares the same parser and handler —
+ * so the fix is re-registered here, centrally, after registerRoutes has
+ * installed its own: same tolerant-of-empty-bodies behavior, but a parse
+ * failure now carries statusCode 400 and a message naming the actual JSON
+ * error, which the existing handler already knows how to turn into a real
+ * 4xx. PowerShell 5.1's default quoting mangles JSON payloads routinely, so
+ * this is the first thing a judge on Windows hits testing the REST API by
+ * hand — see engine/test/malformed-body.test.ts.
+ */
+export function installMalformedJsonGuard(app: FastifyInstance): void {
+  app.removeContentTypeParser('application/json')
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    if (!body || (typeof body === 'string' && body.trim() === '')) return done(null, {})
+    try {
+      done(null, JSON.parse(body as string))
+    } catch (e) {
+      const err = e as Error & { statusCode?: number }
+      err.statusCode = 400
+      err.message = `malformed JSON body: ${err.message}`
+      done(err)
+    }
+  })
+}
+
 function buildShopifyTestAdapter(): ShopifyTestOrderClient | undefined {
   if (process.env.SHOPIFY_TEST_ORDER_ENABLED !== 'true') return undefined
   const storeDomain = process.env.SHOPIFY_TEST_STORE
   const accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN
-  if (!storeDomain || !accessToken) {
+  const clientId = process.env.SHOPIFY_ADMIN_CLIENT_ID
+  const clientSecret = process.env.SHOPIFY_ADMIN_CLIENT_SECRET
+  if (!storeDomain || (!accessToken && !(clientId && clientSecret))) {
     console.error(
-      'SHOPIFY_TEST_ORDER_ENABLED=true but SHOPIFY_TEST_STORE or SHOPIFY_ADMIN_ACCESS_TOKEN is missing — proof disabled',
+      'SHOPIFY_TEST_ORDER_ENABLED=true but SHOPIFY_TEST_STORE is missing, or neither SHOPIFY_ADMIN_ACCESS_TOKEN nor SHOPIFY_ADMIN_CLIENT_ID/SHOPIFY_ADMIN_CLIENT_SECRET is set — proof disabled',
     )
     return undefined
   }
@@ -69,11 +103,13 @@ function buildShopifyTestAdapter(): ShopifyTestOrderClient | undefined {
     storeDomain,
     storefrontDomain: process.env.SHOPIFY_STOREFRONT_DOMAIN,
     accessToken,
+    clientId,
+    clientSecret,
     apiVersion: process.env.SHOPIFY_API_VERSION,
   })
 }
 
-export async function main(): Promise<void> {
+export async function main(): Promise<{ app: FastifyInstance; close: () => Promise<void> }> {
   const db = new Db(DB_PATH)
   const hub = new EventHub(db, process.env.WEBHOOK_SECRET ?? 'dev-webhook-secret')
   const signer = new ReceiptSigner(process.env.ENGINE_SIGNING_SEED || undefined)
@@ -94,6 +130,10 @@ export async function main(): Promise<void> {
   // every request no matter who is actually asking, and the rate limiter
   // below would treat the entire internet as one caller.
   const app = Fastify({ logger: { level: 'warn' }, trustProxy: true })
+  // Only matters to a caller that started the engine in-process and closes
+  // it again (npm run demo's cold-start path) — release the sqlite handle
+  // once nothing can reach it through the HTTP layer anymore.
+  app.addHook('onClose', async () => db.close())
 
   const apiToken = process.env.ENGINE_API_TOKEN
   if (!apiToken) {
@@ -116,6 +156,7 @@ export async function main(): Promise<void> {
       assertSeatable: (actorId, seats) => social.assertSeatable(actorId, seats),
     },
   })
+  installMalformedJsonGuard(app)
 
   const configuredShopifyDomains = process.env.SHOPIFY_DOMAINS
     ? process.env.SHOPIFY_DOMAINS.split(',')
@@ -246,6 +287,18 @@ export async function main(): Promise<void> {
   └──────────────────────────────────────────────────────┘
   organizer:  ${APP_BASE_URL}/new
 `)
+
+  return {
+    app,
+    // For callers that started the engine themselves (currently just `npm
+    // run demo`'s cold-start path — see cli/src/gmp.ts) and need to tear it
+    // back down afterwards: stop the poller, then close the HTTP server and
+    // let db.ts release its own handle via Fastify's onClose hook below.
+    close: async () => {
+      poller.stop()
+      await app.close()
+    },
+  }
 }
 
 const isDirectRun = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)

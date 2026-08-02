@@ -20,9 +20,9 @@ interface Health {
 }
 
 const LABEL: Record<string, string> = {
-  sandbox: 'Prava sandbox — hosted mandate sessions, test cards',
+  sandbox: 'Prava sandbox — hosted approval sessions, test cards',
   live: 'Prava live',
-  mock: 'Mock adapter — no real payment rail',
+  mock: 'Mock adapter — nothing real is ever charged',
 }
 
 export function LiveBadge() {

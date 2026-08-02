@@ -23,7 +23,16 @@ export default function PlanPage({ params }: { params: Promise<{ id: string }> }
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const load = useCallback(async () => {
+  // True while a real background search is plausibly still running: plan
+  // creation kicks off the venue/product search without waiting for it (see
+  // routes-plan.ts's kickOffOptions), so the organiser can land here before
+  // Overpass has answered. `note` is set the moment that search's own event
+  // lands — success, empty, or failure — so its absence with a resolved
+  // location is the one honest signal that the search is still in flight.
+  const searchPending = (p: PlanView, r: RankedOptions | null): boolean =>
+    !p.terminal && !!p.slots?.where?.label && r !== null && !r.note && r.options.length === 0
+
+  const load = useCallback(async (): Promise<boolean> => {
     try {
       const [p, r] = await Promise.all([
         api.get<PlanView>(`/v1/plans/${id}`),
@@ -44,15 +53,31 @@ export default function PlanPage({ params }: { params: Promise<{ id: string }> }
       }
       setPlan(p)
       setRanked(r)
+      return searchPending(p, r)
     } catch (e) {
       setError((e as Error).message)
+      return false
     }
   }, [id])
 
   useEffect(() => {
-    void load()
-    const t = setInterval(() => void load(), 5000)
-    return () => clearInterval(t)
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+    // A real background search is genuinely running (see searchPending), so
+    // this polls fast enough that its result reads as "still working" rather
+    // than "stuck" — every poll is a real request, never a simulated tick.
+    // Once it settles, or there was nothing to wait for, this backs off to
+    // the ordinary five-second cadence that just keeps the board current.
+    const tick = async () => {
+      const pending = await load()
+      if (cancelled) return
+      timer = setTimeout(() => void tick(), pending ? 1200 : 5000)
+    }
+    void tick()
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, [load])
 
   const refresh = async () => {
@@ -201,19 +226,32 @@ export default function PlanPage({ params }: { params: Promise<{ id: string }> }
 
           {!ranked || ranked.options.length === 0 ? (
             <div className="empty">
-              <h3>Nothing on the board yet</h3>
-              <p>
-                {ranked?.note
-                  ? ranked.note
-                  : plan.slots?.where?.label
-                    ? `No places came back near ${plan.slots.where.label} yet — OpenStreetMap can time out under load. Try searching again, or widen the area.`
-                    : 'Options appear once somebody shares a location — there is nowhere to search around until then.'}
-              </p>
-              {plan.slots?.where?.label ? (
-                <button className="btn btn-secondary" onClick={() => void refresh()} disabled={busy}>
-                  {busy ? 'Searching…' : 'Search again'}
-                </button>
-              ) : null}
+              {ranked && searchPending(plan, ranked) ? (
+                <>
+                  <h3>Searching OpenStreetMap…</h3>
+                  <p>
+                    Looking for real places near {plan.slots?.where?.label}. This board updates itself the
+                    moment results land — Overpass is a shared public service, so it can take anywhere
+                    from a couple of seconds to about twenty.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3>Nothing on the board yet</h3>
+                  <p>
+                    {ranked?.note
+                      ? ranked.note
+                      : plan.slots?.where?.label
+                        ? `No places came back near ${plan.slots.where.label} yet — OpenStreetMap can time out under load. Try searching again, or widen the area.`
+                        : 'Options appear once somebody shares a location — there is nowhere to search around until then.'}
+                  </p>
+                  {plan.slots?.where?.label ? (
+                    <button className="btn btn-secondary" onClick={() => void refresh()} disabled={busy}>
+                      {busy ? 'Searching…' : 'Search again'}
+                    </button>
+                  ) : null}
+                </>
+              )}
             </div>
           ) : (
             <div className="opt-list">

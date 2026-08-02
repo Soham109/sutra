@@ -277,6 +277,13 @@ describe('taxonomy', () => {
     ['dinner on saturday', 'restaurant', 'amenity=restaurant'],
     ['somewhere to eat out', 'restaurant', 'amenity=restaurant'],
     ['food', 'restaurant', 'amenity=restaurant'],
+    // The seven meal/drink words a live seeding run was told to check by hand
+    // after "Sunday brunch" fell all the way through to a name search — every
+    // one of these must resolve to a real category, never a guess.
+    ['sunday brunch', 'restaurant', 'amenity=restaurant'],
+    ['lunch tomorrow', 'restaurant', 'amenity=restaurant'],
+    ['breakfast', 'restaurant', 'amenity=restaurant'],
+    ['dessert after dinner', 'ice_cream', 'amenity=ice_cream'],
     ['coffee', 'cafe', 'amenity=cafe'],
     ['a café', 'cafe', 'amenity=cafe'],
     ['drinks after work', 'bar', 'amenity=bar'],
@@ -330,6 +337,47 @@ describe('taxonomy', () => {
   it('categoryFilters never comes back empty-handed', () => {
     expect(categoryFilters('cinema').filters).toHaveLength(1)
     expect(categoryFilters('quantum blacksmithing').filters).toHaveLength(3)
+  })
+
+  // A live seeding run had the model emit `category: "venue"` for "Sunday
+  // brunch" — a generic word, not a real category. Because the name-search
+  // fallback matches venue NAMES by substring, "venue" matched every OSM
+  // element whose name merely contains "Avenue": the ranked board offered a
+  // police station and a car dealership as brunch venues. This is the one
+  // place in the whole taxonomy where "return something" would have been a
+  // lie dressed up as a match.
+  describe('refuses to guess from a word that names no category at all', () => {
+    it.each([
+      'venue', 'venues', 'place', 'places', 'spot', 'spots',
+      'somewhere', 'anywhere', 'thing', 'things', 'hangout',
+    ])('nameSearchFilters(%j) is empty, not a name search', (word) => {
+      expect(nameSearchFilters(word)).toEqual([])
+    })
+
+    it('is case- and whitespace-insensitive, like every other match in this file', () => {
+      expect(nameSearchFilters('Venue')).toEqual([])
+      expect(nameSearchFilters('  venues  ')).toEqual([])
+    })
+
+    it('categoryFilters comes back with nothing to search — not a coincidental name match', () => {
+      const hit = categoryFilters('venue')
+      expect(hit.filters).toEqual([])
+    })
+
+    it('the same "venue" text end to end: no category, no filters, honest reason', async () => {
+      const res = await new Places().search({ near: { lat: 12.9352, lng: 77.6245 }, category: 'venue' })
+      expect(res.venues).toEqual([])
+      expect(res.category).toBeNull()
+      expect(res.reason).toBe('no category to search for')
+    })
+
+    it('does not suppress a real query that merely CONTAINS a generic word', () => {
+      // "The Venue" as an actual specific phrase (e.g. a venue literally named
+      // that, or a longer sentence) must still search by name — only an EXACT
+      // generic word is refused, never a substring of one.
+      expect(nameSearchFilters('the venue downtown')).not.toEqual([])
+      expect(nameSearchFilters('event space')).not.toEqual([])
+    })
   })
 
   it('only emits OSM tags that were checked against the wiki', () => {

@@ -87,6 +87,36 @@ function requirePlanOrganiser(
   }
 }
 
+/**
+ * Kick off the venue/product search without making the caller wait for it.
+ *
+ * Overpass is the one genuinely slow step on the whole "one sentence → real
+ * venues" path — a live probe put it at several seconds even in the good
+ * case, and it has no SLA at all in the bad one (see engine/src/places/).
+ * Awaiting generateOptions() here used to mean the plan-creation response
+ * itself sat on that: a demo's "Setting it up…" button frozen for as long as
+ * a public, rate-limited, third-party service felt like taking. The plan the
+ * organiser lands on next polls this same plan, so nothing is hidden by not
+ * waiting — the search really does keep running, and the moment it finishes
+ * the board shows real results. See PlanService.generateOptions for how a
+ * later, awaited call (a participant's location signal) is queued behind
+ * this rather than racing it.
+ */
+function kickOffOptions(d: PlanRoutesDeps, planId: string): void {
+  void d.plans.generateOptions(planId).catch((e) => {
+    // generateOptions is designed to never throw for a normal "no venues"
+    // outcome — places.search() and the catalog degrade to a `reason`
+    // string, not an exception, and always append their own event. This
+    // catch exists only so a genuinely unexpected throw cannot leave the
+    // board silently reading "still searching" forever with no event ever
+    // landing to say why.
+    d.store.appendEvent(planId, null, 'options.refresh_empty', {
+      kept: 0,
+      note: `search failed: ${(e as Error)?.message ?? String(e)}`,
+    })
+  })
+}
+
 export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): void {
   const requireUser = (req: { headers: Record<string, unknown> }): User => {
     const u = d.currentUser(req)
@@ -106,8 +136,9 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     }
     const { plan } = d.plans.createPlan(input, me?.id)
     // Options are best-effort at creation: a plan with nobody's location yet
-    // has nowhere to search, and that is a normal state, not an error.
-    await d.plans.generateOptions(plan.id).catch(() => undefined)
+    // has nowhere to search, and that is a normal state, not an error. Not
+    // awaited — see kickOffOptions.
+    kickOffOptions(d, plan.id)
     if (me) {
       for (const p of d.store.participants(plan.id)) {
         if (!p.user_id || p.user_id === me.id) continue
@@ -449,7 +480,12 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
       },
       me?.id,
     )
-    await d.plans.generateOptions(plan.id).catch(() => undefined)
+    // Not awaited — see kickOffOptions. This is the flagship "one sentence →
+    // real venues" path; the Overpass search is the slow part (measured
+    // several seconds, sometimes much more — it is a public service with no
+    // SLA) and used to sit in front of this exact response, freezing the
+    // "Setting it up…" button for however long that took.
+    kickOffOptions(d, plan.id)
     // Creation response, same as POST /v1/plans — the actual creator's one
     // chance to see every link at once.
     return reply.status(201).send({ ...preview, plan: planView(d, d.plans.mustPlan(plan.id), { full: true }) })

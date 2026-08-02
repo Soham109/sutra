@@ -28,7 +28,7 @@ interface Source {
 }
 
 export default function SettingsPage() {
-  const { user, signOut, loading } = useSession()
+  const { user, signOut, loading, refresh } = useSession()
   const [theme, setTheme] = useState<ThemeChoice>('system')
   const [sources, setSources] = useState<Source[] | null>(null)
   const [sourceError, setSourceError] = useState('')
@@ -38,6 +38,32 @@ export default function SettingsPage() {
   const [pushBusy, setPushBusy] = useState(false)
   const [pushNote, setPushNote] = useState('')
   const [pushOn, setPushOn] = useState(false)
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [handleDraft, setHandleDraft] = useState('')
+  const [profileBusy, setProfileBusy] = useState(false)
+  const [profileError, setProfileError] = useState('')
+
+  const startEditingProfile = () => {
+    setNameDraft(user?.name ?? '')
+    setHandleDraft(user?.handle ?? '')
+    setProfileError('')
+    setEditingProfile(true)
+  }
+
+  const saveProfile = async () => {
+    setProfileBusy(true)
+    setProfileError('')
+    try {
+      await api.post('/v1/me/profile', { name: nameDraft.trim(), handle: handleDraft.trim() })
+      await refresh()
+      setEditingProfile(false)
+    } catch (e) {
+      setProfileError((e as Error).message)
+    } finally {
+      setProfileBusy(false)
+    }
+  }
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_KEY)
@@ -111,6 +137,11 @@ export default function SettingsPage() {
                       <div style={{ fontWeight: 600 }}>{user.name}</div>
                       <div className="small faint mono">@{user.handle}</div>
                     </div>
+                    {!editingProfile && (
+                      <button className="btn btn-secondary" onClick={startEditingProfile}>
+                        Edit
+                      </button>
+                    )}
                     <button
                       className="btn btn-secondary"
                       disabled={signingOut}
@@ -123,26 +154,74 @@ export default function SettingsPage() {
                     </button>
                   </div>
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                      gap: 14,
-                    }}
-                  >
-                    <Field label="Handle">
-                      <span className="mono small">@{user.handle}</span>
-                    </Field>
-                    <Field label="Display name">
-                      <span className="small">{user.name}</span>
-                    </Field>
-                    <Field label="Email">
-                      <span className="mono small">{user.email || '—'}</span>
-                    </Field>
-                    <Field label="Member id">
-                      <span className="mono small">{user.id}</span>
-                    </Field>
-                  </div>
+                  {editingProfile ? (
+                    <div className="col" style={{ gap: 12 }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                          gap: 14,
+                        }}
+                      >
+                        <Field label="Display name">
+                          <input
+                            className="input"
+                            value={nameDraft}
+                            maxLength={60}
+                            onChange={(e) => setNameDraft(e.target.value)}
+                            aria-label="Display name"
+                          />
+                        </Field>
+                        <Field label="Handle">
+                          <input
+                            className="input mono"
+                            value={handleDraft}
+                            maxLength={30}
+                            onChange={(e) => setHandleDraft(e.target.value)}
+                            aria-label="Handle"
+                          />
+                        </Field>
+                      </div>
+                      {profileError && <ErrorNote>{profileError}</ErrorNote>}
+                      <div className="row wrap" style={{ gap: 8 }}>
+                        <button
+                          className="btn btn-primary"
+                          disabled={profileBusy || !nameDraft.trim() || !handleDraft.trim()}
+                          onClick={() => void saveProfile()}
+                        >
+                          {profileBusy ? 'Saving…' : 'Save'}
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          disabled={profileBusy}
+                          onClick={() => setEditingProfile(false)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                        gap: 14,
+                      }}
+                    >
+                      <Field label="Handle">
+                        <span className="mono small">@{user.handle}</span>
+                      </Field>
+                      <Field label="Display name">
+                        <span className="small">{user.name}</span>
+                      </Field>
+                      <Field label="Email">
+                        <span className="mono small">{user.email || '—'}</span>
+                      </Field>
+                      <Field label="Member id">
+                        <span className="mono small">{user.id}</span>
+                      </Field>
+                    </div>
+                  )}
 
                   <p className="tiny faint" style={{ margin: 0 }}>
                     Signing out ends this browser session. Your circles and receipts remain saved.

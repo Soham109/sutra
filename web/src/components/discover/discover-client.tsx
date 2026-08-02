@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { api, type Product, type ProductDetail, type SearchResponse } from '@/lib/api'
+import { api, type Product, type ProductDetail, type SearchResponse, type ShopifyTestStatus } from '@/lib/api'
 import { Badge, Empty, ErrorNote, Money, Skeleton } from '@/components/ui'
 import { Builder } from './builder'
 import { HowThisWorksNote } from './empty-state'
@@ -63,6 +63,23 @@ const EXAMPLES = [
   { label: 'gym shorts', q: 'shorts', store: 'gymshark.com' },
 ]
 
+/**
+ * The card rail — capped, per-person Prava mandates — is the product's whole
+ * thesis, and it only exists for products from one specifically configured
+ * merchant. A judge has no way to guess which product that is, so this finds
+ * one automatically: ask the engine whether the capability is configured at
+ * all, then probe that exact storefront with a few known-good category terms
+ * until one returns a real product. Nothing here is hardcoded to a store name
+ * — it self-configures to whatever `SHOPIFY_TEST_STORE` this deployment set.
+ */
+interface MandateDemo {
+  status: 'checking' | 'found' | 'none'
+  store: string
+  product?: Product
+}
+
+const MANDATE_PROBE_TERMS = ['merino tee', 'earbuds', 'trimmer', 'shorts', 'tee']
+
 /** "amazon.com", "www.zara.in" — a shop, with no path to a specific item. */
 function isBareStore(q: string): boolean {
   const s = q.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '')
@@ -84,6 +101,7 @@ export function DiscoverClient() {
   const [picking, setPicking] = useState('')
   const [mode, setMode] = useState<'search' | 'build'>('search')
   const [health, setHealth] = useState<SourceHealth[]>([])
+  const [mandateDemo, setMandateDemo] = useState<MandateDemo>({ status: 'checking', store: '' })
 
   const seq = useRef(0)
   const started = useRef(false)
@@ -180,6 +198,45 @@ export function DiscoverClient() {
     }
   }, [])
 
+  useEffect(() => {
+    let live = true
+    void (async () => {
+      let statusRes: ShopifyTestStatus
+      try {
+        statusRes = await api.get<ShopifyTestStatus>('/v1/shopify-test/status')
+      } catch {
+        if (live) setMandateDemo({ status: 'none', store: '' })
+        return
+      }
+      if (!live) return
+      if (!statusRes.enabled || !statusRes.storefront_domain) {
+        setMandateDemo({ status: 'none', store: '' })
+        return
+      }
+      const store = statusRes.storefront_domain
+      const domainWord = store.replace(/\.myshopify\.com$/i, '').replace(/[-.]+/g, ' ').trim()
+      const terms = [domainWord, ...MANDATE_PROBE_TERMS].filter((t, i, arr) => t && arr.indexOf(t) === i)
+      for (const term of terms) {
+        if (!live) return
+        try {
+          const qs = new URLSearchParams({ q: term, merchant: store, limit: '1' })
+          const res = await api.get<SearchResponse>(`/v1/discover/search?${qs.toString()}`)
+          if (!live) return
+          if (res.products.length > 0) {
+            setMandateDemo({ status: 'found', store, product: res.products[0] })
+            return
+          }
+        } catch {
+          /* try the next term */
+        }
+      }
+      if (live) setMandateDemo({ status: 'none', store })
+    })()
+    return () => {
+      live = false
+    }
+  }, [])
+
   const isUrl = looksLikeUrl(q)
 
   const submit = (e: React.FormEvent) => {
@@ -269,6 +326,30 @@ export function DiscoverClient() {
           the browser extension.
         </p>
       </div>
+
+      {mandateDemo.status === 'found' && mandateDemo.product && (
+        <div className="card card-pad" style={{ marginBottom: 14, borderColor: 'var(--brand)' }}>
+          <div className="row-between wrap" style={{ gap: 14, alignItems: 'center' }}>
+            <div style={{ minWidth: 240 }}>
+              <span className="eyebrow">Card-mandate rail · configured in this environment</span>
+              <h3 style={{ marginTop: 5 }}>See the actual mechanism: capped, per-person Prava mandates</h3>
+              <p className="small muted" style={{ marginTop: 6, maxWidth: '58ch' }}>
+                “{mandateDemo.product.title}” is on {mandateDemo.store}, the merchant this environment has wired to
+                real card mandates. Build a group on it to watch each person&rsquo;s mandate get capped, created,
+                and sent for approval — no terminal, no token.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={picking === mandateDemo.product.id}
+              onClick={() => void pick(mandateDemo.product as Product)}
+            >
+              {picking === mandateDemo.product.id ? 'Opening…' : 'Try the card rail →'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={submit} className="card card-pad discover-search" style={{ marginBottom: 14 }}>
         <div className="row wrap" style={{ gap: 10 }}>

@@ -63,7 +63,12 @@ export default function PeoplePage() {
 
   useEffect(() => {
     if (!people) return
-    const todo = people.filter((p) => !asked.current.has(p.id))
+    // /v1/people/:id/reliability only answers for yourself or a friend
+    // (engine/src/routes-v2.ts) — everyone else is a guaranteed 403. The
+    // directory used to include every account on the engine, so this fired
+    // one doomed request per stranger on the page. Only ask for people the
+    // route will actually answer for.
+    const todo = people.filter((p) => (p.is_friend || p.is_me) && !asked.current.has(p.id))
     if (todo.length === 0) return
     todo.forEach((p) => asked.current.add(p.id))
     void Promise.all(
@@ -301,7 +306,7 @@ export default function PeoplePage() {
                 )}
               </Section>
 
-              <Section title="Everyone on this engine" hint={`${others.length}`}>
+              <Section title={q ? 'Search results' : 'You’ve shared a group or plan with them'} hint={`${others.length}`}>
                 {others.length > 0 ? (
                   <div className="card">
                     {others.map((p) => (
@@ -318,7 +323,9 @@ export default function PeoplePage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="well small muted">That is everyone — you are already friends with the rest.</div>
+                  <div className="well small muted">
+                    {q ? 'Nobody matches that search.' : 'That is everyone — you are already friends with the rest.'}
+                  </div>
                 )}
               </Section>
             </>
@@ -353,7 +360,13 @@ export default function PeoplePage() {
             )}
           </div>
 
-          <RecordGrid r={records[open.id] ?? null} />
+          {open.is_friend || open.is_me ? (
+            <RecordGrid r={records[open.id] ?? null} />
+          ) : (
+            // /v1/people/:id/reliability refuses this for a stranger (engine/src/routes-v2.ts)
+            // — so this page never asks. Say why instead of spinning forever.
+            <div className="well small muted">Reliability is visible only to you and your friends.</div>
+          )}
           <ProvenanceNote who={`${open.is_me ? 'Your' : open.name.split(' ')[0] + '’s'}`} />
         </Modal>
       )}
@@ -444,7 +457,7 @@ function PersonRow({
         </span>
       </button>
 
-      <RecordLine r={record} loading={!record} />
+      <RecordLine r={record} loading={(person.is_friend || person.is_me) && !record} />
 
       {!person.is_me && (
         <button

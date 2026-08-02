@@ -50,6 +50,7 @@ export const CATEGORIES: readonly Category[] = [
       'dining',
       'lunch',
       'brunch',
+      'breakfast',
       'supper',
       'eat out',
       'eating out',
@@ -278,14 +279,48 @@ export function resolveCategory(text: string): { id: string; label: string; filt
 }
 
 /**
+ * Words that name "a place" in the abstract rather than any actual kind of
+ * venue. A live run produced `category: "venue"` for the sentence "Sunday
+ * brunch" — the model reached for a generic word instead of a real category —
+ * and because the name-search fallback below matches venue NAMES by
+ * substring, "venue" matched every OSM element whose name merely *contains*
+ * "Avenue". The board offered a judge a police station and a car dealership
+ * as brunch venues, each with a confident-sounding score. That is worse than
+ * an empty board: it is the product inventing a category match it does not
+ * have.
+ *
+ * None of these words carry any information about what kind of place is
+ * wanted, so the honest answer for all of them is "no category, ask" — the
+ * same `reason` a blank query already gets — never a guess dressed as a name
+ * search. Exact-word only: this must not suppress a real query that merely
+ * contains one of these as a substring (e.g. a venue actually named "The
+ * Venue" is still searchable by a more specific phrase).
+ */
+const GENERIC_PLACE_WORDS = new Set([
+  'venue', 'venues',
+  'place', 'places',
+  'spot', 'spots',
+  'location', 'locations',
+  'somewhere', 'anywhere',
+  'thing', 'things',
+  'activity', 'activities',
+  'outing', 'outings',
+  'event', 'events',
+  'hangout', 'hangouts',
+])
+
+/**
  * The fallback for text we do not recognise: match the words against venue
  * names across the three keys that cover almost everything a group would meet
  * at. Broad on purpose — an unrecognised category should return *something*
- * real rather than an empty board.
+ * real rather than an empty board. But broad is only honest when the text
+ * actually names something; see GENERIC_PLACE_WORDS for the one case where
+ * "something" is not a real answer.
  */
 export function nameSearchFilters(text: string): OverpassFilter[] {
   const nameMatch = normalise(text).slice(0, 60).trim()
   if (!nameMatch) return []
+  if (GENERIC_PLACE_WORDS.has(nameMatch)) return []
   return [
     { key: 'amenity', nameMatch },
     { key: 'shop', nameMatch },

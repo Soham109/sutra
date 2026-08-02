@@ -20,9 +20,9 @@ export default function Landing() {
     <main>
       <section className="l-wrap l-hero"><div className="l-hero-copy">
         <h1>Split it before<br />you <span>pay it.</span></h1>
-        <p>Plan the thing, import a real Shopify product or split the final bill. Sutra gives every person one exact decision, names the merchant finish line, and signs the outcome without pretending an agreement was a payment.</p>
+        <p>Every checkout has one card field. A group is never one person — so normally, whoever’s card is on file fronts the whole bill and spends the next two weeks chasing everyone else back. Sutra gives each person their own exact share to approve and pay, and always says plainly whether the money actually moved or you still need to finish paying yourself.</p>
         <div className="l-hero-actions"><Link className="l-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link><Link className="l-button l-button-quiet" href="/app/bill">Split a bill</Link></div>
-        <div className="l-hero-proof"><span>No pooled wallet</span><span>Every rail named</span><span>Nothing invented</span></div>
+        <div className="l-hero-proof"><span>Nobody holds the group’s money</span><span>Always says how you’ll pay</span><span>Nothing invented</span></div>
         <LiveBadge />
       </div>
       <MandateOrbit />
@@ -32,9 +32,9 @@ export default function Landing() {
 
       <div className="l-signal-rail"><div className="l-signal-track"><span><b>Say it</b> sentence → structured plan</span><i /><span><b>Paste it</b> link → imported item</span><i /><span><b>Scan it</b> receipt → exact lines</span><i /><span><b>Share it</b> invite → individual consent</span><i /><span aria-hidden><b>Say it</b> sentence → structured plan</span></div></div>
 
-      <section id="product" className="l-wrap l-section l-product-section"><header className="l-section-head l-section-head-wide"><span className="l-section-no">PRODUCT</span><h2>Start where the group already is.</h2><p>A sentence, merchant page, paper receipt or saved circle enters one shared system. Switch the surface below—the people and rules stay intact.</p></header><ProductLab /></section>
+      <section id="product" className="l-wrap l-section l-product-section"><header className="l-section-head l-section-head-wide"><span className="l-section-no">PRODUCT</span><h2>Start where the group already is.</h2><p>A sentence, a merchant page, a paper receipt, or a saved group of friends — they all turn into the same shared plan. Try each one below; the people and the rule stay the same.</p></header><ProductLab /></section>
 
-      <section id="consent" className="l-consent-band"><div className="l-wrap l-section l-consent-section"><header className="l-section-head l-section-head-inline"><div><span className="l-section-no">THE DECISION</span><h2>Money waits for the rule.</h2></div><p>No twelve-step slideshow. Change the group’s rule and watch the exact same dropout either commit cleanly or release everybody.</p></header><ConsentThreadDemo /></div></section>
+      <section id="consent" className="l-consent-band"><div className="l-wrap l-section l-consent-section"><header className="l-section-head l-section-head-inline"><div><span className="l-section-no">THE DECISION</span><h2>Money waits for the rule.</h2></div><p>No twelve-step slideshow. Change the group’s rule and watch the exact same dropout either still go through cleanly, or cancel for everybody.</p></header><ConsentThreadDemo /></div></section>
 
       {/* Parked: "One product. Honest boundaries." — four dense cards of
           system jargon that nobody scrolling a landing page asked for.
@@ -51,8 +51,8 @@ export default function Landing() {
       </div></section>
       */}
 
-      <section className="l-final"><div className="l-wrap l-final-inner"><div><h2>Make the plan.<br /><span>Keep the finish honest.</span></h2><p>One group, individually capped decisions, and a receipt that distinguishes charged, ready for POS, checkout handoff and owed at venue.</p></div><Link className="l-final-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link></div></section>
+      <section className="l-final"><div className="l-wrap l-final-inner"><div><h2>Make the plan.<br /><span>Keep the finish honest.</span></h2><p>Every person approves and pays only their own share. And the receipt always says plainly whether your card was actually charged, or you still need to finish paying — at the register, at checkout, or at the table.</p></div><Link className="l-final-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link></div></section>
     </main>
-    <footer className="l-footer"><div className="l-wrap"><div className="l-brand"><Mark /><span>sutra</span></div><p>Multi-person coordination, consent and rail-aware settlement evidence.</p><div><a href={SPEC}>Protocol</a><a href={REPO}>GitHub</a><span>GMP/1 · 2026</span></div></div></footer>
+    <footer className="l-footer"><div className="l-wrap"><div className="l-brand"><Mark /><span>sutra</span></div><p>Group coordination, individual consent, and a receipt that always names what actually got paid.</p><div><a href={SPEC}>Protocol</a><a href={REPO}>GitHub</a><span>GMP/1 · 2026</span></div></div></footer>
   </div>
 }

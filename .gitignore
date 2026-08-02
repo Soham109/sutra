@@ -5,6 +5,7 @@ out/
 .vercel/
 next-env.d.ts
 *.tsbuildinfo
+*.log
 .env
 *.db
 *.db-journal
@@ -12,6 +13,7 @@ next-env.d.ts
 *.db-shm
 data/
 .DS_Store
+Thumbs.db
 
 .vercel
 .env*
@@ -19,3 +21,19 @@ data/
 # Throwaway browser profiles from QA runs — never commit these,
 # they carry cookies and saved logins.
 .qa/
+
+# The demo film is developed locally and is not part of the judged repository.
+# 6.7 GB of rendered frames and source live here; the finished MP4 is uploaded
+# to the submission directly.
+film/
+
+# Local screen-recording playbook (README/SCRIPT/SHOTLIST for the submission
+# video). Working notes for the humans on camera, not part of the judged
+# repository.
+DEMO/
+
+# Tesseract OCR language data. tesseract.js writes this to the working
+# directory of whatever process invokes it locally; the OCR path
+# (web/src/components/bill/capture.tsx) loads it on demand from tesseract.js's
+# own CDN/package paths at runtime, so nothing in the repo needs a bundled copy.
+*.traineddata

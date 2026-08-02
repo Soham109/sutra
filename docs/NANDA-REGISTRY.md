@@ -6,8 +6,8 @@ claim is marked **VERIFIED** (I ran the command myself, pasted below) or
 document is scoped to the NANDA **Index/registry/AgentFacts** surface only.
 
 **This is not the $1,000 prize track.** The prize is titled "Best Prava Adapter
-for the NANDA Town" and, per [`HACKATHON.md`](HACKATHON.md) and
-[`HANDOFF.md`](../HANDOFF.md) §3.3, is judged on the Python plugin in
+for the NANDA Town" and, per [`HACKATHON.md`](HACKATHON.md) section 3.1 and
+[`../AUDIT.md`](../AUDIT.md), is judged on the Python plugin in
 [`nanda-town-prava/`](../nanda-town-prava/) (owned by a different agent on this
 repo, not touched here). This document exists so the team has an honest,
 pre-checked answer if Prof. Raskar asks "are you in the Index?" — the answer is
@@ -101,8 +101,8 @@ HTTP 404
 
 I also pulled the full index (`GET /api/v1/index`) and counted it directly:
 **250 org records**, none of them `sutra` (spot-checked; the two queries above
-already prove absence more directly). This independently confirms
-`HANDOFF.md`'s claim that `nanda index-register` was never run — I did not
+already prove absence more directly). This independently confirms the
+long-standing team claim that `nanda index-register` was never run — I did not
 just re-quote that claim, I checked it myself against the live API.
 
 **Why not, confirmed by reading the code**: `cli/src/nanda.ts` `indexRegister()`
@@ -122,8 +122,8 @@ these are real, live endpoints by fetching the Index's own OpenAPI document
 ```
 
 `sutra-gmp.vercel.app` is a subdomain of `vercel.app` — we do not control that
-zone, so we cannot add a TXT record to it. This matches `HANDOFF.md`'s stated
-reason and I verified it is architecturally correct, not just asserted.
+zone, so we cannot add a TXT record to it. This matches the reason the team had
+already recorded, and I verified it is architecturally correct, not just asserted.
 
 ### 3b. NANDA Town SkillMD registry — **we are in it, with an honest `null` badge**
 
@@ -337,7 +337,7 @@ documented here.
 ## 6. Prioritised gap list — what fits in the rest of the day
 
 Context that shapes every recommendation below: this track is judged on the
-Python plugin, not Index registration (`HACKATHON.md`, `HANDOFF.md` §3.3), and
+Python plugin, not Index registration ([`HACKATHON.md`](HACKATHON.md) section 3.1), and
 NANDA Index registration requires a DNS TXT record on a domain we control,
 which does not exist in the time remaining even before considering it isn't
 what's judged.
@@ -363,14 +363,15 @@ what's judged.
    This is the cheapest change that closes an actual, verified gap (§4) rather
    than a cosmetic one. Low priority given the prize criterion, but the
    highest-value item on this list if there is slack time left after
-   everything in `STATUS.md` §1–5 is done.
+   everything in [`../TASKS.md`](../TASKS.md) is done.
 
 4. **Do not populate `evaluations` or `certification` with invented numbers.**
    The schema invites a `performanceScore` / `auditTrail` / certification
    block, but there is no real audit and no real 90-day uptime history behind
    one (`/health` showed `uptime_s: 72` at last check — the process restarts on
    every redeploy). This codebase's own stated ethic — "never invent a price,"
-   "no claim without a source" (`HANDOFF.md` §7) — argues directly against
+   "no claim without a source" ([`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md)
+   invariants 4 and 9) — argues directly against
    filling this slot with a plausible-looking synthetic number. If pursued at
    all, it should wait for a real measurement window, not the next few hours.
 

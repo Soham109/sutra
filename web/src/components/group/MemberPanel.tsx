@@ -47,6 +47,7 @@ export function MemberPanel({
           allocation={allocations[m.member_id]}
           anonymise={anonymise}
           replaying={replaying}
+          charges={charges}
         />
       ))}
 
@@ -79,12 +80,14 @@ function MemberCard({
   allocation,
   anonymise,
   replaying,
+  charges,
 }: {
   member: GroupMember
   currency: string
   allocation?: { amount: number; shortfall: number }
   anonymise: boolean
   replaying: boolean
+  charges: boolean
 }) {
   const [qr, setQr] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -153,6 +156,18 @@ function MemberCard({
           </span>
         )}
       </div>
+
+      {/* The mandate lifecycle, stated per person rather than left to the
+          event log alone: nothing exists until they open the link (lazy —
+          nobody's card details go anywhere before then), then a real Prava
+          session is live and waiting on their own passkey. */}
+      {pending && charges && (
+        <p className="tiny faint" style={{ marginTop: 8, paddingLeft: 43 }}>
+          {m.status === 'awaiting_approval'
+            ? <>Mandate session live, capped at <b>{money(m.cap_amount, currency)}</b> — waiting on their passkey.</>
+            : 'No mandate exists yet — one is created only once they open their own link.'}
+        </p>
+      )}
 
       {pending && (
         <div className="row wrap" style={{ gap: 8, marginTop: 10, paddingLeft: 43 }}>

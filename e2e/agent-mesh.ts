@@ -577,7 +577,7 @@ async function main() {
   // session even exists yet. Minting one for real means one live call to
   // engine/src/prava — and the team is holding a hard 30-transactions/day
   // sandbox cap for the one real passkey charge that actually matters (see
-  // .env, HANDOFF §3.1). Spending that budget on a refusal that has already
+  // .env, docs/RUNBOOK.md §0.3). Spending that budget on a refusal that has already
   // made its point, against a live production key, would be a worse decision
   // than the one this whole step exists to illustrate — so this script does
   // not make it, and says so out loud rather than doing it quietly.

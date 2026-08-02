@@ -1,8 +1,8 @@
 # The hackathon: event, deadline, tracks, and the submission checklist
 
-This file is about **submitting**. For the state of the code and what to build next, read
-[`../HANDOFF.md`](../HANDOFF.md). For how to deploy and operate anything, read
-[`RUNBOOK.md`](RUNBOOK.md).
+This file is about **submitting**. For the state of the code, read [`../AUDIT.md`](../AUDIT.md);
+for what to build next, read [`../TASKS.md`](../TASKS.md). For how to deploy and operate
+anything, read [`RUNBOOK.md`](RUNBOOK.md).
 
 Everything marked **verified** below was fetched from Devfolio on 2026-08-01. Everything
 marked **unverified** could not be confirmed from a public page; treat those as the human's
@@ -35,22 +35,20 @@ The core challenge, in Devfolio's exact words:
 
 ## 2. The deadline, with the timezone arithmetic
 
-**Treat 3:00 PM Pacific on Sunday 2 August 2026 as the real deadline. Target having the
-project published by 1:00 PM Pacific.**
+**The hard deadline is 7:00 PM Pacific on Sunday 2 August 2026 — 7:30 AM IST on Monday
+3 August. Target having the project published by 5:00 PM Pacific / 5:30 AM IST.**
 
-There is a genuine conflict in the source material, and you need to know about it rather than
-discover it at 2 PM Pacific:
+This was previously an open question in this file, and it is now settled. An earlier revision
+told you to treat 3:00 PM PT as the deadline, because a 3 PM figure was circulating and the
+7 PM figure could not be confirmed from any public page. **The participant handbook has since
+been read directly and is the primary source.** It states:
 
-- The **public Devfolio schedule page** (https://agentic-commerce.devfolio.co/schedule) lists
-  "Hackathon Ends — 02 Aug 2026 (Sun), 07:00 PM, Los Angeles (-07:00 UTC)". That page lists no
-  separate submission deadline. **Verified.**
-- The **participant handbook** is reported to state a 3:00 PM PT hard deadline for
-  submissions, with 7:00 PM PT appearing elsewhere. **Unverified — this could not be confirmed
-  from any public page.**
+> Hard deadline: August 2 at 7:00 PM PT / August 3 at 7:30 AM IST.
 
-The conservative reading is the correct one here. If 3 PM PT is real and you aimed at 7 PM PT,
-you do not submit at all. If 3 PM PT is wrong and you aimed at it anyway, you finish four
-hours early. **Aim at 3 PM PT.**
+That agrees exactly with the **public Devfolio schedule page**
+(https://agentic-commerce.devfolio.co/schedule), which lists "Hackathon Ends — 02 Aug 2026
+(Sun), 07:00 PM, Los Angeles (-07:00 UTC)". Two independent sources, same moment. **There is
+no 3 PM deadline. Do not plan around one.**
 
 Los Angeles is on PDT (UTC−7) on 2 August 2026. India Standard Time is UTC+5:30. The offset
 between them is 12 hours 30 minutes.
@@ -58,13 +56,13 @@ between them is 12 hours 30 minutes.
 | Moment | Pacific (PDT) | UTC | India (IST) |
 |---|---|---|---|
 | Hackathon started | Fri 31 Jul, 7:00 PM | Sat 1 Aug, 02:00 | Sat 1 Aug, 7:30 AM |
-| **Target: be published by** | **Sun 2 Aug, 1:00 PM** | **Sun 2 Aug, 20:00** | **Mon 3 Aug, 1:30 AM** |
-| **Hard deadline (treat as real)** | **Sun 2 Aug, 3:00 PM** | **Sun 2 Aug, 22:00** | **Mon 3 Aug, 3:30 AM** |
-| Published schedule "hackathon ends" | Sun 2 Aug, 7:00 PM | Mon 3 Aug, 02:00 | Mon 3 Aug, 7:30 AM |
+| **Target: be published by** | **Sun 2 Aug, 5:00 PM** | **Mon 3 Aug, 00:00** | **Mon 3 Aug, 5:30 AM** |
+| **Hard deadline (handbook + schedule page)** | **Sun 2 Aug, 7:00 PM** | **Mon 3 Aug, 02:00** | **Mon 3 Aug, 7:30 AM** |
 
-The two-hour gap between the 1 PM PT target and the 3 PM PT deadline is not slack to spend.
-It is there because Devfolio's publish flow has failed for people before, and because a
-video upload can stall.
+Still publish early. The two-hour gap between the 5 PM PT target and the 7 PM PT deadline is
+not slack to spend: Devfolio's publish flow has failed for people before, and a video upload
+can stall. Aim to be **done** at 5 PM PT and treat the last two hours as the margin that
+absorbs a failed upload, not as working time.
 
 ---
 
@@ -110,7 +108,12 @@ The evidence pack is [`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md). Section 5 is
 **SUBMITTED** (SkillMD entry `47063b5f-…`, discovery chain green at
 `sutra-gmp.vercel.app`). The demo a judge should watch is
 `python scripts/town_scene.py` inside [`../nanda-town-prava/`](../nanda-town-prava/).
-Current registry status is also in [`../HANDOFF.md`](../HANDOFF.md) section 3.3.
+Current registry status is also in [`../AUDIT.md`](../AUDIT.md).
+
+**One qualify requirement for this track is still unmet.** The handbook asks entrants to
+"submit the relevant pull request" to NANDA Town, and no upstream PR exists yet. Because this
+is the track that matters most here, that gap is the single highest-value thing left to close
+— see the checklist item in section 5.4.
 
 ### 3.2 Judges
 
@@ -141,10 +144,10 @@ we point at.
 | "Show potential to become real, sustainable products" | The chaos suite: 60 randomized fault runs, six invariants, all green. The failure taxonomy in [`../README.md`](../README.md) enumerates 36 distinct failures and the answer to each. |
 | "Real integration of Prava as a functional component" | `prava_adapter: "sandbox"` on the live `/health`. Real mandate sessions minted against the real sandbox. **Weak spot — see section 4.1.** |
 | "Demonstration of an agent completing or enabling a transaction" | **This is the gap.** See section 4.1. |
-| "Meaningful work completed during the hackathon" | The pre-existing work disclosure in [`../HANDOFF.md`](../HANDOFF.md) section 6. |
+| "Meaningful work completed during the hackathon" | The pre-existing work disclosure in section 5.7 of this file. |
 | Track: "Best Prava Adapter for the NANDA Town" | [`../nanda-town-prava/`](../nanda-town-prava/) plus [`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md). See section 3.1 of this file. |
 | Track: "Best Visa Intelligent Commerce Implementation" | Prava mints Visa single-use, merchant-scoped, amount-capped credentials; the cap is enforced by the card network, not by our code. Settlement is only closed when `visaConfirmation !== 'FAILURE'`. |
-| Track: "Agent Commerce Discovery & Trust" (Senso) | The discovery chain: A2A AgentCard, NANDA AgentFacts, AI Catalog and a served `SKILL.md`, all generated from one endpoint inventory so a document cannot drift from the API. All returning 200 — see [`../HANDOFF.md`](../HANDOFF.md) section 4.3. Trust: Ed25519-signed, hash-chained receipts that verify offline. |
+| Track: "Agent Commerce Discovery & Trust" (Senso) | **We have no entry for this track.** Do not claim one. There is no Senso integration anywhere in this repository. Our discovery and receipt work is real and strong (see section 4.2), but it is our own chain — it is not Senso, and presenting it as a Senso entry would be a false claim a judge can disprove with one grep. |
 | Track: "Best UX" | The approval page, the participant answer page that needs no account, and the exposure meter on the dashboard. |
 | Track: "Most Startup-Ready Product" (Localhost) | [`PRODUCT_AND_MOBILE_ROADMAP.md`](PRODUCT_AND_MOBILE_ROADMAP.md), which marks every item built / partly built / not built. |
 | Track: "iMessage Agent" (Linq) | **We have no entry for this track.** Do not claim one. |
@@ -159,13 +162,37 @@ itself once a mandate goes active. What is missing is a human opening the hosted
 on a phone and completing the passkey ceremony. No script can do it — that is the security
 property of the protocol.
 
-The exact commands and the sandbox test card are in [`../HANDOFF.md`](../HANDOFF.md) section
-3.1. **Do this before writing the submission**, because the submission text changes depending
+The exact commands and the sandbox test card are in [`RUNBOOK.md`](RUNBOOK.md) section 5.3.
+**Do this before writing the submission**, because the submission text changes depending
 on whether it worked.
 
 If it does not work in time, say so plainly in the submission's "what didn't work" section.
 Claiming a charge that did not happen is exactly the failure mode this codebase is built to
 refuse, and a judge who catches it will discount everything else.
+
+### 4.2 The discovery chain and offline-verifiable trust — real work, no track
+
+This is genuinely strong work and it belongs in the general submission. It is **not** an
+entry for the Senso track, and it must not be presented as one.
+
+**Discovery.** The engine publishes an A2A **AgentCard**, a NANDA **AgentFacts** document,
+an **AI Catalog** entry and a served **`SKILL.md`**. The point is not that four documents
+exist — it is that all four are generated from **one endpoint inventory**
+([`../engine/src/discovery/endpoints.ts`](../engine/src/discovery/endpoints.ts), consumed by
+[`agent-card.ts`](../engine/src/discovery/agent-card.ts),
+[`agent-facts.ts`](../engine/src/discovery/agent-facts.ts) and
+[`catalog.ts`](../engine/src/discovery/catalog.ts)), so a published document structurally
+cannot drift from the API it describes. Hand-maintained discovery documents go stale within
+a day; these cannot.
+
+**Trust.** Receipts are Ed25519-signed and hash-chained, and they verify **offline** —
+without trusting the UI, the engine, or anything that served them. `verifyReceipt` actively
+**fails** a receipt that claims a charge on a non-charging rail
+([`../engine/src/receipt.ts`](../engine/src/receipt.ts)), so the evidence layer refuses to
+carry the one lie the product would most benefit from telling.
+
+Say this under "meaningful actions" and "handle payments transparently" in the write-up.
+Do not attach a track name to it that we did not earn.
 
 ---
 
@@ -182,7 +209,8 @@ Work top to bottom. Every box is a literal thing to do.
 - [ ] Only registered team members have contributed to the repository. Anyone who contributed
       but is not registered is a problem — resolve it before submitting.
 - [ ] You know which account is the **team admin**. Only the team admin can publish the
-      project. If the admin is asleep at 2 PM Pacific, that is the failure mode.
+      project. The admin asleep at 5 PM Pacific — 5:30 AM IST — is the realistic failure mode
+      here, and it is the reason to publish well before the 7 PM PT deadline rather than at it.
 
 ### 5.2 Get the product demonstrable
 
@@ -190,7 +218,7 @@ Work top to bottom. Every box is a literal thing to do.
 - [ ] `curl.exe -s https://engine-production-e6fa.up.railway.app/health` returns
       `"prava_adapter":"sandbox"`.
 - [ ] A real Prava sandbox mandate has been approved by a human and a real charge has settled.
-      Commands in [`../HANDOFF.md`](../HANDOFF.md) section 3.1. **If this box stays unticked,
+      Commands in [`RUNBOOK.md`](RUNBOOK.md) section 5.3. **If this box stays unticked,
       say so explicitly in the submission.**
 - [ ] The demo path you will show on video has been walked end to end at least twice, on the
       live site, in a private window.
@@ -219,9 +247,18 @@ Work top to bottom. Every box is a literal thing to do.
 - [ ] **Track evidence** is included for every track you are entering. For NANDA, link
       [`../nanda-town-prava/`](../nanda-town-prava/) and
       [`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md).
-- [ ] **Pre-existing work is disclosed.** Copy the paragraph in
-      [`../HANDOFF.md`](../HANDOFF.md) section 6 verbatim. "Existing work can be the starting
-      point; it cannot be the entire submission."
+- [ ] **UNMET — NANDA track: submit the pull request.** The handbook's NANDA track states the
+      qualify bar as: *"Demonstrate a sandbox transaction, handle failures, document the adapter
+      and **submit the relevant pull request** and Devfolio project."* **There is currently no
+      upstream pull request to NANDA Town** (https://github.com/projnanda/nandatown) from this
+      project — the plugin lives only in [`../nanda-town-prava/`](../nanda-town-prava/) in this
+      repository. This is a **stated qualify requirement, not an optional extra**: the other
+      three clauses are satisfied and this one is not, which means the strongest track entry we
+      have is the one most at risk of being ruled out on a technicality. Open the PR against
+      `projnanda/nandatown`, then put its URL in the Devfolio submission. Do not write a PR
+      link into any document until the PR actually exists.
+- [ ] **Pre-existing work is disclosed.** Copy the paragraph in section 5.7 below verbatim.
+      "Existing work can be the starting point; it cannot be the entire submission."
 - [ ] A short **what worked / what didn't work / what we learned** is written. Draft material
       for this is in section 6 of this file.
 
@@ -244,6 +281,29 @@ Work top to bottom. Every box is a literal thing to do.
       card allows 30 transactions per day.
 - [ ] Do **not** force-push to purge `.qa/` from git history before judging. It needs a
       force-push and a teammate is active on the repo. It is a post-judging cleanup.
+
+### 5.7 Pre-existing work disclosure
+
+**This is a mandatory submission item, not a courtesy.** Copy the paragraph below into the
+Devfolio submission verbatim. It is required and it is true.
+
+> The concept and the original protocol specification document (`spec/PROTOCOL.md`) existed
+> before the event. **All code in this repository was written during the hackathon window.**
+> The coordination layer, the settlement rails, the bill parser, the venue discovery, the
+> NANDA Town plugin, the web application and the discovery documents were all built during the
+> event. `spec/PROTOCOL.md` was extended during the event to cover the settlement rails and the
+> coordination phase.
+
+**Git history independently corroborates this**, which is worth knowing if a judge checks.
+The first commit in this repository is `03ad256`, dated **2026-08-01 09:15:21 +0530** — after
+the kickoff at **Sat 1 Aug, 7:30 AM IST** (Fri 31 Jul, 7:00 PM PDT). There is no commit
+before the event started. Verify it in one command:
+
+```bash
+git log --reverse --format="%h %ad %s" --date=iso | head -1
+```
+
+The disclosure and the history agree: the specification predates the event, the code does not.
 
 ---
 

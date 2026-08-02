@@ -1,7 +1,8 @@
 # Runbook — running, deploying and operating sutra
 
-Operations only. For the state of the project and what to do next, read
-[`../HANDOFF.md`](../HANDOFF.md). For the hackathon submission, read
+Operations only. For the state of the project read [`../AUDIT.md`](../AUDIT.md); for what to do
+next read [`../TASKS.md`](../TASKS.md). For the rules and traps that must not be broken, read
+[`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md). For the hackathon submission, read
 [`HACKATHON.md`](HACKATHON.md).
 
 The repository is at `c:\Users\acer\sutra`. Every command below assumes you are in that
@@ -21,9 +22,10 @@ Two things break in Git Bash on this machine.
 TypeError: Cannot read properties of undefined (reading 'config')
 ```
 
-The same command in PowerShell reports **14 test files, 365 tests passed**. The code is fine.
-Do not edit any test file in response to that error. If you must run tests from Git Bash, this
-works and reports the same 365 passing:
+The same command in PowerShell passes every file. The code is fine. Do not edit any test file
+in response to that error. Believe the count the runner prints — every number written into a
+doc in this repo has gone stale within hours. If you must run tests from Git Bash, this works
+and reports the same passing count:
 
 ```bash
 cd /c/Users/acer/sutra/engine && npx vitest run
@@ -114,7 +116,7 @@ Useful local URLs once `npm run dev` is running:
 | `npm run dev:web` | `npm run dev -w web` | Next.js dev server, port 3000. | nothing |
 | `npm run build` | `npm run build -w web` | Next.js production build. Observed: succeeds, **19 routes, 14 static pages**. | nothing |
 | `npm start` | `npm run start -w engine` | Engine in the foreground. This is Railway's start command. | nothing |
-| `npm test` | `npm run test -w engine` | Vitest. Observed: **14 files, 365 tests passed**. | **PowerShell** |
+| `npm test` | `npm run test -w engine` | Vitest. Believe the count it prints; every number written into a doc here has gone stale within hours. | **PowerShell** |
 | `npm run test:widget` | `node --test widget/detect.test.mjs` | The page detector against captured real pages. Observed: **30 pass, 0 fail**. Includes a test that `widget/widget.js` and `extension/detect.js` carry an identical copy of `widget/detect.js`. | nothing |
 | `npm run build:widget` | `node widget/build-bookmarklet.mjs` | Regenerates the bookmarklet and `extension/detect.js` from `widget/detect.js`. Run it after editing the detector. | nothing |
 | `npm run chaos` | `npm run chaos -w chaos` | 60 randomized fault-injection runs. Observed: seed base 42, terminal states `{"partial":9,"committed":38,"aborted":13}`, six invariants pass, prints `GREEN WALL`. Runs the engine **in process** — no HTTP, no server to start. Mock adapter only. Tune with `CHAOS_ITERS` and `SEED`. | nothing |
@@ -227,6 +229,16 @@ npx --yes @railway/cli up --ci --service engine
 
 `--service engine` is **required**. Without it Railway errors with "Multiple services found".
 `--ci` streams build logs and then exits, instead of attaching to the log stream forever.
+
+**If the Railway CLI produces zero output and exits 1, it has not deployed anything.** This has
+happened on this machine: the command returns immediately, silently, with no error text and no
+deployment. Do not assume it worked. Deploy from the Railway dashboard instead, then verify with
+the `/health` check below — a small `uptime_s` is the only proof the deploy landed.
+
+**Do not rely on Railway's git auto-deploy either.** The repo can be connected while the deploy
+trigger is switched off, in which case pushing to `main` changes nothing and the engine keeps
+serving a build from hours ago with no warning anywhere. Check `uptime_s` after every push you
+expect to change the engine.
 
 Verify:
 
@@ -420,8 +432,12 @@ npx -w cli tsx src/gmp.ts demo auction      # 3 claimants, 2 seats, sealed bids 
 
 Note which rail you land on. An option that came from OpenStreetMap is always on the
 `at_venue` rail and **no card is charged**, by design — see
-[`../HANDOFF.md`](../HANDOFF.md) section 7. To demonstrate a real card charge you need a
-merchant, which means the product-search or pasted-URL path, not the venue path.
+[`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md) invariant 3. To demonstrate a real card charge
+you need a merchant, which means the product-search or pasted-URL path, not the venue path.
+
+**Sign in before you create the plan you are going to demo.** An anonymous plan organiser
+loses their "copy link" buttons a few seconds after creating the plan, and there is no way to
+get them back. If you must demo anonymously, copy every participant link immediately.
 
 ### 5.3 The real-Prava proof run
 
@@ -606,6 +622,10 @@ Vercel environment changes do not apply to an existing deployment.
 before: "login is broken" turned out to mean the engine had been up for 95 minutes running a
 build from before `/v1/auth/*` existed.
 
+**Two causes, both silent.** Either Railway's git auto-deploy trigger is switched off (the repo
+still shows as connected, so nothing looks wrong), or the CLI exited 1 with no output and never
+deployed. Both leave a stale process running happily. See section 3.2.
+
 **Diagnose.**
 
 ```powershell
@@ -732,8 +752,32 @@ Or, if you must stay in Git Bash:
 cd /c/Users/acer/sutra/engine && npx vitest run
 ```
 
-Both report 14 files and 365 tests passing. **Do not edit a test file in response to this
-error.**
+Both report the same passing count. **Do not edit a test file in response to this error.**
+
+### 7.12 Several parallel agents died at once and `main` looks wrong
+
+**Symptom.** Work you did not finish is committed on `main`, and the suite is failing.
+
+**Cause.** When several agents are cut off simultaneously — an API session limit will do it —
+an auto-commit sweeps whatever was on disk into `main`. It does not care whether the work was
+finished. This has landed a tree with a dozen failing tests and, worse, a half-applied change
+that read as a deliberate tightening.
+
+**Fix, in this order, before writing any new code:**
+
+```powershell
+git status
+git log --oneline -5
+npm test -w engine
+```
+
+Read the diff of the sweeping commit before judging any individual failure. The dangerous case
+is not a failing test — it is a change that passes and is wrong. The real example: a check was
+rewritten to refuse any seat without a `user_id`, which reads like a tightened security rule
+and actually deleted the commonest real case the product has, the person at the table who will
+never sign up. The narrower rule that replaced it is `assertSeatable`: attaching somebody
+else's **account** without their agreement stays refused; a **bare name** is allowed and makes
+a link-only participant.
 
 ---
 
@@ -756,7 +800,7 @@ All seven returned 200 on 2026-08-01, and `/health` reported `"prava_adapter":"s
 Then the local suites:
 
 ```powershell
-npm test -w engine        # expect 14 files, 365 tests passed
+npm test -w engine        # expect all files passing; believe the count it prints
 npm run test:widget       # expect 30 pass, 0 fail
 npm run chaos             # expect GREEN WALL
 npm run build             # expect a successful build, 19 routes

@@ -7,8 +7,8 @@ import { ShopifySource } from '../src/catalog/sources.js'
 
 // Fixtures for the findings this agent made and fixed in resolver.ts /
 // sources.ts, kept separate from fixtures/catalog/ (that directory and its
-// manifest belong to the parse.ts agent working the same session — see
-// HANDOFF). Every HTML/JSON file here is a REAL page or API response saved
+// manifest belong to the parse.ts agent working the same session). Every
+// HTML/JSON file here is a REAL page or API response saved
 // on 2026-08-02, not hand-typed. See the session report for exact URLs.
 const FIXDIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/resolver-own')
 const read = (name: string) => readFileSync(path.join(FIXDIR, name), 'utf8')

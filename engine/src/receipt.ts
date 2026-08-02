@@ -99,11 +99,26 @@ export class ReceiptSigner {
   }
 }
 
+export interface VerifyResult {
+  ok: boolean
+  errors: string[]
+  /**
+   * True when the receipt is cryptographically and structurally sound —
+   * intact hash chain, consistent totals, rail-honest charged amount, valid
+   * Ed25519 signature over the key embedded in the file — and the ONLY
+   * problem is that `expectedPublicKey` names a different key. That is a
+   * "you asked me to pin against the wrong engine" finding, not a "this
+   * receipt is forged" one, and the two must never read the same to a human.
+   * `gmp verify` (cli/src/gmp.ts) uses this to keep them visibly separate:
+   * a judge pointing a local dev engine's key at a genuine production
+   * receipt used to see the same "VERIFICATION FAILED" a tampered receipt
+   * would produce.
+   */
+  wrongEngineOnly: boolean
+}
+
 /** Standalone verification — mirrored by `gmp verify` in the CLI. */
-export function verifyReceipt(
-  receipt: Receipt,
-  opts?: { expectedPublicKey?: string },
-): { ok: boolean; errors: string[] } {
+export function verifyReceipt(receipt: Receipt, opts?: { expectedPublicKey?: string }): VerifyResult {
   const errors: string[] = []
 
   let prev = 'GENESIS'
@@ -130,8 +145,10 @@ export function verifyReceipt(
 
   // Pinning the key matters: without it, an attacker signs with their own
   // keypair, embeds that public_key, and verify("ok") against the file alone.
+  let keyMismatch = false
   if (opts?.expectedPublicKey && receipt.public_key !== opts.expectedPublicKey) {
     errors.push('public_key does not match the known engine signing key')
+    keyMismatch = true
   }
 
   const { signature, ...unsigned } = receipt
@@ -151,7 +168,13 @@ export function verifyReceipt(
     }
   }
 
-  return { ok: errors.length === 0, errors }
+  // keyMismatch pushes exactly one error. If that is the ONLY error in the
+  // list, every other check — chain, totals, rail honesty, signature — came
+  // back clean, so this receipt is genuine; it just was not signed by the
+  // key the caller expected.
+  const wrongEngineOnly = keyMismatch && errors.length === 1
+
+  return { ok: errors.length === 0, errors, wrongEngineOnly }
 }
 
 export function sha256(s: string): string {

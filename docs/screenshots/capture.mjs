@@ -483,7 +483,7 @@ async function main() {
     if (!answerResult.ok) note(`could not populate plan answers: ${answerResult.reason}`)
     await page.reload({ waitUntil: 'networkidle2', timeout: 45_000 })
 
-    // Venue search can take a long time (STATUS.md: up to ~40s) or return
+    // Venue search can take a long time (measured: up to ~40s) or return
     // nothing at all. Wait generously; do not fabricate a result either way.
     const gotOptions = await page
       .waitForFunction(

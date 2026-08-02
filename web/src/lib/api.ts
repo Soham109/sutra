@@ -155,6 +155,10 @@ export interface ShopifyTestStatus {
   store_domain: string | null
   storefront_domain: string | null
   adapter: 'mock' | 'sandbox' | 'production'
+  /** Why `enabled` is what it is, so the UI can explain rather than just hide. */
+  reason: 'ready' | 'not_configured' | 'misconfigured' | 'blocked_in_production'
+  /** Safe human string — never a secret, never an env var value. */
+  reason_detail: string
   disclosure: string
 }
 

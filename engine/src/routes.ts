@@ -183,14 +183,53 @@ export function registerRoutes(
 
   // -- Shopify development-store proof ------------------------------------
 
-  app.get('/v1/shopify-test/status', async () => ({
-    enabled: !!cfg.shopifyTest && service.prava.kind !== 'production',
-    store_domain: cfg.shopifyTest?.storeDomain ?? null,
-    storefront_domain: cfg.shopifyTest?.storefrontDomain ?? null,
-    adapter: service.prava.kind,
-    disclosure:
-      'Creates Shopify orders and transactions with test: true. No real money moves; this is not multi-card Shopify Checkout.',
-  }))
+  app.get('/v1/shopify-test/status', async () => {
+    const configured = !!cfg.shopifyTest
+    const productionBlocked = service.prava.kind === 'production'
+    const enabled = configured && !productionBlocked
+
+    // `configured` only says whether server.ts finished building the adapter,
+    // not *why* it didn't. A judge (or the owner mid-setup) deserves to know
+    // whether nobody has touched this yet, whether the env is half-filled-in,
+    // or whether this deployment can never show it because it is live. This
+    // reads the same env vars server.ts reads to build the adapter — never
+    // their values, only presence — so the reason is honest without
+    // duplicating the gate itself: `enabled` above is still the only thing
+    // any route trusts to allow the write.
+    let reason: 'ready' | 'not_configured' | 'misconfigured' | 'blocked_in_production'
+    if (enabled) {
+      reason = 'ready'
+    } else if (productionBlocked) {
+      // A live Prava adapter is a permanent block, independent of setup —
+      // no amount of Shopify configuration changes this on this deployment.
+      reason = 'blocked_in_production'
+    } else if (process.env.SHOPIFY_TEST_ORDER_ENABLED !== 'true') {
+      reason = 'not_configured'
+    } else {
+      // The flag is on but server.ts refused to build the adapter — the
+      // store domain is missing, or neither a legacy offline access token
+      // nor a Dev Dashboard client ID/secret pair was supplied.
+      reason = 'misconfigured'
+    }
+    const REASON_DETAIL: Record<typeof reason, string> = {
+      ready: 'The development-store adapter is configured and Prava is non-production.',
+      not_configured: 'SHOPIFY_TEST_ORDER_ENABLED is not set to true on this deployment; the demo store was never wired up.',
+      misconfigured: 'SHOPIFY_TEST_ORDER_ENABLED=true but SHOPIFY_TEST_STORE is missing, or neither SHOPIFY_ADMIN_ACCESS_TOKEN nor a SHOPIFY_ADMIN_CLIENT_ID/SHOPIFY_ADMIN_CLIENT_SECRET pair is set.',
+      blocked_in_production: 'Prava is running in production on this deployment, so the test-order bridge is refused by design.',
+    }
+    const reason_detail: string = REASON_DETAIL[reason]
+
+    return {
+      enabled,
+      store_domain: cfg.shopifyTest?.storeDomain ?? null,
+      storefront_domain: cfg.shopifyTest?.storefrontDomain ?? null,
+      adapter: service.prava.kind,
+      reason,
+      reason_detail,
+      disclosure:
+        'Creates Shopify orders and transactions with test: true. No real money moves; this is not multi-card Shopify Checkout.',
+    }
+  })
 
   app.post('/v1/groups/:id/shopify-test-order', async (req, reply) => {
     const { id } = req.params as { id: string }
