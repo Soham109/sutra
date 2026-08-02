@@ -36,6 +36,7 @@ async function call<T>(path: string, method = 'GET', body?: unknown, cookie?: st
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+async function main() {
 console.log(`\n▶ sutra product flow · engine ${ENGINE} · web ${WEB}\n`)
 
 // -- 1. identity --------------------------------------------------------------
@@ -232,3 +233,9 @@ console.log(
     : `\n  ${failures} FAILURE(S)\n`,
 )
 process.exit(failures === 0 ? 0 : 1)
+}
+
+void main().catch((error: unknown) => {
+  console.error(error)
+  process.exit(1)
+})

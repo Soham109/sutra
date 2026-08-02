@@ -4,6 +4,11 @@ import './globals.css'
 
 export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [{ url: '/sutra-mark.svg', type: 'image/svg+xml' }],
+    shortcut: '/sutra-mark.svg',
+    apple: '/sutra-mark.svg',
+  },
   applicationName: 'sutra',
   appleWebApp: { capable: true, title: 'sutra', statusBarStyle: 'black-translucent' },
   title: 'sutra — buy together, without the group bank',
