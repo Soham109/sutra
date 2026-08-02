@@ -1,0 +1,26 @@
+{
+  "_note": "Final 105-second identity clock. All cues are deliberately soft and low-frequency; the former white-noise key clicks were removed.",
+  "cues": [
+    { "atMs": 0, "sound": "bed", "gain": 0.72 },
+    { "atMs": 1850, "sound": "tick", "gain": 0.42 },
+    { "atMs": 3200, "sound": "tick", "gain": 0.36 },
+    { "atMs": 4550, "sound": "pending", "gain": 0.38 },
+    { "atMs": 5900, "sound": "pending", "gain": 0.32 },
+    { "atMs": 11000, "sound": "whoosh", "gain": 0.48 },
+    { "atMs": 18000, "sound": "whoosh", "gain": 0.42 },
+    { "atMs": 20800, "sound": "tick", "gain": 0.34 },
+    { "atMs": 23800, "sound": "tick", "gain": 0.34 },
+    { "atMs": 26800, "sound": "tick", "gain": 0.34 },
+    { "atMs": 29800, "sound": "tick", "gain": 0.34 },
+    { "atMs": 31000, "sound": "chord", "gain": 0.52 },
+    { "atMs": 34000, "sound": "whoosh", "gain": 0.38 },
+    { "atMs": 44300, "sound": "chord", "gain": 0.24 },
+    { "atMs": 51000, "sound": "whoosh", "gain": 0.34 },
+    { "atMs": 57000, "sound": "refuse", "gain": 0.34 },
+    { "atMs": 63000, "sound": "whoosh", "gain": 0.36 },
+    { "atMs": 74200, "sound": "chord", "gain": 0.27 },
+    { "atMs": 79000, "sound": "whoosh", "gain": 0.3 },
+    { "atMs": 90000, "sound": "whoosh", "gain": 0.36 },
+    { "atMs": 98000, "sound": "chord", "gain": 0.34 }
+  ]
+}

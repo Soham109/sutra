@@ -22,10 +22,18 @@ Thumbs.db
 # they carry cookies and saved logins.
 .qa/
 
-# The demo film is developed locally and is not part of the judged repository.
-# 6.7 GB of rendered frames and source live here; the finished MP4 is uploaded
-# to the submission directly.
-film/
+# The demo film: the source ships so it can be built on any machine, the output
+# does not. A full render is ~6.7 GB of frames plus a ~30 MB MP4, all of it
+# reproducible from what is committed here.
+film/build/
+film/frames/
+film/voice/
+film/sfx/
+film/out/
+film/assets/generated/
+film/node_modules*/
+*.mp4
+*.wav
 
 # Local screen-recording playbook (README/SCRIPT/SHOTLIST for the submission
 # video). Working notes for the humans on camera, not part of the judged

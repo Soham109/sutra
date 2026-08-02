@@ -1,0 +1,11 @@
+$ npm run -w cli gmp -- verify receipt.json
+
+GMP/1 receipt · gs_01KZ1SW0EXN2V3N4Y1V0K5E4H4 · COMMITTED
+  entries: 2   charged total: 18600.00 INR
+  chain head: 22e4d82239659079199be3b1d7e40ee5…
+  public key: b71838a635e97a8f8104e95213bbf3b7…
+  offline check only — pass --engine <url> to also confirm which engine signed it
+
+  ✓ hash chain intact
+  ✓ totals consistent
+  ✓ Ed25519 signature valid

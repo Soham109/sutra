@@ -1,0 +1,5 @@
+# Generated: narration WAVs, sound effects, PNG frames, and the encoded film.
+# All of it rebuilds from source with `powershell -File film/build.ps1`, and
+# together it is hundreds of megabytes of binaries that would bloat the repo.
+build/
+*.mp4
