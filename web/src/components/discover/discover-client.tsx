@@ -310,14 +310,14 @@ export function DiscoverClient() {
 
       {featured.products.length > 0 && (
         <section className="card card-pad" style={{ marginBottom: 14, borderColor: 'var(--brand)' }}>
-          <div style={{ marginBottom: 12 }}>
-            <span className="eyebrow">Card-mandate rail · configured in this environment</span>
-            <h3 style={{ marginTop: 5 }}>Start here — these complete on the actual mechanism</h3>
-            <p className="small muted" style={{ marginTop: 6, maxWidth: '64ch' }}>
-              Real products on {featured.storeDomain}, the one merchant this environment has wired to real, capped
-              Prava mandates. Build a group on any of these and watch each person&rsquo;s mandate get capped,
-              created and sent for approval — no terminal, no token — then charged one at a time, nobody fronting
-              anyone else.
+          <div className="row-between" style={{ marginBottom: 12, gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div>
+              <span className="eyebrow">Card rail</span>
+              <h3 style={{ marginTop: 5 }}>Start here</h3>
+            </div>
+            <p className="small muted" style={{ margin: 0, maxWidth: '52ch' }}>
+              The one merchant wired to real Prava mandates. Split any of these and each person approves
+              their own capped share, on their own card.
             </p>
           </div>
           <ResultsGrid>

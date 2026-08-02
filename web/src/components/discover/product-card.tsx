@@ -33,19 +33,34 @@ export function ProductCard({
     >
       <ProductImage src={product.image_url} alt={product.title} domain={product.merchant.domain} />
 
-      <div className="col grow" style={{ padding: 12, gap: 8 }}>
-        <div className="row-between" style={{ gap: 8, alignItems: 'flex-start' }}>
-          <span className="mono tiny faint" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {product.merchant.domain}
-          </span>
+      <div className="col grow" style={{ padding: 12, gap: 7 }}>
+        {/* One meta line: where it came from, and whether it can actually be
+            charged. The card-rail marker is a pill rather than a sentence —
+            at this size a sentence wraps to three lines and the grid loses
+            its rhythm. The full claim lives in the title attribute. */}
+        <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <Badge>{SOURCE_LABEL[product.source] ?? product.source}</Badge>
+          {product.completes_on_card_rail && (
+            <span
+              className="tiny"
+              title="Charges a capped, merchant-locked Prava mandate per person. Nobody fronts anyone else."
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '2px 7px',
+                borderRadius: 999,
+                fontWeight: 600,
+                color: 'var(--brand)',
+                background: 'color-mix(in srgb, var(--brand) 10%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--brand) 28%, transparent)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              ✓ Capped mandate each
+            </span>
+          )}
         </div>
-
-        {product.completes_on_card_rail && (
-          <div className="tiny" style={{ color: 'var(--brand)', fontWeight: 600 }}>
-            ✓ Completes on the card rail — capped mandate per person
-          </div>
-        )}
 
         <div
           style={{
@@ -62,23 +77,24 @@ export function ProductCard({
           {product.title}
         </div>
 
-        {product.subtitle && (
-          <div className="tiny faint" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {product.subtitle}
-          </div>
-        )}
-
-        <div className="row-between grow" style={{ alignItems: 'flex-end', marginTop: 2 }}>
-          <div className="col" style={{ gap: 2 }}>
-            <Money minor={product.price.amount_minor} currency={product.price.currency} size="lg" />
-            <span className="tiny faint">
-              {product.unit_label}
-              {product.in_stock ? '' : ' · out of stock'}
-            </span>
-          </div>
+        <div className="tiny faint" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {product.subtitle ? `${product.subtitle} · ` : ''}
+          {product.merchant.domain}
         </div>
 
-        <div className="row" style={{ gap: 8, marginTop: 2 }}>
+        {/* Push price and actions to the bottom so every card in the row lines
+            up regardless of how long its title ran. */}
+        <div className="grow" />
+
+        <div className="row" style={{ alignItems: 'baseline', gap: 6 }}>
+          <Money minor={product.price.amount_minor} currency={product.price.currency} size="lg" />
+          <span className="tiny faint">
+            {product.unit_label}
+            {product.in_stock ? '' : ' · out of stock'}
+          </span>
+        </div>
+
+        <div className="row" style={{ gap: 8, marginTop: 3 }}>
           <button type="button" className="btn btn-primary grow" onClick={() => onPick(product)} disabled={busy}>
             {busy ? 'Reading page…' : 'Split this'}
           </button>
