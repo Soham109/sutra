@@ -213,6 +213,15 @@
     el('div', 'url', closeWrap).textContent = 'sutra-gmp.vercel.app';
 
     var stats = el('div', 's9-stats', root);
+    var finalMark = el('div', 's9-final-mark', stats);
+    finalMark.innerHTML = 'sutra<span>.</span>';
+    var finalCast = el('div', 's9-final-cast', stats);
+    var finalPeople = [
+      {key:'ada',name:'Ada',shirt:'#ff5c35',skin:'#9b6042',hair:'#241814',glasses:true},
+      {key:'arsh',name:'Arsh',shirt:'#d3a018',skin:'#855035',hair:'#17120f'},
+      {key:'maya',name:'Maya',shirt:'#1687a4',skin:'#b36f4c',hair:'#241611'},
+      {key:'dev',name:'Dev',shirt:'#b72b2b',skin:'#7e472e',hair:'#17120f',glasses:true},
+    ].map(function (look) { return window.FILM.character(finalCast, look); });
     var s1 = el('div', 'line', stats);
     s1.innerHTML = '<b>626</b> engine tests · <b>117</b> plugin tests';
     var s2 = el('div', 'line', stats);
@@ -221,7 +230,7 @@
 
     root._els = {
       receipt: receipt, banner: banner, totals: totals, entries: entries, foot: foot, note: note,
-      closeWrap: closeWrap, stats: stats,
+      closeWrap: closeWrap, stats: stats, finalPeople: finalPeople,
     };
   }
 
@@ -254,6 +263,11 @@
 
     var statsIn = FILM.easeOut(FILM.progress(t, STATS_IN_AT, STATS_IN_AT + 700));
     E.stats.style.opacity = String(statsIn);
+    E.finalPeople.forEach(function (person, i) {
+      var pop = FILM.easeOut(FILM.progress(t, STATS_IN_AT + 160 + i * 100, STATS_IN_AT + 650 + i * 100));
+      person.style.opacity = String(pop);
+      person.style.transform = 'translateY(' + FILM.lerp(24, 0, pop) + 'px) scale(.68)';
+    });
   }
 
   window.FILM.register({
@@ -263,4 +277,7 @@
     mount: mount,
     draw: draw,
   });
+
+  window.FILM.caption('Every group ends in a signed receipt — and never claims a charge it did not make.', START, START + 19000);
+  window.FILM.caption('Nothing pooled. Nothing fronted. Nothing invented.', START + 19000, END);
 })();

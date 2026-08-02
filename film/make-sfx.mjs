@@ -79,7 +79,22 @@ const key = () =>
     '-ar', '48000', '-ac', '2', join(out, 'key.wav'),
   ])
 
-for (const [name, make] of Object.entries({ tick, pending, chord, whoosh, refuse, key })) {
+/** A nearly subliminal cinematic bed: warm low fundamentals, filtered air,
+ * and a very slow pulse. It gives the cuts continuity without turning a
+ * product demo into a trailer or fighting the voice. */
+const bed = () =>
+  ff([
+    '-f', 'lavfi', '-i', 'sine=frequency=55:duration=191',
+    '-f', 'lavfi', '-i', 'sine=frequency=82.41:duration=191',
+    '-f', 'lavfi', '-i', 'anoisesrc=duration=191:color=brown:amplitude=0.08',
+    '-filter_complex',
+    '[0:a]volume=0.045[a];[1:a]volume=0.022[b];[2:a]lowpass=f=700,highpass=f=80,volume=0.09[c];' +
+      '[a][b][c]amix=inputs=3:normalize=0,lowpass=f=1200,' +
+      'afade=t=in:st=0:d=3,afade=t=out:st=185:d=6,volume=0.42',
+    '-ar', '48000', '-ac', '2', join(out, 'bed.wav'),
+  ])
+
+for (const [name, make] of Object.entries({ tick, pending, chord, whoosh, refuse, key, bed })) {
   make()
   console.log('  built', name)
 }

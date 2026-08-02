@@ -33,6 +33,19 @@
   var initialized = false;
 
   var stage, scenesLayer, hairlineFill, captionLayer, captionText;
+  var chapterLayer, chapterIndex, chapterName, transitionLayer, transitionEdge;
+
+  var CHAPTERS = {
+    's1-problem': ['01', 'The old way'],
+    's2-turn': ['02', 'The turn'],
+    's3-solution': ['03', 'One group. Four cards.'],
+    's4-surfaces': ['04', 'Start anywhere'],
+    's5-planning': ['05', 'Plan before paying'],
+    's6-thread': ['06', 'An agent with limits'],
+    's7-nanda': ['07', 'Proof, not promises'],
+    's8-limits': ['08', 'Where it stops'],
+    's9-close': ['09', 'The receipt'],
+  };
 
   // -- numeric helpers, all pure functions of their arguments --------------
 
@@ -74,6 +87,33 @@
     return text.slice(0, Math.max(0, n));
   }
 
+  // A small, deterministic illustrated cast. These are DOM shapes instead
+  // of external stock art so the same four people can recur throughout the
+  // film, react to the story, and remain perfectly frame-addressable.
+  function character(parent, options) {
+    options = options || {};
+    var person = document.createElement('div');
+    person.className = 'film-person film-person-' + (options.key || 'ada');
+    person.style.setProperty('--shirt', options.shirt || '#ff5c35');
+    person.style.setProperty('--skin', options.skin || '#9a5f3d');
+    person.style.setProperty('--hair', options.hair || '#231a16');
+    var shadow = document.createElement('div'); shadow.className = 'film-person-shadow'; person.appendChild(shadow);
+    var torso = document.createElement('div'); torso.className = 'film-person-torso'; person.appendChild(torso);
+    var armL = document.createElement('div'); armL.className = 'film-person-arm arm-l'; person.appendChild(armL);
+    var armR = document.createElement('div'); armR.className = 'film-person-arm arm-r'; person.appendChild(armR);
+    var neck = document.createElement('div'); neck.className = 'film-person-neck'; person.appendChild(neck);
+    var head = document.createElement('div'); head.className = 'film-person-head'; person.appendChild(head);
+    var ear = document.createElement('div'); ear.className = 'film-person-ear'; head.appendChild(ear);
+    var hair = document.createElement('div'); hair.className = 'film-person-hair'; head.appendChild(hair);
+    var brow = document.createElement('div'); brow.className = 'film-person-brow'; head.appendChild(brow);
+    var eyes = document.createElement('div'); eyes.className = 'film-person-eyes'; head.appendChild(eyes);
+    var mouth = document.createElement('div'); mouth.className = 'film-person-mouth'; head.appendChild(mouth);
+    if (options.glasses) { var glasses = document.createElement('div'); glasses.className = 'film-person-glasses'; head.appendChild(glasses); }
+    var label = document.createElement('div'); label.className = 'film-person-label'; label.textContent = options.name || ''; person.appendChild(label);
+    if (parent) parent.appendChild(person);
+    return person;
+  }
+
   // -- registry --------------------------------------------------------------
 
   function register(scene) {
@@ -106,6 +146,10 @@
       document.body.appendChild(stage);
     }
 
+    var atmosphere = document.createElement('div');
+    atmosphere.id = 'film-atmosphere';
+    stage.appendChild(atmosphere);
+
     scenesLayer = document.createElement('div');
     scenesLayer.id = 'film-scenes';
     stage.appendChild(scenesLayer);
@@ -117,12 +161,29 @@
     hairline.appendChild(hairlineFill);
     stage.appendChild(hairline);
 
+    chapterLayer = document.createElement('div');
+    chapterLayer.id = 'film-chapter';
+    chapterIndex = document.createElement('span');
+    chapterIndex.id = 'film-chapter-index';
+    chapterName = document.createElement('span');
+    chapterName.id = 'film-chapter-name';
+    chapterLayer.appendChild(chapterIndex);
+    chapterLayer.appendChild(chapterName);
+    stage.appendChild(chapterLayer);
+
     captionLayer = document.createElement('div');
     captionLayer.id = 'film-caption';
     captionText = document.createElement('p');
     captionText.id = 'film-caption-text';
     captionLayer.appendChild(captionText);
     stage.appendChild(captionLayer);
+
+    transitionLayer = document.createElement('div');
+    transitionLayer.id = 'film-transition';
+    transitionEdge = document.createElement('div');
+    transitionEdge.id = 'film-transition-edge';
+    transitionLayer.appendChild(transitionEdge);
+    stage.appendChild(transitionLayer);
   }
 
   function ensureInit() {
@@ -205,6 +266,26 @@
 
     if (active) {
       var localT = clamp(t - active.startMs, 0, active.endMs - active.startMs);
+      var sceneDuration = active.endMs - active.startMs;
+      var intro = easeOut(progress(localT, 0, active === scenes[0] ? 1 : 620));
+      var outro = easeIn(progress(localT, sceneDuration - 420, sceneDuration));
+      var drift = easeInOut(progress(localT, 0, sceneDuration));
+      var direction = scenes.indexOf(active) % 2 === 0 ? 1 : -1;
+
+      active._container.style.opacity = String(intro * (1 - outro * 0.35));
+      active._container.style.transform =
+        'translate3d(' + lerp(direction * 14, direction * -8, drift) + 'px,' +
+        lerp(8, -5, drift) + 'px,0) scale(' + lerp(1.012, 1.025, drift) + ')';
+
+      var chapter = CHAPTERS[active.id] || ['', ''];
+      chapterIndex.textContent = chapter[0];
+      chapterName.textContent = chapter[1];
+      chapterLayer.style.opacity = String(easeOut(progress(localT, 520, 980)) * (1 - outro));
+
+      var cover = Math.max(1 - intro, outro);
+      transitionLayer.style.clipPath = 'inset(0 ' + (100 - cover * 100) + '% 0 0)';
+      transitionLayer.style.opacity = cover > 0.002 ? '1' : '0';
+      transitionEdge.style.left = (cover * 100) + '%';
       active.draw(localT, active._container);
     }
 
@@ -226,6 +307,7 @@
     easeOut: easeOut,
     easeInOut: easeInOut,
     typewriter: typewriter,
+    character: character,
 
     currentMs: 0,
   };

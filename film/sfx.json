@@ -2,6 +2,7 @@
   "_note": "Sound cues, in absolute film milliseconds — the same clock render.mjs asks for frames on, so sync is arithmetic rather than something to nudge. Gains are deliberately low: this plays to a judge who has already watched thirty demos, and a startle costs more than it gains. Cue points in scenes 1-3 were reported by the scene author against their own code.",
 
   "cues": [
+    { "atMs": 0,     "sound": "bed",     "gain": 0.42, "_": "subtle continuous cinematic room tone" },
     { "atMs": 2600,  "sound": "tick",    "gain": 0.85, "_": "the booking confirmation lands" },
     { "atMs": 3800,  "sound": "tick",    "gain": 0.7,  "_": "Ada asks for the money" },
     { "atMs": 5200,  "sound": "tick",    "gain": 0.9,  "_": "Arsh pays — the only clean one" },
@@ -20,6 +21,15 @@
     { "atMs": 48100, "sound": "tick",    "gain": 0.9,  "_": "third" },
     { "atMs": 49100, "sound": "chord",   "gain": 1.0,  "_": "all four flip to paid in the same frame. The only satisfying sound in the film, and it is earned." },
 
-    { "atMs": 65200, "sound": "whoosh",  "gain": 0.7,  "_": "into the surfaces montage" }
+    { "atMs": 65200, "sound": "whoosh",  "gain": 0.7,  "_": "into the surfaces montage" },
+    { "atMs": 81800, "sound": "whoosh",  "gain": 0.55, "_": "into planning" },
+    { "atMs": 101800,"sound": "whoosh",  "gain": 0.55, "_": "into the group thread" },
+    { "atMs": 113800,"sound": "refuse",  "gain": 0.8,  "_": "the agent draws its hard boundary" },
+    { "atMs": 119800,"sound": "whoosh",  "gain": 0.55, "_": "into protocol proof" },
+    { "atMs": 128500,"sound": "key",     "gain": 0.7,  "_": "terminal proof arrives" },
+    { "atMs": 132200,"sound": "key",     "gain": 0.65, "_": "second proof line" },
+    { "atMs": 144800,"sound": "whoosh",  "gain": 0.55, "_": "into the honest boundary" },
+    { "atMs": 164800,"sound": "whoosh",  "gain": 0.6,  "_": "into the receipt" },
+    { "atMs": 185000,"sound": "chord",   "gain": 0.48, "_": "quiet resolved final return to the cast" }
   ]
 }

@@ -1,7 +1,7 @@
 {
-  "voice": "Microsoft Zira Desktop",
+  "voice": "Microsoft David Desktop",
   "rate": -1,
-  "gapMs": 200,
+  "gapMs": 260,
 
   "_note": "Timed against the scene windows the film actually uses: s1 0-28s, s2 28-40, s3 40-65, s4 65-82, s5 82-102, s6 102-120, s7 120-145, s8 145-165, s9 165-190. A line must FINISH inside its scene, so each is budgeted at roughly 14 characters per second — this voice's real pace, measured. atMs is the earliest a line may start; build-narration.ps1 pushes it later if the previous line is still going, and reports the push. If you see a push larger than about 300ms, the line before it is too long for its window: shorten it rather than moving the mark.",
 

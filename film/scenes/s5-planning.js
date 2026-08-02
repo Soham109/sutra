@@ -133,6 +133,19 @@
     var eyebrowWrap = el('div', 's5-eyebrow', root);
     el('div', 'eyebrow', eyebrowWrap).textContent = 'PLANNING';
 
+    var cast = el('div', 's5-cast-stage', root);
+    var castPeople = [
+      { key: 'ada', name: 'Soham', shirt: '#4d42e8', skin: '#985d3d', hair: '#211713', glasses: true },
+      { key: 'arsh', name: 'Arsh', shirt: '#d3a018', skin: '#855035', hair: '#17120f' },
+      { key: 'maya', name: 'Maya', shirt: '#1687a4', skin: '#b36f4c', hair: '#241611' },
+    ].map(function (look) { return window.FILM.character(cast, look); });
+    var signalField = el('div', 's5-signal-field', root);
+    var signalLines = [0, 1, 2].map(function (i) {
+      var line = el('div', 's5-signal-line', signalField);
+      line.style.top = (54 + i * 88) + 'px';
+      return line;
+    });
+
     var peopleWrap = el('div', 's5-people', root);
     var chips = PEOPLE.map(function (p) {
       var chip = el('div', 's5-chip', peopleWrap);
@@ -174,7 +187,7 @@
     privacy.textContent =
       'Nobody sees this number, not even the organiser. It only decides what gets suggested — the ranker reads it, nobody else does.';
 
-    root._els = { chips: chips, rows: rows, moveLine: moveLine, privacy: privacy };
+    root._els = { chips: chips, rows: rows, moveLine: moveLine, privacy: privacy, cast: cast, castPeople: castPeople, signalField: signalField, signalLines: signalLines };
   }
 
   function draw(t, root) {
@@ -183,6 +196,15 @@
 
     var intro = FILM.easeOut(FILM.progress(t, 0, 500));
     root.querySelector('.s5-eyebrow').style.opacity = String(intro);
+    E.cast.style.opacity = String(intro);
+    E.signalField.style.opacity = String(FILM.easeOut(FILM.progress(t, 650, 1200)));
+    E.signalLines.forEach(function (line, i) {
+      var flow = (t / 900 + i * .23) % 1;
+      line.style.setProperty('--signal-x', (flow * 100) + '%');
+    });
+    E.castPeople.forEach(function (person, i) {
+      person.style.transform = 'translateY(' + (Math.sin((t + i * 430) / 950) * 3) + 'px) scale(.68)';
+    });
 
     E.chips.forEach(function (chip, i) {
       var at = 250 + i * 180;

@@ -141,6 +141,33 @@
   }
 
   function mount(root) {
+    var rail = el('div', 's3-protocol-rail', root);
+    var railTrack = el('div', 's3-rail-track', rail);
+    var railFill = el('div', 's3-rail-fill', railTrack);
+    var railNodes = PEOPLE.map(function (person, i) {
+      var node = el('div', 's3-rail-node', rail);
+      node.style.left = (12.5 + i * 25) + '%';
+      var core = el('i', '', node);
+      el('small', '', node).textContent = 'OWN CARD';
+      return { el: node, core: core };
+    });
+    var railState = el('div', 's3-rail-state', rail);
+    railState.textContent = '0 / 4 mandates';
+    var cast = el('div', 's3-cast', root);
+    var looks = {
+      ada:  { shirt: '#ff5c35', skin: '#9b6042', hair: '#241814', glasses: true },
+      arsh: { shirt: '#d9a516', skin: '#855035', hair: '#17120f' },
+      maya: { shirt: '#1687a4', skin: '#b36f4c', hair: '#241611' },
+      dev:  { shirt: '#b72b2b', skin: '#7e472e', hair: '#17120f', glasses: true },
+    };
+    var castPeople = PEOPLE.map(function (person) {
+      var look = looks[person.key];
+      look.key = person.key; look.name = person.name;
+      var wrap = el('div', 's3-cast-person', cast);
+      var halo = el('div', 's3-halo', wrap);
+      var figure = window.FILM.character(wrap, look);
+      return { person: person, wrap: wrap, halo: halo, figure: figure };
+    });
     var row = el('div', 'film-settle-row', root);
     var slots = PEOPLE.map(function (person) {
       return { person: person, refs: buildSlot(row, person) };
@@ -148,7 +175,7 @@
 
     var flash = el('div', 'film-chord-flash', root);
 
-    root._els = { row: row, slots: slots, flash: flash };
+    root._els = { row: row, slots: slots, flash: flash, cast: cast, castPeople: castPeople, rail: rail, railFill: railFill, railNodes: railNodes, railState: railState };
   }
 
   function draw(t, root) {
@@ -158,8 +185,31 @@
     var enter = FILM.easeOut(FILM.progress(t, 0, 900));
     E.row.style.opacity = String(enter);
     E.row.style.transform = 'translate(-50%, -50%) translateY(' + FILM.lerp(30, 0, enter) + 'px)';
+    E.cast.style.opacity = String(enter);
+
+    E.castPeople.forEach(function (c, i) {
+      var approved = t >= c.person.ringTo;
+      var pop = FILM.easeOut(FILM.progress(t, c.person.ringTo, c.person.ringTo + 420));
+      var waitingBob = approved ? 0 : Math.sin((t + i * 260) / 850) * 3;
+      c.figure.style.transform = 'translateY(' + (waitingBob - pop * 7) + 'px) scale(' + (1 + pop * .035) + ')';
+      c.halo.style.opacity = String(pop);
+      c.halo.style.transform = 'translate(-50%,-50%) scale(' + FILM.lerp(.55, 1, pop) + ')';
+      c.figure.querySelector('.film-person-mouth').style.borderBottom = approved ? '3px solid rgb(73 35 27 / .72)' : '0';
+      c.figure.querySelector('.film-person-mouth').style.borderTop = approved ? '0' : '3px solid rgb(73 35 27 / .72)';
+    });
 
     var approvedCount = PEOPLE.filter(function (p) { return t >= p.ringTo; }).length;
+    E.rail.style.opacity = String(FILM.easeOut(FILM.progress(t, 500, 1100)));
+    E.railFill.style.width = (approvedCount / 4 * 100) + '%';
+    E.railFill.style.background = t >= CHORD_AT ? 'var(--ok)' : 'var(--brand)';
+    E.railState.textContent = t >= CHORD_AT ? 'COMMITTED · 4 cards in one moment' : approvedCount + ' / 4 mandates';
+    E.railState.className = 's3-rail-state' + (t >= CHORD_AT ? ' committed' : '');
+    E.railNodes.forEach(function (node, i) {
+      var on = t >= PEOPLE[i].ringTo;
+      node.el.className = 's3-rail-node' + (on ? ' on' : '');
+      var pulse = on ? .8 + Math.sin((t + i * 210) / 180) * .2 : .25;
+      node.core.style.boxShadow = on ? '0 0 ' + (18 + pulse * 18) + 'px rgb(255 92 53 / .8)' : 'none';
+    });
 
     E.slots.forEach(function (s, i) {
       var person = s.person;

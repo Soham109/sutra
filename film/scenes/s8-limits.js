@@ -50,6 +50,26 @@
     el('div', 's8-h1', wrap).textContent = 'Where this stops.';
     el('div', 's8-rule', wrap);
 
+    var visual = el('div', 's8-visual', wrap);
+    var online = el('div', 's8-mode online', visual);
+    el('div', 's8-mode-label', online).textContent = 'ONLINE CART';
+    var cart = el('div', 's8-cart', online);
+    cart.innerHTML = '<span>SHARED ORDER</span><strong>₹9,600</strong><i>one card field</i>';
+    var cards = el('div', 's8-cards', online);
+    ['ADA','ARSH','MAYA','DEV'].forEach(function (n) { var c=el('b','',cards); c.textContent=n; });
+    el('div', 's8-wall', online).textContent = '×';
+    var venue = el('div', 's8-mode venue', visual);
+    el('div', 's8-mode-label', venue).textContent = 'AT A VENUE';
+    var table = el('div', 's8-table', venue);
+    var miniCast = el('div', 's8-mini-cast', venue);
+    var miniPeople = [
+      {key:'ada',name:'Ada',shirt:'#ff5c35',skin:'#9b6042',hair:'#241814',glasses:true},
+      {key:'arsh',name:'Arsh',shirt:'#d3a018',skin:'#855035',hair:'#17120f'},
+      {key:'maya',name:'Maya',shirt:'#1687a4',skin:'#b36f4c',hair:'#241611'},
+      {key:'dev',name:'Dev',shirt:'#b72b2b',skin:'#7e472e',hair:'#17120f',glasses:true},
+    ].map(function (look) { return window.FILM.character(miniCast, look); });
+    el('div', 's8-accepted', venue).textContent = '4 cards · one group reference · ✓';
+
     var p1 = el('div', 's8-p', wrap);
     p1.innerHTML =
       'A shared online cart is paid by several cards. Most checkouts have one card field — ' +
@@ -65,13 +85,28 @@
       'Every charge carries the same group reference. That is the hook a merchant would reconcile on. ' +
       'It is a proposal. <b>Nobody has adopted it yet.</b>';
 
-    root._els = { card: card };
+    root._els = { card: card, cards: cards.children, wall: online.querySelector('.s8-wall'), miniPeople: miniPeople, accepted: venue.querySelector('.s8-accepted') };
   }
 
   function draw(t, root) {
     var FILM = window.FILM;
     var fade = FILM.easeOut(FILM.progress(t, 0, 900));
     root._els.card.style.opacity = String(fade);
+    Array.prototype.forEach.call(root._els.cards, function (card, i) {
+      var move = FILM.easeOut(FILM.progress(t, 1700 + i * 220, 2400 + i * 220));
+      card.style.transform = 'translateX(' + FILM.lerp(-80, 0, move) + 'px) rotate(' + (-8 + i * 5) + 'deg)';
+      card.style.opacity = String(move);
+    });
+    var wall = FILM.easeOut(FILM.progress(t, 3100, 3500));
+    root._els.wall.style.opacity = String(wall);
+    root._els.wall.style.transform = 'translate(-50%,-50%) scale(' + FILM.lerp(.4, 1, wall) + ')';
+    root._els.miniPeople.forEach(function (person, i) {
+      var arrive = FILM.easeOut(FILM.progress(t, 4100 + i * 180, 4700 + i * 180));
+      person.style.opacity = String(arrive);
+      person.style.transform = 'translateY(' + FILM.lerp(30, 0, arrive) + 'px) scale(.43)';
+    });
+    var ok = FILM.easeOut(FILM.progress(t, 5400, 5900));
+    root._els.accepted.style.opacity = String(ok);
   }
 
   window.FILM.register({

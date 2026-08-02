@@ -95,11 +95,13 @@
       + '.s7-stamp.bad{background:var(--bad-soft);color:var(--bad);border-color:var(--bad-line)}'
       + '.s7-stamp.ok{background:var(--ok-soft);color:var(--ok);border-color:var(--ok-line)}'
 
-      + '.s7-term{position:absolute;left:50%;top:150px;transform:translateX(-50%);width:1400px;height:610px;'
-      + 'background:var(--ink);border-radius:var(--r-lg);box-shadow:var(--shadow-3);padding:36px 44px;'
+      + '.s7-term{position:absolute;left:50%;top:230px;transform:translateX(-50%);width:1480px;height:430px;'
+      + 'background:var(--ink);border:1px solid rgba(255,255,255,.08);border-radius:24px;box-shadow:var(--shadow-3);padding:68px 52px 34px;'
       + 'opacity:0}'
-      + '.s7-term .prompt{font-family:var(--font-mono);font-size:15px;color:var(--ink-3);margin-bottom:22px}'
-      + '.s7-term .ln{font-family:var(--font-mono);font-size:19px;line-height:2;color:#e8e6df;'
+      + '.s7-term:before{content:"LIVE / PROTOCOL INTEGRATION";position:absolute;left:52px;top:25px;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:#77736c}'
+      + '.s7-term:after{content:"●  ●  ●";position:absolute;right:40px;top:22px;font-size:13px;letter-spacing:5px;color:#ff5c35}'
+      + '.s7-term .prompt{font-family:var(--font-mono);font-size:15px;color:var(--ink-3);margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid #2b2926}'
+      + '.s7-term .ln{font-family:var(--font-mono);font-size:18px;line-height:1.72;color:#e8e6df;'
       + 'white-space:pre-wrap}'
       + '.s7-term .ln .tag{color:var(--ok);font-weight:700}'
       + '.s7-caret{display:inline-block;width:10px;height:19px;background:#e8e6df;margin-left:1px;vertical-align:-3px}';

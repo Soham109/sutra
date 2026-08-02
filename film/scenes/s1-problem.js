@@ -56,8 +56,30 @@
   function mount(root) {
     root.style.background = 'var(--paper)';
 
+    var room = el('div', 's1-room', root);
+    var windowView = el('div', 's1-window', room);
+    el('div', 's1-moon', windowView);
+    var bus = el('div', 's1-bus', windowView);
+    bus.innerHTML = '<i></i><i></i><i></i><b></b><b></b>';
+    var desk = el('div', 's1-desk', room);
+    var laptop = el('div', 's1-laptop', desk);
+    laptop.innerHTML = '<span>KONKAN COACH</span><strong>GOA · 4 SEATS</strong><em>₹9,600 paid</em>';
+    var tickets = [0, 1, 2, 3].map(function (i) {
+      var ticket = el('div', 's1-ticket', desk);
+      ticket.textContent = 'GOA 0' + (i + 1);
+      ticket.style.left = (310 + i * 25) + 'px';
+      ticket.style.transform = 'rotate(' + (-10 + i * 6) + 'deg)';
+      return ticket;
+    });
+    var ada = window.FILM.character(room, {
+      key: 'ada', name: 'Ada', shirt: '#ff5c35', skin: '#9b6042', hair: '#241814', glasses: true,
+    });
+    ada.classList.add('s1-ada');
+    var stress = el('div', 's1-stress', room);
+    stress.innerHTML = '<span>₹7,200</span><small>still on Ada’s card</small>';
+
     var phoneWrap = el('div', '', root);
-    phoneWrap.style.cssText = 'position:absolute;left:50%;top:50%;transform-origin:center center;';
+    phoneWrap.style.cssText = 'position:absolute;left:68%;top:50%;transform-origin:center center;';
 
     var phone = el('div', 'film-phone', phoneWrap);
     var notch = el('div', 'film-phone-notch', phone);
@@ -133,6 +155,12 @@
 
     root._els = {
       phoneWrap: phoneWrap,
+      room: room,
+      windowView: windowView,
+      bus: bus,
+      ada: ada,
+      tickets: tickets,
+      stress: stress,
       screen: screen,
       body: body,
       scroll: scroll,
@@ -159,6 +187,24 @@
     E.phoneWrap.style.opacity = String(intro);
     E.phoneWrap.style.transform =
       'translate(-50%, calc(-50% - 76px)) translateY(' + FILM.lerp(18, 0, intro) + 'px) scale(' + FILM.lerp(0.97, 1, intro) + ')';
+
+    var roomIn = FILM.easeOut(FILM.progress(t, 0, 900));
+    E.room.style.opacity = String(roomIn);
+    E.windowView.style.transform = 'translateX(' + FILM.lerp(10, -12, FILM.easeInOut(FILM.progress(t, 0, END))) + 'px)';
+    E.bus.style.transform = 'translateX(' + FILM.lerp(-170, 520, FILM.easeInOut(FILM.progress(t, 300, 4300))) + 'px)';
+    var awkward = FILM.easeInOut(FILM.progress(t, 7600, 19800));
+    E.ada.style.transform = 'translateY(' + FILM.lerp(0, 24, awkward) + 'px) rotate(' + FILM.lerp(0, -3, awkward) + 'deg)';
+    E.ada.querySelector('.film-person-mouth').style.borderBottom = t < 7600 ? '3px solid rgb(73 35 27 / .72)' : '0';
+    E.ada.querySelector('.film-person-mouth').style.borderTop = t < 7600 ? '0' : '3px solid rgb(73 35 27 / .72)';
+    E.ada.querySelector('.arm-r').style.transform = 'rotate(' + FILM.lerp(-15, -48, awkward) + 'deg)';
+    E.tickets.forEach(function (ticket, i) {
+      var flutter = FILM.easeOut(FILM.progress(t, 1200 + i * 130, 1700 + i * 130));
+      ticket.style.opacity = String(flutter);
+      ticket.style.marginTop = FILM.lerp(28, 0, flutter) + 'px';
+    });
+    var stressIn = FILM.easeOut(FILM.progress(t, 20500, 21600));
+    E.stress.style.opacity = String(stressIn);
+    E.stress.style.transform = 'translateY(' + FILM.lerp(18, 0, stressIn) + 'px) scale(' + FILM.lerp(.92, 1, stressIn) + ')';
 
     // Every chat row: reveal (fade + tiny rise) once its `at` has passed.
     E.rows.forEach(function (row) {

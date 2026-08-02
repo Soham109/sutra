@@ -104,6 +104,16 @@
     injectStyle();
     root.style.background = 'var(--paper)';
 
+    var actors = el('div', 's6-actors', root);
+    var ada = window.FILM.character(actors, { key: 'ada', name: 'Ada', shirt: '#ff5c35', skin: '#9b6042', hair: '#241814', glasses: true });
+    var dev = window.FILM.character(actors, { key: 'dev', name: 'Dev', shirt: '#b72b2b', skin: '#7e472e', hair: '#17120f', glasses: true });
+    ada.classList.add('s6-actor-ada'); dev.classList.add('s6-actor-dev');
+    var orb = el('div', 's6-agent-orb', root);
+    el('div', 's6-orb-ring r1', orb);
+    el('div', 's6-orb-ring r2', orb);
+    el('div', 's6-orb-core', orb).textContent = '✦';
+    el('div', 's6-orb-label', orb).textContent = 'SUTRA · READ ONLY';
+
     var panel = el('div', 's6-panel', root);
     panel.style.opacity = '0';
     var head = el('div', 's6-head', panel);
@@ -156,7 +166,7 @@
     var fld = el('div', 'fld', composer);
     fld.innerHTML = 'Message the group… try <b>@sutra</b>';
 
-    root._els = { panel: panel, body: body, scroll: scroll, rows: rows };
+    root._els = { panel: panel, body: body, scroll: scroll, rows: rows, actors: actors, ada: ada, dev: dev, orb: orb };
   }
 
   function renderTyped(row, t) {
@@ -189,6 +199,18 @@
     var intro = FILM.easeOut(FILM.progress(t, 0, 500));
     E.panel.style.opacity = String(intro);
     E.panel.style.transform = 'translateX(-50%) translateY(' + FILM.lerp(14, 0, intro) + 'px)';
+    E.actors.style.opacity = String(intro);
+    var refusalAt = E.rows[5].startAt;
+    var react = FILM.easeOut(FILM.progress(t, refusalAt, refusalAt + 500));
+    E.dev.style.transform = 'translateY(' + FILM.lerp(0, 18, react) + 'px) rotate(' + FILM.lerp(0, 4, react) + 'deg) scale(.72)';
+    E.dev.querySelector('.film-person-mouth').style.borderBottom = react < .2 ? '3px solid rgb(73 35 27 / .72)' : '0';
+    E.dev.querySelector('.film-person-mouth').style.borderTop = react < .2 ? '0' : '3px solid rgb(73 35 27 / .72)';
+    E.ada.style.transform = 'translateY(' + (Math.sin(t / 900) * 2) + 'px) scale(.72)';
+    var botActive = (t >= E.rows[3].startAt && t < E.rows[4].startAt) || t >= E.rows[5].startAt;
+    var orbPulse = botActive ? .5 + Math.sin(t / 170) * .5 : .15 + Math.sin(t / 500) * .08;
+    E.orb.style.opacity = String(intro);
+    E.orb.style.transform = 'translateX(-50%) scale(' + (1 + orbPulse * .08) + ')';
+    E.orb.style.filter = 'drop-shadow(0 0 ' + (16 + orbPulse * 30) + 'px rgb(255 92 53 / .72))';
 
     E.rows.forEach(function (row) {
       var cfg = row.cfg;
