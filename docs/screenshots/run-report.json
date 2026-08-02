@@ -1,12 +1,12 @@
 {
   "base": "https://sutra-gmp.vercel.app",
-  "at": "2026-08-02T06:04:55.889Z",
+  "at": "2026-08-02T06:24:01.442Z",
   "account": {
     "name": "Rohan Desai",
-    "handle": "rohandesai639383"
+    "handle": "rohandesai784239"
   },
-  "linkGroupId": "gs_01KZ0H59RXP651K493H065E7K5",
-  "billGroupId": "gs_01KZ0H5H0BM3S476T0748196P7",
+  "linkGroupId": "gs_01KZ0J88FMA0K13703T1R5Y7F5",
+  "billGroupId": "gs_01KZ0J8G5EC1E5M5M3C5A3H5F0",
   "planCaptured": true,
   "findings": [
     "extension.png not written — capturing the Chrome extension honestly needs a loaded unpacked extension against a real merchant page, out of scope for this headless script"

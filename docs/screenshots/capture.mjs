@@ -149,9 +149,42 @@ async function shrinkToBudget(buf, limitBytes) {
   return out
 }
 
-async function shot(page, name, { fullPage = true } = {}) {
+/**
+ * Fit a whole page into one frame of a given shape by zooming out.
+ *
+ * A full-page capture of the dashboard is 2,300+ CSS pixels tall. Cropping it
+ * to a readable shape throws away the exposure meter and the charts — the
+ * parts that answer "what is this product for" — and leaving it uncropped
+ * gives a README a column you scroll past rather than an image you read.
+ *
+ * So: shrink the page until it fits, rather than cutting it. Everything stays
+ * visible and stays real; it is simply further away. At deviceScaleFactor 2
+ * there is enough resolution in hand that a 0.7 zoom still renders crisply.
+ */
+async function fitZoom(page, ratio) {
+  const vp = page.viewport()
+  const frameHeight = Math.round(vp.width * ratio)
+  await page.evaluate(() => { document.body.style.zoom = '1' })
+  const content = await page.evaluate(() => document.documentElement.scrollHeight)
+  // Never zoom IN, and never below 0.55 — past that the type stops being
+  // legible and a screenshot nobody can read is worth nothing.
+  const zoom = Math.max(0.55, Math.min(1, frameHeight / content))
+  await page.evaluate((z) => { document.body.style.zoom = String(z) }, zoom)
+  await sleep(250)
+  await page.setViewport({ ...vp, height: frameHeight })
+  await sleep(250)
+  return { vp, zoom }
+}
+
+async function shot(page, name, { fullPage = true, fit = 0 } = {}) {
   let buf
-  if (fullPage) {
+  if (fit) {
+    const { vp, zoom } = await fitZoom(page, fit)
+    buf = await page.screenshot({ type: 'png' })
+    await page.evaluate(() => { document.body.style.zoom = '1' })
+    await page.setViewport(vp)
+    console.log(`  (fitted at ${(zoom * 100).toFixed(0)}% zoom)`)
+  } else if (fullPage) {
     // Not `page.screenshot({ fullPage: true })`: Chrome's beyond-viewport
     // capture composites a page taller than the viewport without actually
     // reflowing it, which leaves `position: fixed`/`sticky` chrome (the
@@ -252,7 +285,7 @@ async function main() {
   const searchOk = await textPresent(page, 'result')
   if (!searchOk) note('discover search for "merino tee" returned no results')
   await sleep(400)
-  await shot(page, '03-discover-search-light.png')
+  await shot(page, '03-discover-search-light.png', { fit: 0.62 })
 
   // Build a real link-split group from the first result, so the dashboard
   // has a genuine pending mandate to show later.
@@ -293,7 +326,7 @@ async function main() {
   }
   await typeInto(page, 'input[placeholder="Toit, Indiranagar"]', 'Toit, Indiranagar')
   await sleep(300)
-  await shot(page, '04-bill-parsed-light.png')
+  await shot(page, '04-bill-parsed-light.png', { fit: 0.62 })
 
   let billGroupId = null
   try {
@@ -324,7 +357,7 @@ async function main() {
       await page.goto(`${BASE}/a/${arjunPending}`, { waitUntil: 'networkidle2', timeout: 45_000 })
       await waitForText(page, "That's right", 15_000).catch(() => note('approval page for Arjun did not show the accept action'))
       await sleep(300)
-      await shot(page, '06-approval-pending-light.png')
+      await shot(page, '06-approval-pending-light.png', { fit: 0.62 })
     } else {
       note('no pending member left to screenshot on /a/:memberId')
     }
@@ -333,7 +366,7 @@ async function main() {
     await page.goto(`${BASE}/app/groups/${billGroupId}`, { waitUntil: 'networkidle2', timeout: 45_000 })
     await waitForText(page, group.title ?? 'Split the bill', 15_000).catch(() => {})
     await sleep(400)
-    await shot(page, '05-group-midflight-light.png')
+    await shot(page, '05-group-midflight-light.png', { fit: 0.62 })
   } else {
     note('no bill-split group — skipped mid-flight group page and pending approval screenshots')
   }
@@ -343,7 +376,7 @@ async function main() {
   await page.goto(`${BASE}/app`, { waitUntil: 'networkidle2', timeout: 45_000 })
   await page.waitForSelector('.home-page', { timeout: 20_000 })
   await sleep(900)
-  await shot(page, '02-dashboard-light.png')
+  await shot(page, '02-dashboard-light.png', { fit: 0.62 })
 
   // --- 8. Settle the bill split, capture the signed receipt ---------------
   if (billGroupId && arjunPending) {
@@ -360,7 +393,7 @@ async function main() {
       await page.goto(`${BASE}/app/receipts/${billGroupId}`, { waitUntil: 'networkidle2', timeout: 45_000 })
       await waitForText(page, 'Signed receipt', 15_000)
       await sleep(400)
-      await shot(page, '07-receipt-settled-light.png')
+      await shot(page, '07-receipt-settled-light.png', { fit: 0.62 })
     } catch (e) {
       note(`could not settle the bill split / capture the receipt: ${e.message}`)
     }
@@ -375,7 +408,7 @@ async function main() {
     note('the /nanda discovery chain did not settle within 20s — captured whatever state it was in'),
   )
   await sleep(500)
-  await shot(page, '08-nanda-light.png')
+  await shot(page, '08-nanda-light.png', { fit: 0.62 })
 
   // --- 10. Plan board with real venues (best-effort) ------------------------
   console.log('10/11 plan board (best-effort — venue search is known to be unreliable)')
@@ -412,7 +445,7 @@ async function main() {
     const hasCards = await page.evaluate(() => document.querySelectorAll('.opt-list > *').length > 0)
     if (gotOptions && hasCards) {
       await sleep(400)
-      await shot(page, '09-plan-board-light.png')
+      await shot(page, '09-plan-board-light.png', { fit: 0.62 })
       planCaptured = true
       console.log('  plan board populated — captured')
     } else {
@@ -430,7 +463,7 @@ async function main() {
   await darkPage.goto(`${BASE}/app`, { waitUntil: 'networkidle2', timeout: 45_000 })
   await darkPage.waitForSelector('.home-page', { timeout: 20_000 })
   await sleep(900)
-  await shot(darkPage, '10-dashboard-dark.png')
+  await shot(darkPage, '10-dashboard-dark.png', { fit: 0.62 })
 
   await darkPage.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 45_000 })
   await waitForText(darkPage, 'Split it before')
