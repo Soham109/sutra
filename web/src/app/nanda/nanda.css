@@ -1,0 +1,152 @@
+/* ==========================================================================
+   NANDA evidence page — every token below is one already declared at the top
+   of globals.css. No new hex, no new palette: this page's whole argument is
+   "check it yourself", so it would be self-defeating to introduce a colour
+   nobody can find a source for.
+
+   The one idea this page adds to the system: content that is a fact (a
+   status code, a JSON body, a line of stdout, a command) always sits inside
+   a `.well` in `--font-mono`, exactly as the header comment in globals.css
+   already prescribes for "amounts, mandate ids, policy expressions and
+   hashes". This page is nothing but that category of content, so the
+   convention just gets used harder than anywhere else in the product.
+   ========================================================================== */
+
+.nanda { min-height: 100vh; background: var(--paper); color: var(--ink); }
+.nanda a { color: inherit; }
+.nanda ::selection { background: var(--brand-soft); color: var(--brand-ink); }
+
+/* --- nav -------------------------------------------------------------- */
+
+.nanda-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 60px;
+  padding-inline: clamp(18px, 4vw, 40px);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+}
+.nanda-nav-brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: -0.03em; font-size: 14.5px; }
+.nanda-nav-brand svg { width: 20px; height: 20px; }
+.nanda-nav-sep { color: var(--ink-3); }
+.nanda-nav-title { color: var(--ink-2); font-size: 13px; }
+.nanda-nav-back { margin-left: auto; font-size: 13px; color: var(--ink-2); transition: color 0.13s; }
+.nanda-nav-back:hover { color: var(--ink); }
+
+/* --- shell -------------------------------------------------------------- */
+
+.nanda-wrap { width: min(100%, 980px); margin-inline: auto; padding: 0 clamp(18px, 4vw, 28px) 110px; }
+
+.nanda-hero { padding-block: clamp(30px, 6vw, 56px) clamp(38px, 6vw, 60px); border-bottom: 1px solid var(--line); margin-bottom: clamp(40px, 6vw, 64px); }
+.nanda-hero h1 { margin-top: 12px; font-size: clamp(34px, 5.4vw, 54px); letter-spacing: -0.045em; line-height: 1.04; max-width: 15ch; }
+.nanda-hero h1 .mono { font-size: 0.62em; vertical-align: 0.02em; color: var(--ink-2); }
+.nanda-hero-lede { margin-top: 18px; max-width: 62ch; color: var(--ink-2); font-size: 15.5px; line-height: 1.65; }
+.nanda-hero-note { margin-top: 20px; max-width: 62ch; }
+
+/* --- sections ------------------------------------------------------------ */
+
+.nanda-section { margin-bottom: clamp(52px, 7vw, 84px); }
+.nanda-section-head { margin-bottom: 22px; max-width: 70ch; }
+.nanda-section-head h2 { margin-top: 8px; font-size: clamp(23px, 3vw, 31px); letter-spacing: -0.032em; }
+.nanda-section-head p { margin-top: 10px; color: var(--ink-2); font-size: 14px; line-height: 1.62; }
+
+/* --- discovery chain ------------------------------------------------------ */
+
+.disco-thread { padding-top: 22px; margin-bottom: 8px; }
+.disco-thread::before { top: 37px; }
+.disco-thread-fill {
+  position: absolute;
+  top: 37px;
+  left: 22px;
+  height: 2px;
+  background: var(--ok);
+  border-radius: 2px;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.disco-ring { padding: 5px; }
+.disco-node-name { font-size: 11.5px; }
+.disco-summary { color: var(--ink-2); margin-bottom: 20px; }
+
+.disco-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.disco-card { gap: 10px; display: flex; flex-direction: column; }
+.disco-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.disco-card-title { font-size: 12.5px; font-weight: 650; }
+.disco-card-purpose { margin-top: 2px; }
+.disco-check { color: var(--brand-ink); font-weight: 600; white-space: nowrap; }
+.disco-check:hover { text-decoration: underline; }
+.disco-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.disco-body { max-height: 230px; overflow: auto; font-size: 11.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; margin: 0; }
+
+/* --- the adapter: three sentences + receipts ------------------------------ */
+
+.nanda-thesis { display: flex; flex-direction: column; gap: 16px; margin-bottom: 22px; }
+.nanda-thesis p { font-size: 15px; line-height: 1.68; max-width: 74ch; }
+.nanda-thesis code { font-family: var(--font-mono); font-size: 0.88em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0.1em 0.4em; }
+.nanda-thesis a { color: var(--brand-ink); text-decoration: underline; text-underline-offset: 2px; }
+
+.nanda-receipts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.nanda-receipt { padding: 14px 16px; }
+.nanda-receipt-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.nanda-receipt-head span:first-child { font-size: 11.5px; color: var(--ink-2); }
+.nanda-receipt pre { margin: 0; font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+
+/* --- the contrast: stat strip + transcripts -------------------------------- */
+
+.nanda-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 26px; }
+.nanda-stat { padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 6px; }
+.nanda-stat-value { font-size: clamp(20px, 2.4vw, 26px); }
+.nanda-stat-value.is-code { font-family: var(--font-mono); font-size: 15px; color: var(--bad); font-weight: 650; }
+.nanda-stat-label { font-size: 11.5px; color: var(--ink-2); line-height: 1.45; }
+.nanda-stat-who { font-size: 10.5px; color: var(--ink-3); }
+
+.tty-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.tty-label-cmd { display: flex; align-items: center; gap: 8px; }
+.tty { max-height: 480px; overflow: auto; padding: 18px 20px; font-size: 12px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; margin: 0; }
+.tty-line { display: block; }
+.tty-act { color: var(--brand-ink); font-weight: 700; }
+.tty-pass { color: var(--ok); }
+.tty-flag { color: var(--warn); }
+
+.nanda-scale-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+.nanda-scale-table th, .nanda-scale-table td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.nanda-scale-table th:first-child, .nanda-scale-table td:first-child { text-align: left; font-variant-numeric: normal; }
+.nanda-scale-table thead th { color: var(--ink-2); font-weight: 600; font-size: 11.5px; }
+.nanda-scale-table td.is-prava { color: var(--ok); font-weight: 600; }
+.nanda-scale-caption { margin-top: 10px; color: var(--ink-3); font-size: 11.5px; }
+
+/* --- run it yourself -------------------------------------------------- */
+
+.nanda-cmd { display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-radius: var(--r-lg); background: var(--ink); color: var(--paper); box-shadow: var(--shadow-2); }
+.nanda-cmd code { flex: 1; min-width: 0; overflow-x: auto; font-family: var(--font-mono); font-size: 13.5px; white-space: pre; }
+.nanda-cmd .btn { flex: none; background: color-mix(in srgb, var(--paper) 14%, transparent); border-color: color-mix(in srgb, var(--paper) 24%, transparent); color: var(--paper); }
+.nanda-cmd .btn:hover { background: color-mix(in srgb, var(--paper) 22%, transparent); }
+
+.nanda-cmd-more { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.nanda-cmd-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.nanda-cmd-row code { font-family: var(--font-mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 5px 9px; flex: 1; min-width: 0; overflow-x: auto; white-space: pre; }
+
+/* --- footer -------------------------------------------------------------- */
+
+.nanda-foot { padding-top: 24px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.nanda-foot a { font-size: 12.5px; color: var(--ink-2); }
+.nanda-foot a:hover { color: var(--ink); text-decoration: underline; }
+
+/* --- responsive ------------------------------------------------------------ */
+
+@media (max-width: 720px) {
+  .nanda-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .disco-thread-fill { left: 12px; }
+}
+@media (max-width: 520px) {
+  .nanda-stats { grid-template-columns: 1fr; }
+  .nanda-cmd { flex-direction: column; align-items: stretch; }
+  .nanda-cmd code { white-space: pre-wrap; word-break: break-word; }
+  .nanda-nav-sep, .nanda-nav-title { display: none; }
+  .nanda-cmd-row { flex-wrap: wrap; }
+  .nanda-cmd-row > span:first-child { width: auto !important; }
+}

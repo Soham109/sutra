@@ -43,6 +43,7 @@ export function LandingNav({ specUrl }: { specUrl: string }) {
               {l.label}
             </a>
           ))}
+          <Link href="/nanda">NANDA proof</Link>
           <a href={specUrl}>Developers</a>
         </nav>
 

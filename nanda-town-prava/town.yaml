@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+# The scenario that closes the decisive gap: pay_group() running inside a real
+# NANDA Town scene, not just this plugin's own pytest.
+#
+# `task.type: town_group_purchase` is not one of nest-core 0.1.4's six
+# hardcoded built-in task types, and nest-core has no plugin/entry-point
+# mechanism for adding one (only the 12 layer plugins get that). So the bare
+# CLI cannot resolve this file on its own:
+#
+#   $ nest run town.yaml
+#   KeyError: "No scenario factory registered for 'town_group_purchase'"
+#
+# The real, verified invocation registers the scenario factory first, then
+# runs the identical ScenarioConfig -> ScenarioRunner pipeline `nest run`
+# uses internally (see scenarios/run_town.py for exactly why):
+#
+#   .venv/Scripts/python.exe scenarios/run_town.py town.yaml
+#
+# No keys, no network: layers.payments (prava_mandates) defaults to its
+# `simulated` mode, an in-process GMP/1 engine (nanda_town_prava/_simulator.py).
+#
+# For the contrast the $1,000 prize is actually asking for — the bundled
+# `prepaid_credits` plugin run against this exact same task type — see
+# scenarios/town_prepaid_control.yaml.
+name: town_group_purchase
+description: >-
+  Four named town agents — Soham (organizer), Maya (backstop), Dev (declines
+  mid-flight), Arsh — complete one purchase through PravaMandates.pay_group():
+  several principals each capped at their own amount, a mid-flight decline,
+  a backstop absorbing the shortfall on her own card, and an atomic,
+  all-or-nothing outcome. Nobody fronts money for anybody.
+
+tier: 1
+seed: 7
+
+agents:
+  count: 4
+  brain: state-machine
+
+layers:
+  transport: in_memory
+  comms: nest_native
+  identity: did_key
+  registry: in_memory
+  auth: jwt
+  trust: score_average
+  payments: prava_mandates
+  coordination: contract_net
+  negotiation: alternating_offers
+  memory: blackboard
+  privacy: noop
+  datafacts: datafacts_v1
+
+task:
+  type: town_group_purchase
+  config:
+    # principals[0] is the organizer: mints the group, approves their own
+    # share immediately, then hands each of the others their mandate invite
+    # over the simulator's real message transport (ctx.send) and waits.
+    principals: [Soham, Maya, Dev, Arsh]
+    declines: [Dev]
+    backstop: Maya
+    backstop_cap: 6000
+    policy: { type: quorum, m: 2 }
+    cart_amount: 18600 # $186.00 — the same night out as the README's own example
+    merchant: velvet-tickets
+    ref: friday-night-tickets
+
+duration: "ticks: 1000"
+
+output:
+  trace: ./traces/town.jsonl
