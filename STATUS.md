@@ -82,7 +82,29 @@ group chat with `@sutra`, the "what now / who are we waiting on" panel, the "bef
 panel on the approval page, Prava finally named on the landing page, and a live `/health`
 badge anyone can verify.
 
-## 5. In flight — five agents
+## 4b. 2 Aug — the session limit, and what it left behind
+
+**All six agents died simultaneously** on an API session limit. An auto-commit swept their
+half-finished work into `main`. The tree landed with **13 failing tests** and one change
+that was worse than a broken test:
+
+`assertLinkedFriends` had been written to refuse **any seat without a `user_id`** — so you
+could no longer split with somebody who has no sutra account. That reads like a tightened
+security rule and was actually deleting the commonest real case the product has: the person
+at the table tonight who is never going to sign up. Pass-the-phone, the QR at dinner, the
+bar split — all of it needed exactly what that check forbade.
+
+Fixed and renamed to `assertSeatable`. The line worth drawing is narrower: attaching
+somebody else's **account** without their agreement stays refused (their dashboard would
+show your group); a **bare name** is allowed and makes a link-only participant.
+
+Tree is green again: **519 tests across 29 files**, both typechecks clean, build clean.
+
+**Lesson for whoever runs agents next:** when several die at once, `git status` first, then
+run the full suite before doing anything else. The auto-commit does not care whether the
+work was finished.
+
+## 5. In flight — five agents (ALL DIED, see 4b — must be relaunched)
 
 1. **Venue search** — measured live: `restaurant` near Koramangala returns **zero venues**,
    `bar` takes 39s to admit it. This is the flagship demo path and the biggest thing broken.
