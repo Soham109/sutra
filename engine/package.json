@@ -2,6 +2,14 @@
   "name": "@sutra/engine",
   "private": true,
   "version": "0.1.0",
+  "description": "GMP/1 protocol engine: share allocation, mandate lifecycle, commit/recovery saga, and Prava adapters.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Soham109/sutra.git",
+    "directory": "engine"
+  },
+  "author": "Soham Aggarwal and Arshjeet (team __init__ to win it)",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {

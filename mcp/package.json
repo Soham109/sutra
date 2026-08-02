@@ -2,6 +2,14 @@
   "name": "@sutra/mcp",
   "private": true,
   "version": "0.1.0",
+  "description": "MCP server exposing Sutra's agent surfaces: AgentCard, AgentFacts, SkillMD, and AI catalog tools.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Soham109/sutra.git",
+    "directory": "mcp"
+  },
+  "author": "Soham Aggarwal and Arshjeet (team __init__ to win it)",
   "type": "module",
   "bin": {
     "sutra-mcp": "src/server.ts"

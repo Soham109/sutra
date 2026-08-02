@@ -3,6 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "description": "GMP/1 — the Group Mandate Protocol. Multi-principal payment coordination engine built on Prava.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Soham109/sutra.git"
+  },
+  "author": "Soham Aggarwal and Arshjeet (team __init__ to win it)",
   "workspaces": [
     "engine",
     "web",

@@ -2,6 +2,14 @@
   "name": "@sutra/cli",
   "private": true,
   "version": "0.1.0",
+  "description": "Command-line demo runner: four-approval commit demo and NANDA discovery checks.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Soham109/sutra.git",
+    "directory": "cli"
+  },
+  "author": "Soham Aggarwal and Arshjeet (team __init__ to win it)",
   "type": "module",
   "scripts": {
     "gmp": "tsx src/gmp.ts",
