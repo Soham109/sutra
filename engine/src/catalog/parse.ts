@@ -45,33 +45,100 @@ export function parseMoney(raw: unknown, fallbackCurrency = 'USD'): Money | null
   }
 
   // Strip everything except digits and separators, then work out which
-  // separator is the decimal mark (last one, when followed by 1–2 digits).
+  // separator is the decimal mark.
   const numeric = s.replace(/[^\d.,\-]/g, '')
   if (!/\d/.test(numeric)) return null
-
-  const lastDot = numeric.lastIndexOf('.')
-  const lastComma = numeric.lastIndexOf(',')
-  let normalized: string
-  if (lastDot === -1 && lastComma === -1) {
-    normalized = numeric
-  } else {
-    const decIdx = Math.max(lastDot, lastComma)
-    const decimals = numeric.length - decIdx - 1
-    if (decimals >= 1 && decimals <= 2) {
-      normalized = numeric.slice(0, decIdx).replace(/[.,]/g, '') + '.' + numeric.slice(decIdx + 1)
-    } else {
-      normalized = numeric.replace(/[.,]/g, '') // both are thousands marks
-    }
-  }
-
-  const value = Number(normalized)
-  if (!Number.isFinite(value)) return null
-  return toMinor(value, currency)
+  return toMinor(disambiguateSeparators(numeric, currency), currency)
 }
 
-function toMinor(value: number, currency: string): Money {
+/**
+ * A thousands separator is grammatically forced to group digits in 3s —
+ * "1,234", "1.234.567" — there is no other valid width. So the LAST
+ * separator is a decimal point whenever what follows it is not exactly 3
+ * digits, no matter how many digits that is: this is what a currency's own
+ * precision (2, 3, or 0) is for. Getting this wrong is not cosmetic —
+ * a real Magento feed publishes JSON-LD prices zero-padded to six places
+ * ("21.710000" for $21.71); reading that trailing run as a thousands group
+ * priced the item at $217,100,000.00. And a three-decimal currency (KWD,
+ * BHD, OMR, JOD, TND) writing its native "12.345" must not be mistaken for
+ * "12345" just because the tail happens to be 3 digits — the old fixed
+ * "1 or 2 digits means decimal" cutoff got that one wrong in the other
+ * direction. The only genuinely ambiguous shape is a lone separator
+ * followed by exactly 3 digits on a currency that does NOT use 3-decimal
+ * minor units — "$1,234" — and that stays thousands, as it always has.
+ */
+function disambiguateSeparators(numeric: string, currency: string): number {
+  const lastDot = numeric.lastIndexOf('.')
+  const lastComma = numeric.lastIndexOf(',')
+  if (lastDot === -1 && lastComma === -1) return Number(numeric)
+
+  const decIdx = Math.max(lastDot, lastComma)
+  const decimals = numeric.length - decIdx - 1
+  const currencyDecimals = EXPONENT[currency.toUpperCase()] ?? 2
+  const isThousandsGroup = decimals === 3 && currencyDecimals !== 3
+
+  const normalized = isThousandsGroup
+    ? numeric.replace(/[.,]/g, '')
+    : numeric.slice(0, decIdx).replace(/[.,]/g, '') + '.' + numeric.slice(decIdx + 1)
+  return Number(normalized)
+}
+
+/**
+ * Parse a price from a STRUCTURED field: a JSON-LD Offer.price, a microdata
+ * content="" attribute, an OpenGraph product:price:amount tag. These are
+ * machine-generated, not prose — schema.org and Open Graph both spec them as
+ * plain decimal literals (optional '-', digits, optional single '.', digits),
+ * never a locale-formatted thousands separator or comma decimal. Running one
+ * through parseMoney's "guess which separator is the decimal" heuristic is
+ * unnecessary at best; at worst a merchant's own well-formed number gets
+ * misread the way a scraped fragment of prose might. When the value does not
+ * actually match that clean shape — some feeds still emit "1,234.00" —
+ * this falls back to the tolerant parser rather than refuse a real price.
+ */
+export function parseStructuredMoney(raw: unknown, fallbackCurrency = 'USD'): Money | null {
+  if (raw === null || raw === undefined) return null
+  if (typeof raw === 'number') return Number.isFinite(raw) ? toMinor(raw, fallbackCurrency) : null
+  const s = String(raw).trim()
+  if (!/^-?\d+(\.\d+)?$/.test(s)) return parseMoney(s, fallbackCurrency)
+  return toMinor(Number(s), fallbackCurrency)
+}
+
+/**
+ * schema.org AggregateOffer collapses a whole size/variant run into
+ * lowPrice/highPrice, sometimes with no per-variant offers underneath at
+ * all. When low === high there is really only one price, and returning it is
+ * exactly as safe as a plain Offer. When it is a genuine range, presenting
+ * either end as "the" price is a guess dressed as a fact: a group can be
+ * quoted $99.99 for something that costs up to $199.99. This function only
+ * tells the caller which situation it is in — deciding whether a "from"
+ * price is honest enough to show, or whether to refuse, is a product
+ * decision for whoever is assembling the cart line, not this file.
+ */
+export function aggregateOfferRange(
+  low: unknown,
+  high: unknown,
+  currency: string,
+): { kind: 'single'; price: Money } | { kind: 'range'; low: Money; high: Money } | { kind: 'unpriced' } {
+  const lo = parseStructuredMoney(low, currency)
+  const hi = parseStructuredMoney(high, currency)
+  if (lo && hi) {
+    return lo.amount_minor === hi.amount_minor ? { kind: 'single', price: lo } : { kind: 'range', low: lo, high: hi }
+  }
+  const only = lo ?? hi
+  return only ? { kind: 'single', price: only } : { kind: 'unpriced' }
+}
+
+/**
+ * A real price is never zero or negative. Zero is what falls out of a
+ * heuristic that found a heading and no number; a negative is a "you saved
+ * $5" fragment mis-read as the price itself. Refusing here — at the source,
+ * not just in whoever calls this — costs one honest null; accepting either
+ * puts a fabricated number in front of a group about to split a bill.
+ */
+function toMinor(value: number, currency: string): Money | null {
   const c = currency.toUpperCase()
-  return { amount_minor: Math.round(value * minorUnits(c)), currency: c }
+  const amount_minor = Math.round(value * minorUnits(c))
+  return amount_minor > 0 ? { amount_minor, currency: c } : null
 }
 
 export function formatMinor(m: Money): string {
