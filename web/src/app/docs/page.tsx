@@ -11,7 +11,7 @@ const ENGINE = 'https://engine-production-e6fa.up.railway.app'
 export const metadata: Metadata = {
   title: 'sutra — architecture',
   description:
-    'How sutra actually works: five diagrams built from the real state machine and commit code, not a description of it — the surfaces, the group lifecycle, the commit saga, the two settlement rails, and the coordination layer above the protocol.',
+    'How sutra actually works: planning, Shopify discovery, explicit merchant capabilities, the GMP/1 state machine, and signed rail-aware outcomes.',
 }
 
 export default function DocsPage() {
@@ -35,9 +35,9 @@ export default function DocsPage() {
           <span className="eyebrow">Architecture</span>
           <h1 className="display">How sutra actually works.</h1>
           <p className="docs-hero-lede">
-            A group buys one thing together without pooling money. Each person approves one capped,
-            merchant-locked charge on their own card. When the group rule passes, sutra commits the set;
-            otherwise nobody is charged. Every diagram below maps to the running code.
+            A group plans and agrees one thing together without pooling money. Only a merchant with a real
+            payment adapter can turn that agreement into capped Prava charges. Shopify POS, checkout handoff,
+            and at-venue groups explicitly record zero charged by Sutra.
           </p>
           <div className="docs-hero-facts">
             <span className="chip mono">service.ts — the commit saga</span>
@@ -64,12 +64,12 @@ export default function DocsPage() {
         <section className="docs-section" id="system">
           <div className="docs-section-head">
             <span className="eyebrow">§1 · The system at a glance</span>
-            <h2>Five doors in, one engine, one place money actually moves.</h2>
+            <h2>Five doors in, one engine, and an explicit payment boundary.</h2>
             <p>
               A web app, a browser extension, a bookmarklet, an MCP server for agent frameworks, and a Python
               plugin for Project NANDA&rsquo;s town simulator all speak the exact same HTTP contract into the
-              same engine. None of that traffic touches money. Money only moves in one place: the charge call
-              from the engine to Prava, and its landing at the merchant.
+              same engine. None of that intake traffic touches money. A Prava charge is available only behind a
+              supported merchant adapter; a product URL or imported cart never grants that capability.
             </p>
           </div>
           <div className="doc-diagram-row">
@@ -95,7 +95,7 @@ export default function DocsPage() {
               <p>
                 Only when the group&rsquo;s rule is satisfied does the engine call{' '}
                 <code>POST /v1/mandates/:id/charge</code>. That call is where Prava mints a single-use,
-                merchant-locked card credential and the merchant actually gets paid. Everything upstream of it
+                merchant-locked card credential for a supported adapter. Everything upstream of it
                 — discovery, planning, cart-building, reading a page you&rsquo;re on — is free of money by
                 construction, not by policy: none of those code paths hold a Prava key capable of a charge.
               </p>
@@ -117,7 +117,7 @@ export default function DocsPage() {
               Taken directly from the type declarations (<code>engine/src/types.ts</code>) and the code that
               actually assigns them (<code>engine/src/service.ts</code>), not from a description of either.
               A group and a member each have their own machine; the member machine forks depending on which of
-              the two settlement rails is carrying the group (more on that in §4).
+              the selected settlement capability is carrying the group (more on that in §4).
             </p>
           </div>
           <div className="doc-diagram-row">
@@ -223,16 +223,16 @@ export default function DocsPage() {
         </section>
 
         {/* ==================================================================
-            4. THE TWO RAILS
+            4. SETTLEMENT CAPABILITIES
         ================================================================== */}
         <section className="docs-section" id="rails">
           <div className="docs-section-head">
-            <span className="eyebrow">§4 · The two rails, side by side</span>
-            <h2>What each rail may claim — and the rule that catches a lie.</h2>
+            <span className="eyebrow">§4 · Settlement capabilities</span>
+            <h2>What each outcome may claim — and the rule that catches a lie.</h2>
             <p>
-              A restaurant bill has no merchant Prava can charge. Rather than invent one, sutra runs a second
-              settlement rail that does everything except move money, and is structurally forbidden from
-              claiming otherwise. <code>engine/src/rails.ts</code>.
+              <code>engine/src/rails.ts</code> separates a true Prava adapter from Shopify POS handoff, online
+              checkout handoff, and at-venue agreement. The last three cannot call Prava and are structurally
+              forbidden from claiming money moved.
             </p>
           </div>
           <div className="doc-diagram-row">
@@ -241,11 +241,9 @@ export default function DocsPage() {
             </div>
             <div className="doc-prose">
               <p>
-                Which rail a group lands on is decided from evidence, not a flag a caller can just set:{' '}
-                <code>railFor()</code> looks at whether the merchant has a real, resolvable URL. A pasted bill
-                gets handed a <code>.test</code> host on purpose, and a venue chosen from OpenStreetMap is
-                forced onto <code>at_venue</code> from its source, not its URL — an OSM page is a map, never a
-                checkout.
+                A URL proves product provenance, never payment capability. Discover requires a person to choose
+                Shopify POS or checkout handoff. The extension is always checkout handoff. Venue plans stay plans
+                until a real bill exists; a chosen OpenStreetMap point is never treated as a checkout.
               </p>
               <p>
                 On the honest rail, a member&rsquo;s consent is a real act with its own HTTP route — not a
@@ -256,9 +254,8 @@ export default function DocsPage() {
               </p>
               <p>
                 The bottom of the diagram is the part worth trusting most: <code>verifyReceipt()</code> is a
-                pure function anyone can run offline against a receipt file, and one of its seven checks exists
-                for exactly one reason — to catch a receipt that claims <code>at_venue</code> and a non-zero
-                charged amount, which is the single worst thing this system could produce.
+                pure function anyone can run offline against a receipt file. It rejects a non-zero charged amount
+                on every non-charging capability, including Shopify POS and checkout handoff.
               </p>
             </div>
           </div>
@@ -274,10 +271,9 @@ export default function DocsPage() {
           <div className="doc-note">
             <b>The honest boundary this system draws for itself.</b> Sutra does not place a merchant order for
             a shared cart. Four people means four single-use cards, and a normal checkout has one card field —
-            so one cart split four ways only completes automatically where the merchant accepts more than one
-            card for one order (&ldquo;split tender&rdquo;), which almost none do online. It completes today,
-            unassisted, exactly where each person is buying their <i>own</i> item — a ticket each — or at a
-            physical venue, where a table full of cards is routine. See{' '}
+            so one cart split four ways only completes automatically where the merchant adapter reconciles those
+            payments. Today, Sutra can prepare a confirmed Shopify POS split for a cashier, or return the group
+            to online checkout while saying that address, shipping, tax and payment are still pending. See{' '}
             <code>web/src/components/discover/how-it-completes.tsx</code>, which detects and states this
             distinction on every cart rather than papering over it.
           </div>

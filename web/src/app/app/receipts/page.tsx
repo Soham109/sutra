@@ -73,7 +73,8 @@ export default function ReceiptsPage() {
         <div className="page-head">
           <h1>Receipts</h1>
           <p className="small muted">
-            A verifiable record of who approved, their cap, and what was charged for every finished group.
+            A verifiable record of consent and outcome: what was charged, what was only agreed, and what still
+            needs a merchant checkout or till.
           </p>
         </div>
 
@@ -111,6 +112,7 @@ export default function ReceiptsPage() {
             {rows.map(({ group, receipt }) => {
               const charged =
                 receipt?.totals.charged ?? group.members.reduce((s, m) => s + m.charged_amount, 0)
+              const recorded = charged || receipt?.totals.owed || group.members.reduce((s, m) => s + m.share_amount, 0)
               const when = receipt?.issued_at ?? group.deadline_at
               return (
                 <Link key={group.group_id} href={`/app/receipts/${group.group_id}`} className="list-row">
@@ -128,8 +130,10 @@ export default function ReceiptsPage() {
                     </div>
                   </div>
                   <div className="col" style={{ alignItems: 'flex-end', gap: 3 }}>
-                    <Money minor={charged} currency={group.currency} />
-                    <span className="tiny faint">charged</span>
+                    <Money minor={recorded} currency={group.currency} />
+                    <span className="tiny faint">
+                      {charged > 0 ? 'charged' : group.rail === 'shopify_pos' ? 'ready for POS' : group.rail === 'checkout_handoff' ? 'checkout pending' : 'agreed only'}
+                    </span>
                   </div>
                 </Link>
               )

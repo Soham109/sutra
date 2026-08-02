@@ -88,7 +88,7 @@ export function FrontingFlows() {
           <div className="l-flow-head">
             <span className="eyebrow">With sutra</span>
             <div className="l-flow-title">Four cards pay. Nobody owes.</div>
-            <p className="l-flow-sub">Four approvals, one moment, no lender.</p>
+            <p className="l-flow-sub">Four approvals, one locked plan, explicit outcomes.</p>
           </div>
 
           <div className="l-row">

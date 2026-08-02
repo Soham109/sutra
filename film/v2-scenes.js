@@ -27,19 +27,19 @@
     [14500, 18000, 'Sutra turns a group into one coordinated decision.'],
     [18000, 23500, 'Each person sees one exact share, one personal cap, and their own card.'],
     [23500, 28500, 'Approval is permission—not a charge.'],
-    [28500, 34000, 'The last required yes commits every mandate in one crash-safe window.'],
-    [34000, 39500, 'Start with a sentence, a link, the page already open, or a photographed bill.'],
+    [28500, 34000, 'The last required yes locks the plan. Unknown results reconcile before retry.'],
+    [34000, 39500, 'Start with a sentence, a link, an extension-imported cart, or a bill.'],
     [39500, 45500, 'Then the agent gathers availability, distance, and private budgets.'],
     [45500, 51000, 'Real venues re-rank live, with reasons the group can inspect.'],
     [51000, 57000, 'Ask Sutra who is missing and it answers from the group’s real state.'],
     [57000, 63000, 'Ask it to pay for you? Hard no. Your passkey is the boundary.'],
     [63000, 68500, 'The same protocol ships as a NANDA Town payments plugin.'],
     [68500, 74000, 'A pooled ledger credits the organiser. Prava mandates never do.'],
-    [74000, 79000, 'Four person-scoped mandates route to one merchant, with no wallet in the middle.'],
-    [79000, 84500, 'The honest limit: Sutra cannot make a one-card checkout accept four cards.'],
-    [84500, 90000, 'It works where each person can pay separately—and says exactly what happened.'],
+    [74000, 79000, 'The reproducible NANDA simulation proves scoped mandate semantics without a pooled balance.'],
+    [79000, 84500, 'Shopify discovery and extension imports work now. POS stays merchant-operated.'],
+    [84500, 90000, 'Development stores can receive valid test orders. Production checkout needs an adapter.'],
     [90000, 98000, 'Every outcome ends in a signed, hash-chained, rail-aware receipt.'],
-    [98000, 105000, 'Nothing pooled. Nothing fronted. Nothing invented.'],
+    [98000, 105000, 'No pooled wallet. Every handoff named. Nothing invented.'],
   ]
 
   function el(tag, cls, parent, text) {
@@ -128,7 +128,7 @@
     el('div', 'turn-rule', wrap)
     html('h1', 'turn-title', wrap, 'What if nobody<br>had to <span>pay first?</span>')
     var formula = el('div', 'turn-formula', wrap)
-    ;['EVERYONE APPROVES', 'ONE DECISION', 'OR NOBODY PAYS'].forEach(function (x, i) {
+    ;['REQUIRED PEOPLE APPROVE', 'ONE DECISION', 'SAFE COMMIT'].forEach(function (x, i) {
       if (i) el('i', '', formula, '→')
       el('b', i === 1 ? 'hot' : '', formula, x)
     })
@@ -139,7 +139,7 @@
       el('i', '', p, x[0]); el('span', '', p, x[1]); el('b', '', p, '✓')
     })
     el('div', 'turn-rail-line', rail)
-    html('div', 'turn-decision', rail, '<small>POLICY</small><b>all_of(4)</b><span>one atomic commit</span>')
+    html('div', 'turn-decision', rail, '<small>POLICY</small><b>all_of(4)</b><span>one locked commit plan</span>')
     s._els = { wrap: wrap, formula: formula, rail: rail, principals: people.children }
   }
 
@@ -201,7 +201,7 @@
     var committed = t >= 13000
     E.status.classList.toggle('committed', committed)
     E.status.innerHTML = committed
-      ? '<i></i><b>COMMITTED</b><span>4 CARDS · SAME MOMENT</span>'
+      ? '<i></i><b>COMMITTED</b><span>4 TEST CHARGES · RECONCILED</span>'
       : '<i></i><b>' + count + ' / 4 approved</b><span>NOTHING CHARGED</span>'
   }
 
@@ -211,7 +211,7 @@
     el('div', 'v2-kicker', launch, 'START ANYWHERE')
     html('h1', '', launch, 'Messy input.<br><span>Structured intent.</span>')
     var modes = el('div', 'launch-modes', launch)
-    ;[['✦','SAY IT'],['↗','PASTE A LINK'],['▣','OPEN PAGE'],['⌁','SCAN A BILL']].forEach(function (m) {
+    ;[['✦','SAY IT'],['↗','PASTE A LINK'],['▣','IMPORT CART'],['⌁','SCAN A BILL']].forEach(function (m) {
       var x = el('div', 'launch-mode', modes)
       el('i', '', x, m[0]); el('b', '', x, m[1])
     })
@@ -230,8 +230,8 @@
     })
     var venues = el('div', 'venue-list', board)
     var data = [
-      ['Nandhana Palace','Koramangala · open until 11:30','94','12 min for Maya · within every budget'],
-      ['Sultans of Spice','HSR Layout · open until 11:00','89','Best midpoint · 18 min maximum travel'],
+      ['Nandhana Palace','Koramangala · open until 11:30','94','2.1 km from Maya · aggregate budget fit'],
+      ['Sultans of Spice','HSR Layout · open until 11:00','89','Best midpoint · 3.4 km maximum distance'],
       ['Sablewood','Indiranagar · open until 10:30','82','Great fit · tighter closing time'],
     ]
     var ranks = []
@@ -300,8 +300,8 @@
 
   function mountNanda(s) {
     var title = el('div', 'nanda-title', s)
-    el('div', 'v2-kicker', title, 'REAL INTEGRATION · NEST.PLUGINS.PAYMENTS')
-    html('h1', '', title, 'NANDA Town, wired to<br><span>human-approved Prava mandates.</span>')
+    el('div', 'v2-kicker', title, 'REPRODUCIBLE SIMULATION · NEST.PLUGINS.PAYMENTS')
+    html('h1', '', title, 'NANDA Town, tested with<br><span>human-scoped mandate semantics.</span>')
     var compare = el('div', 'nanda-compare', s)
     var pooled = el('div', 'nanda-pane pooled', compare)
     html('div', 'nanda-pane-head', pooled, '<small>BUNDLED PLUGIN</small><b>prepaid_credits</b><strong>POOLS $186</strong>')
@@ -309,14 +309,14 @@
     flowNode(pf, '4 agents'); el('span', '', pf, '→'); flowNode(pf, 'organiser', 'danger'); el('span', '', pf, '→'); flowNode(pf, 'merchant')
     el('p', '', pooled, 'The organiser’s simulator balance goes up before the merchant is paid.')
     var direct = el('div', 'nanda-pane direct', compare)
-    html('div', 'nanda-pane-head', direct, '<small>SUTRA PLUGIN</small><b>prava_mandates</b><strong>POOLS $0</strong>')
+    html('div', 'nanda-pane-head', direct, '<small>SUTRA PLUGIN · SIMULATED</small><b>prava_mandates</b><strong>POOLS $0</strong>')
     var df = el('div', 'nanda-flow', direct)
     var people = el('div', 'mini-people', df)
     ;['S','A','D','M'].forEach(function (x) { el('i', '', people, x) })
     el('span', '', df, '→'); flowNode(df, 'Prava', 'prava'); el('span', '', df, '→'); flowNode(df, 'merchant', 'good')
     el('p', '', direct, 'Every mandate is merchant-scoped, amount-capped, and charged at most once.')
     var terminal = el('div', 'proof-terminal', s)
-    html('div', 'terminal-bar', terminal, '<i></i><i></i><i></i><b>town_scene.py</b>')
+    html('div', 'terminal-bar', terminal, '<i></i><i></i><i></i><b>town_scene.py · SIMULATED · NO REAL CARD</b>')
     var lines = [
       '[PASS] group committed despite a mid-flight decline',
       '[PASS] Dev was never charged · $0.00',
@@ -341,16 +341,17 @@
     el('div', 'v2-grid', s)
     var title = el('div', 'limit-title', s)
     el('div', 'v2-kicker', title, 'THE HONEST EDGE')
-    html('h1', '', title, 'Four cards cannot fit<br>inside <span>one card field.</span>')
+    html('h1', '', title, 'Shopify data is live.<br><span>Payment capability is explicit.</span>')
     var equation = el('div', 'limit-equation', s)
     var cards = el('div', 'limit-cards', equation)
     ;['ADA','ARSH','MAYA','DEV'].forEach(function (x, i) { el('i', 'c' + i, cards, x) })
     el('b', '', equation, '≠')
-    html('div', 'checkout-field', equation, '<small>NORMAL ONLINE CHECKOUT</small><span>Card number</span><i>one field</i>')
+    html('div', 'checkout-field', equation, '<small>ONLINE CHECKOUT</small><span>Address · shipping · tax · payment</span><i>merchant-owned</i>')
     var rails = el('div', 'honest-rails', s)
-    html('div', 'rail-yes', rails, '<i>✓</i><b>WORKS END TO END</b><p>Each person buys their own item.</p>')
-    html('div', 'rail-venue', rails, '<i>✓</i><b>AT A VENUE</b><p>Exact split; people hand over their own cards.</p>')
-    html('div', 'rail-no', rails, '<i>!</i><b>ONE SHARED ONLINE CART</b><p>Sutra coordinates consent. It does not pretend it placed the order.</p>')
+    html('div', 'rail-yes', rails, '<i>✓</i><b>SHOPIFY CATALOG</b><p>Live product, variant, price and stock.</p>')
+    html('div', 'rail-yes', rails, '<i>✓</i><b>DEV STORE PROOF</b><p>Valid test order, address, and N labeled test transactions.</p>')
+    html('div', 'rail-venue', rails, '<i>✓</i><b>SHOPIFY POS</b><p>Exact shares; cashier runs split payment.</p>')
+    html('div', 'rail-no', rails, '<i>!</i><b>ONLINE SHARED CART</b><p>Address and payment stay at Shopify until the adapter exists.</p>')
     s._els = { cards: cards, rails: rails }
   }
 
@@ -363,25 +364,25 @@
   function mountReceipt(s) {
     var receipt = el('div', 'receipt-card-v2', s)
     var rh = el('div', 'receipt-head-v2', receipt)
-    html('div', '', rh, '<small>SIGNED RECEIPT</small><b>Goa bus</b><span>gs_01KYY · GMP/1</span>')
-    el('strong', '', rh, 'COMMITTED ✓')
-    var policy = html('div', 'receipt-policy', receipt, '<i>✓</i><b>all_of(4) satisfied</b><span>four principals charged on their own cards</span>')
+    html('div', '', rh, '<small>SIGNED AGREEMENT</small><b>Group gift · Shopify POS</b><span>gs_01KYY · GMP/1</span>')
+    el('strong', '', rh, 'READY FOR POS ✓')
+    var policy = html('div', 'receipt-policy', receipt, '<i>✓</i><b>all_of(4) satisfied</b><span>four exact shares agreed · merchant payment still next</span>')
     var total = el('div', 'receipt-total', receipt)
     html('div', '', total, '<small>QUOTED</small><b>₹9,600</b>')
-    html('div', '', total, '<small>CHARGED</small><b>₹9,600</b>')
+    html('div', '', total, '<small>CHARGED BY SUTRA</small><b>₹0</b>')
     var entries = el('div', 'receipt-entries', receipt)
     ;[['Ada','a18f…2c91'],['Arsh','6d0b…81de'],['Maya','032e…a102'],['Dev','fe72…9bf0']].forEach(function (x, i) {
       var e = el('div', 'receipt-entry', entries)
       avatar(e, x[0], ['orange','blue','gold','violet'][i])
-      html('div', '', e, '<b>' + x[0] + '</b><small>own card · charged once</small>')
+      html('div', '', e, '<b>' + x[0] + '</b><small>agreed · pay cashier directly</small>')
       html('strong', '', e, '₹2,400<small>hash ' + x[1] + '</small>')
     })
-    html('div', 'receipt-signature', receipt, '<i>⌁</i><div><b>Ed25519 signature verified</b><small>hash chain intact · rail: card mandate</small></div><strong>128 HEX ✓</strong>')
+    html('div', 'receipt-signature', receipt, '<i>⌁</i><div><b>Ed25519 signature verified</b><small>hash chain intact · rail: Shopify POS · not proof of payment</small></div><strong>128 HEX ✓</strong>')
     var close = el('div', 'close-v2', s)
     html('div', 'close-mark', close, 'sutra<span>.</span>')
-    html('h1', '', close, 'Nothing pooled.<br>Nothing fronted.<br><span>Nothing invented.</span>')
+    html('h1', '', close, 'No pooled wallet.<br>Every handoff named.<br><span>Nothing invented.</span>')
     el('div', 'close-url', close, 'sutra-gmp.vercel.app  ↗')
-    html('div', 'close-proof', close, '<b>626</b> engine tests <i>·</i> <b>117</b> plugin tests <i>·</i> real venues <i>·</i> merchant-sourced prices')
+    html('div', 'close-proof', close, '<b>631</b> engine tests <i>·</i> <b>117</b> plugin tests passed <i>·</i> real venues <i>·</i> merchant-sourced prices')
     s._els = { receipt: receipt, close: close, entries: entries.children, policy: policy }
   }
 

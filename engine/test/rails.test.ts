@@ -47,8 +47,8 @@ function billGroup(w: ReturnType<typeof world>) {
 }
 
 describe('rail selection', () => {
-  it('a real merchant URL gets the card rail', () => {
-    expect(railFor({ merchantUrl: 'https://velvet.example.com' })).toBe('prava_mandates')
+  it('a real merchant URL proves discovery, not a payment adapter', () => {
+    expect(railFor({ merchantUrl: 'https://velvet.example.com' })).toBe('checkout_handoff')
   })
 
   it('no merchant, a .test placeholder, or localhost cannot be charged', () => {
@@ -60,12 +60,49 @@ describe('rail selection', () => {
 
   it('an explicit request always wins over inference', () => {
     expect(railFor({ merchantUrl: 'https://velvet.example.com', requested: 'at_venue' })).toBe('at_venue')
+    expect(railFor({ merchantUrl: 'https://shop.example.com', requested: 'shopify_pos' })).toBe('shopify_pos')
+    expect(railFor({ merchantUrl: 'https://shop.example.com', requested: 'checkout_handoff' })).toBe('checkout_handoff')
   })
 
   it('the two rails never share a verb', () => {
     expect(capabilityOf('prava_mandates').settled_verb).not.toBe(capabilityOf('at_venue').settled_verb)
     expect(capabilityOf('at_venue').charges).toBe(false)
     expect(capabilityOf('at_venue').mandates).toBe(false)
+  })
+
+  it('POS and checkout handoff are explicitly non-charging capabilities', () => {
+    expect(capabilityOf('shopify_pos')).toMatchObject({ charges: false, mandates: false })
+    expect(capabilityOf('checkout_handoff')).toMatchObject({ charges: false, mandates: false })
+    expect(capabilityOf('shopify_pos').settled_verb).not.toBe(capabilityOf('checkout_handoff').settled_verb)
+  })
+})
+
+describe.each([
+  ['shopify_pos', 'ready_for_shopify_pos'],
+  ['checkout_handoff', 'approved_for_checkout'],
+] as const)('%s agreement', (rail, outcome) => {
+  it('creates no mandate, moves no money, and signs the honest next step', async () => {
+    const w = world()
+    const { group, members } = w.service.createGroup(
+      CreateGroupSchema.parse({
+        title: 'Shopify group purchase',
+        merchant: { id: 'shop', name: 'Example Shop', url: 'https://shop.example.com' },
+        cart: { items: [{ sku: 'gift', name: 'Gift', unit_amount: 12000, qty: 1 }], currency: 'USD' },
+        members: [{ name: 'Soham' }, { name: 'Arsh' }],
+        rail,
+        origin: 'discover',
+      }),
+    )
+    for (const member of members) {
+      await w.service.openMember(member.id)
+      await w.service.acceptShare(member.id)
+    }
+    const receipt = JSON.parse(w.db.getReceipt(group.id)!) as Receipt
+    expect(w.prava.debugState().mandates).toHaveLength(0)
+    expect(w.prava.debugState().charges).toHaveLength(0)
+    expect(receipt.totals.charged).toBe(0)
+    expect(receipt.entries.every((entry) => entry.outcome === outcome)).toBe(true)
+    expect(verifyReceipt(receipt).ok).toBe(true)
   })
 })
 
@@ -107,6 +144,7 @@ describe('at_venue settlement', () => {
         merchant: { id: 'v', name: 'Velvet', url: 'https://velvet.example.com' },
         cart: { items: [{ sku: 'ga', name: 'GA', unit_amount: 4500, qty: 2 }], currency: 'USD' },
         members: [{ name: 'Soham' }, { name: 'Arsh' }],
+        rail: 'prava_mandates',
       }),
     )
     await w.service.openMember(members[0]!.id)

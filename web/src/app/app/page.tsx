@@ -9,7 +9,6 @@ import { Waiting } from '@/components/home/waiting'
 import { StatRow } from '@/components/home/stat-row'
 import { ReliabilityPanel } from '@/components/home/reliability'
 import { SettlementHistory } from '@/components/home/settlement-history'
-import { commonCurrency } from '@/components/home/charts'
 import { Shell } from '@/components/shell'
 import { ErrorNote, Skeleton } from '@/components/ui'
 import { money, relativeTime } from '@/lib/format'
@@ -97,7 +96,7 @@ export default function HomePage() {
 
             <section className="settled">
               <div className="section-head">
-                <h2>Settled</h2>
+                <h2>Completed records</h2>
                 <Link href="/app/receipts" className="text-button">
                   All receipts ↗
                 </Link>
@@ -110,7 +109,15 @@ export default function HomePage() {
                       <span className={`settled-mark settled-${r.status}`} aria-hidden />
                       <span className="settled-title">{r.title}</span>
                       <span className="settled-rail tiny faint">
-                        {r.rail === 'at_venue' ? 'paid at venue' : 'charged to your card'}
+                        {r.amount_kind === 'not_completed'
+                          ? 'not completed'
+                          : r.rail === 'at_venue'
+                          ? 'agreed · pay venue'
+                          : r.rail === 'shopify_pos'
+                            ? 'ready for Shopify POS'
+                            : r.rail === 'checkout_handoff'
+                              ? 'checkout pending'
+                              : 'charged to your card'}
                       </span>
                       <span className="settled-amount amount">
                         {money(r.your_amount, r.currency)}
@@ -130,13 +137,7 @@ export default function HomePage() {
               <div className="home-secondary-body">
                 <StatRow data={data} />
                 <ExposureMeter exposure={data.exposure} />
-                <ReliabilityPanel
-                  reliability={data.reliability}
-                  settledCurrency={commonCurrency([
-                    ...data.exposure.map((e) => e.currency),
-                    ...data.recent.map((x) => x.currency),
-                  ])}
-                />
+                <ReliabilityPanel reliability={data.reliability} />
               </div>
             </details>
           </>

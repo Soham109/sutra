@@ -45,7 +45,7 @@ export function ConsentThreadDemo() {
         <div className="consent-core" data-result={step === 3 ? scenario : 'live'}>
           <div className="consent-ring"><i /><i /><i /></div>
           <span>{step + 1}/4</span><strong>{step === 3 ? scenario === 'cover' ? 'COMMITTED' : 'CANCELLED' : 'COLLECTING'}</strong>
-          <small>{step === 3 ? scenario === 'cover' ? '₹3,120 · 3 cards · one moment' : '₹0 moved · 4 holds released' : 'Nothing can move yet'}</small>
+          <small>{step === 3 ? scenario === 'cover' ? '₹3,120 · 3 capped outcomes recorded' : '₹0 moved · 4 permissions released' : 'Nothing can move yet'}</small>
         </div>
       </div>
       <div className="consent-caption"><p key={`${scenario}-${step}`}>{copy}</p><div>{[0,1,2,3].map((index) => <button key={index} aria-label={`Step ${index + 1}`} data-on={index <= step} onClick={() => { setStep(index); setPlaying(false) }} />)}</div><button className="consent-replay" onClick={() => { setStep(0); setPlaying(true) }}>{playing && step < 3 ? 'Playing' : 'Replay'} ↻</button></div>

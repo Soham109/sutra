@@ -1,8 +1,8 @@
 # sutra browser extension
 
-Imports the product, ticket, stay or cart open in the active tab into the same Sutra account used by the web app. It can choose persisted friends/circles and create a coordinated group; detection alone does not authenticate to, order from, or pay an arbitrary merchant.
+Imports the product, ticket, stay or cart facts visible to the active tab into the same Sutra account used by the web app. When the detector exposes several cart lines, the extension preserves every line in the proposed split. It can choose persisted friends/circles and create a coordinated group; detection does not authenticate to, order from, or pay a merchant.
 
-Splits only seat **you or people you are already friends with**. The engine rejects strangers with a clear 403; add friends in the web app People page first.
+Groups can seat only **you or people you are already friends with**. The engine rejects strangers with a clear 403; add friends in the web app People page first.
 
 ## Install from source
 
@@ -27,7 +27,7 @@ The manifest has host permissions only for the deployed and local Sutra engines.
 
 ## Important boundary
 
-The extension imports facts and starts coordination. Automatic merchant purchase additionally needs a supported merchant/payment adapter, stable quote or reservation, and any required merchant authentication. Otherwise the group returns to the merchant for the final checkout. See [product architecture](../docs/PRODUCT_ARCHITECTURE.md).
+The extension imports merchant-reported facts and starts coordination. It does not retain or control the merchant's authenticated session, submit an address or checkout, place an order, or verify a payment. Final prices, discounts, shipping and tax must be checked at the merchant. Automatic completion would additionally need a supported merchant/payment adapter, a stable quote or reservation, and merchant authentication. See [product architecture](../docs/PRODUCT_ARCHITECTURE.md).
 
 ## Files
 

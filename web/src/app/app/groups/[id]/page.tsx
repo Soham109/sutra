@@ -23,6 +23,7 @@ import { InvitePanel } from '@/components/group/InvitePanel'
 import { ReplayBar, type Speed } from '@/components/group/Replay'
 import { TerminalBanner } from '@/components/group/TerminalBanner'
 import { WhatNow } from '@/components/group/WhatNow'
+import { ShopifyTestProof } from '@/components/group/ShopifyTestProof'
 import { ChatThread } from '@/components/chat/ChatThread'
 import { BACKSTOP_MOMENTS, deriveAt, fromGroup, pNum, pStr } from '@/components/group/derive'
 import { short } from '@/components/group/narrate'
@@ -210,10 +211,14 @@ export default function GroupWarRoom() {
             members={view.members}
             currency={currency}
             groupId={group.group_id}
-            charges={group.rail_capability?.charges ?? group.rail !== 'at_venue'}
+            charges={group.rail_capability?.charges ?? group.rail === 'prava_mandates'}
             merchant={group.merchant.name}
+            rail={group.rail}
+            checkoutUrl={typeof group.product?.product_url === 'string' ? group.product.product_url : undefined}
           />
         )}
+
+        {!replay && <ShopifyTestProof group={group} />}
 
         {/* --- the backstop moment -------------------------------------- */}
         {moment && (
@@ -238,8 +243,9 @@ export default function GroupWarRoom() {
             members={view.members}
             currency={currency}
             groupId={group.group_id}
-            charges={group.rail_capability?.charges ?? group.rail !== 'at_venue'}
+            charges={group.rail_capability?.charges ?? group.rail === 'prava_mandates'}
             terminal={group.terminal}
+            rail={group.rail}
           />
         )}
 
@@ -255,9 +261,13 @@ export default function GroupWarRoom() {
                 <span className="eyebrow">Who has approved</span>
                 <span className="tiny faint">
                   {status === 'committing'
-                    ? 'Charging every card at once'
+                    ? group.rail_capability?.charges
+                      ? 'Running the guarded charge and reconciliation sequence'
+                      : 'Sealing every exact share'
                     : collecting
-                      ? 'Each node fills only when that person approves their own share'
+                      ? group.rail_capability?.mandates
+                        ? 'Each node fills only when that person approves their own share'
+                        : 'Each node fills when that person confirms their exact share'
                       : 'Final positions'}
                 </span>
               </div>
@@ -349,7 +359,8 @@ export default function GroupWarRoom() {
               allocations={view.allocations}
               anonymise={group.no_blame}
               replaying={replay}
-              charges={group.rail_capability?.charges ?? group.rail !== 'at_venue'}
+              charges={group.rail_capability?.charges ?? group.rail === 'prava_mandates'}
+              rail={group.rail}
             />
 
             <div className="card">
@@ -448,8 +459,8 @@ export default function GroupWarRoom() {
               <div className="card card-pad">
                 <span className="eyebrow">Receipt</span>
                 <p className="small muted" style={{ margin: '6px 0 12px' }}>
-                  A hash-chained record of every consent and every charge, signed by the engine. It verifies without
-                  trusting this app.
+                  A hash-chained record of every consent and the rail-specific outcome, signed by the engine. It
+                  verifies without trusting this app and never upgrades an agreement into a payment.
                 </p>
                 {view.chainHead && (
                   <div className="well mono tiny gr-break" style={{ marginBottom: 12 }}>

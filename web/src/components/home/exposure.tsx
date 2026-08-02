@@ -40,6 +40,12 @@ const BANDS = [
     explain: 'Agreed on a bill split. You pay the venue directly — no card was charged here.',
   },
   {
+    key: 'agreed_not_charged' as const,
+    label: 'Agreed, not charged',
+    className: 'exp-venue',
+    explain: 'Ready for Shopify POS or merchant checkout. Sutra has not charged a card.',
+  },
+  {
     key: 'settled' as const,
     label: 'Already paid',
     className: 'exp-settled',
@@ -49,7 +55,7 @@ const BANDS = [
 
 export function ExposureMeter({ exposure }: { exposure: Exposure[] }) {
   const live = exposure.filter(
-    (e) => e.authorized + e.charging + e.settled + e.backstop_armed + e.owed_at_venue > 0,
+    (e) => e.authorized + e.charging + e.settled + e.backstop_armed + e.owed_at_venue + e.agreed_not_charged > 0,
   )
 
   if (live.length === 0) {
@@ -76,7 +82,7 @@ export function ExposureMeter({ exposure }: { exposure: Exposure[] }) {
 
       {live.map((e) => {
         const pending = e.authorized + e.charging
-        const total = pending + e.settled + e.backstop_armed + e.owed_at_venue
+        const total = pending + e.settled + e.backstop_armed + e.owed_at_venue + e.agreed_not_charged
         return (
           <div className="exposure-row" key={e.currency}>
             <div className="exposure-lead">

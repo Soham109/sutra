@@ -104,6 +104,9 @@ function Entry({
             {money(entry.charged_amount, currency)}
           </dd>
 
+          <dt>Agreed amount</dt>
+          <dd className="amount muted">{money(entry.owed_amount ?? entry.quoted_share, currency)}</dd>
+
           <dt>Mandate</dt>
           <dd className="mono tiny">{entry.mandate_id ?? '—'}</dd>
 

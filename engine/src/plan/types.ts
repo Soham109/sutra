@@ -241,7 +241,7 @@ export interface PlanRow {
   status: PlanStatus
   chosen_option_id: string | null
   group_id: string | null
-  /** 'prava_mandates' | 'at_venue' — chosen when the option is chosen */
+  /** Concrete settlement rail, chosen only when a priced option is converted. */
   rail: string
   deadline_at: string
   created_by: string | null

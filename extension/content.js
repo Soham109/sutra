@@ -73,6 +73,9 @@
     .chip{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;border-radius:6px;background:#f0ece5;color:#57534e;font-weight:650}
     .chip.hi{background:#dcfce7;color:#166534}.chip.md{background:#fef3c7;color:#92400e}.chip.lo{background:#fee2e2;color:#991b1b}
     .warn{margin-top:10px;font-size:12px;line-height:1.5;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-left:3px solid #f59e0b;border-radius:8px;padding:9px 11px}
+    .cart-lines{border:1px solid #ece8e1;border-radius:10px;background:#fff;overflow:hidden}
+    .cart-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:9px 11px;font-size:12px;line-height:1.35}
+    .cart-line+.cart-line{border-top:1px solid #ece8e1}.cart-line b{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cart-line span{color:#78716c;font-variant-numeric:tabular-nums}
     label{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a8a29e;margin:16px 0 6px}
     input,select{width:100%;padding:10px 11px;border:1px solid #ddd7cd;border-radius:9px;font-size:14px;background:#fff;color:#14100a}
     input:focus,select:focus{outline:2px solid #f59e0b;outline-offset:-1px}
@@ -140,9 +143,22 @@
     const conf = det.confidence
     const cls = conf >= 0.75 ? 'hi' : conf >= 0.5 ? 'md' : 'lo'
     const word = conf >= 0.85 ? 'high confidence' : conf >= 0.75 ? 'good confidence' : conf >= 0.35 ? 'low confidence' : 'guess'
-    const cur = det.currency || 'USD'
-    const unit = det.items[0] ? det.items[0].unit_amount : det.total_minor || 0
-    const qty = det.items[0] ? det.items[0].qty : 1
+    const cur = (det.currency || 'USD').toUpperCase()
+    const detectedItems = (Array.isArray(det.items) ? det.items : [])
+      .filter((item) => item && Number.isFinite(Number(item.unit_amount)))
+      .map((item, index) => ({
+        sku: String(item.sku || `sutra-ext-${index + 1}`),
+        name: String(item.name || `Item ${index + 1}`).slice(0, 100),
+        unit_amount: Math.max(0, Math.round(Number(item.unit_amount))),
+        qty: Math.max(1, Math.round(Number(item.qty) || 1)),
+        claimants: ['mi_all'],
+      }))
+    const detectedFees = (Array.isArray(det.fees) ? det.fees : [])
+      .filter((fee) => fee && Number.isFinite(Number(fee.amount)) && Number(fee.amount) >= 0)
+      .map((fee, index) => ({ name: String(fee.name || `Fee ${index + 1}`).slice(0, 100), amount: Math.round(Number(fee.amount)) }))
+    const hasCartLines = detectedItems.length > 1
+    const unit = detectedItems[0] ? detectedItems[0].unit_amount : det.total_minor || 0
+    const qty = detectedItems[0] ? detectedItems[0].qty : 1
     const friends = account.friends || []
     const me = account.user
     const selected = new Map([[me.id, me]])
@@ -168,13 +184,18 @@
       ${det.warnings.length ? `<div class="warn">${det.warnings.slice(0, 4).map((w) => `<div>${esc(w)}</div>`).join('')}</div>` : ''}
       <label>What are you splitting</label>
       <input id="title" maxlength="140" value="${esc(det.title)}">
-      <label>Price each · quantity</label>
-      <div class="row">
-        <input id="cur" class="cur" maxlength="3" value="${esc(cur)}">
-        <input id="price" inputmode="decimal" value="${(unit / 10 ** exp(cur)).toFixed(exp(cur))}">
-        <input id="qty" class="qty" type="number" min="1" max="99" value="${qty}">
-      </div>
-      <label>Who is paying <span id="count">1 selected</span></label>
+      ${hasCartLines
+        ? `<label>Detected cart · ${detectedItems.length} lines</label>
+          <div class="cart-lines">${detectedItems.map((item) => `
+            <div class="cart-line"><b>${esc(item.name)}</b><span>${item.qty} × ${fmt(item.unit_amount, cur)}</span></div>`).join('')}</div>
+          <p class="hint">These merchant-reported lines will be imported as shown. Verify the final cart, discounts, shipping and tax at the merchant.</p>`
+        : `<label>Price each · quantity</label>
+          <div class="row">
+            <input id="cur" class="cur" maxlength="3" value="${esc(cur)}">
+            <input id="price" inputmode="decimal" value="${(unit / 10 ** exp(cur)).toFixed(exp(cur))}">
+            <input id="qty" class="qty" type="number" min="1" max="99" value="${qty}">
+          </div>`}
+      <label>Who is splitting <span id="count">1 selected</span></label>
       <div class="people">
         <button type="button" class="person on" data-id="${esc(me.id)}" disabled>You</button>
         ${friends.map((f) => `<button type="button" class="person" data-id="${esc(f.id)}">${esc(f.name)}</button>`).join('')}
@@ -184,28 +205,30 @@
         : `<p class="hint">Only people who have accepted your friend request can be seated.</p>`}
       <details>
         <summary>Policy and deadline</summary>
-        <label>Approval policy</label>
+        <label>Confirmation policy</label>
         <select id="policy">
-          <option value="all_of">Everyone must approve</option>
-          <option value="quorum">Quorum — most of us is enough</option>
-          <option value="deadline">Deadline — whoever is in by then</option>
+          <option value="all_of">Everyone must confirm</option>
+          <option value="quorum">Quorum — most of us confirm</option>
+          <option value="deadline">Deadline — whoever confirms by then</option>
         </select>
         <label>Deadline (minutes)</label>
         <input id="deadline" type="number" min="1" max="10080" value="${cfg.deadlineMinutes}">
       </details>
       <div class="sum">
-        <div class="l"><span>Total</span><b id="total">—</b></div>
-        <div class="l"><span>Each</span><span id="each"></span></div>
+        <div class="l"><span>Proposed total</span><b id="total">—</b></div>
+        <div class="l"><span>Proposed each</span><span id="each"></span></div>
       </div>
       <button class="cta" id="go">Create group</button>
       <div id="err"></div>
-      <div class="foot">Importing a page does not authorize a merchant checkout. Each friend approves their own share on their own phone. Detected via <b>${esc(det.provenance.total_minor || 'nothing')}</b>.</div>`
+      <div class="foot">Importing only creates a Sutra group. Each invited person reviews the proposed share; the extension does not place an order, control the merchant session or send a payment. Detected via <b>${esc(det.provenance.total_minor || 'nothing')}</b>.</div>`
 
     root.querySelector('#policy').value = cfg.policy || 'all_of'
 
     const $ = (s) => root.querySelector(s)
-    const currency = () => ($('#cur').value || 'USD').toUpperCase().slice(0, 3)
-    const total = () => toMinor($('#price').value, currency()) * Math.max(1, Number($('#qty').value) || 1)
+    const currency = () => hasCartLines ? cur : ($('#cur').value || 'USD').toUpperCase().slice(0, 3)
+    const total = () => hasCartLines
+      ? detectedItems.reduce((sum, item) => sum + item.unit_amount * item.qty, 0) + detectedFees.reduce((sum, fee) => sum + fee.amount, 0)
+      : toMinor($('#price').value, currency()) * Math.max(1, Number($('#qty').value) || 1)
 
     function update() {
       const c = currency()
@@ -229,15 +252,15 @@
       })
     })
 
-    ;['#title', '#cur', '#price', '#qty'].forEach((s) => $(s).addEventListener('input', update))
+    ;['#title', ...(hasCartLines ? [] : ['#cur', '#price', '#qty'])].forEach((s) => $(s).addEventListener('input', update))
     update()
 
     $('#go').addEventListener('click', async () => {
       const c = currency()
-      const unitNow = toMinor($('#price').value, c)
+      const unitNow = hasCartLines ? null : toMinor($('#price').value, c)
       const err = $('#err')
       err.textContent = ''
-      if (unitNow <= 0) return (err.innerHTML = '<div class="err">Set a price above zero.</div>')
+      if (total() <= 0) return (err.innerHTML = '<div class="err">Set a price above zero.</div>')
       if (!/^[A-Z]{3}$/.test(c)) return (err.innerHTML = '<div class="err">Currency must be a 3-letter code.</div>')
 
       const btn = $('#go')
@@ -268,23 +291,24 @@
             merchant: {
               id: 'sutra-extension',
               name: (det.merchant.name || location.hostname).slice(0, 80),
-              url: /^https?:\/\//.test(det.merchant.url) ? det.merchant.url : location.href,
+              url: /^https?:\/\//.test(det.page_url) ? det.page_url : location.href,
               country_code_iso2: String(country).slice(0, 2).toUpperCase(),
             },
             cart: {
-              items: [{
-                sku: 'sutra-ext-1',
-                name: ($('#title').value || 'Item').slice(0, 100),
+              items: hasCartLines ? detectedItems : [{
+                sku: detectedItems[0]?.sku || 'sutra-ext-1',
+                name: (detectedItems[0]?.name || $('#title').value || 'Item').slice(0, 100),
                 unit_amount: unitNow,
-                qty: Math.max(1, Number($('#qty').value) || 1),
+                qty: Math.max(1, Math.round(Number($('#qty').value) || 1)),
                 claimants: ['mi_all'],
               }],
-              fees: [],
+              fees: detectedFees,
               currency: c,
             },
             members: people.map((p) => ({ name: p.name.slice(0, 60), role: 'payer', user_id: p.id })),
             policy,
             deadline_minutes: Math.min(10080, deadline),
+            rail: 'checkout_handoff',
           },
         })
         done(group, cfg.app || 'https://sutra-gmp.vercel.app', c)
@@ -307,8 +331,8 @@
       : `${base}/app/groups/${group.group_id}`
     bd.innerHTML = `
       <div class="card"><div class="t">
-        <div class="ttl">✓ Group is live</div>
-        <div class="mut" style="margin-top:3px">${group.members.length} people can review their share. Nothing is charged until the group rule passes.</div>
+        <div class="ttl">✓ Group and invitations created</div>
+        <div class="mut" style="margin-top:3px">${group.members.length} people can now review the proposed shares. No order or payment was sent to the merchant.</div>
       </div></div>
       ${group.members.map((m) => `
         <div class="mem">
@@ -320,7 +344,7 @@
           </div>
         </div>`).join('')}
       <a class="cta" href="${esc(board)}" target="_blank" rel="noopener">Open group board →</a>
-      <div class="foot">Merchant checkout stays a separate handoff unless that merchant supports a sutra payment adapter.</div>`
+      <div class="foot">Keep this merchant tab open and finish there. Sutra does not retain the merchant session, submit checkout details or verify payment.</div>`
     root.querySelectorAll('.copy').forEach((b) => b.addEventListener('click', () => {
       navigator.clipboard.writeText(b.dataset.url).then(() => { b.textContent = 'copied' }).catch(() => {})
     }))

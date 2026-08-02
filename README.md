@@ -37,7 +37,7 @@ flowchart LR
     E1 --> F["GMP/1 decision + commit saga"]
     E2 --> F
     E3 --> F
-    F --> G["Prava card rail or at-venue agreement rail"]
+    F --> G["Explicit capability: Prava · Shopify POS · checkout handoff · at venue"]
     G --> H["Ed25519-signed, hash-chained receipt"]
 ```
 
@@ -45,7 +45,7 @@ flowchart LR
 2. **Ask, don’t assume.** Every participant gets a private link for availability, location, budget, RSVP, and constraints. These answers cannot authorize payment.
 3. **Make the decision inspectable.** Real venues come from OpenStreetMap; product facts retain their source; rankings expose their factors; bill arithmetic must reconcile.
 4. **Bind consent to the exact thing.** Each payer sees their items, share, cap, merchant, policy, and cart hash before approving.
-5. **Commit through the correct rail.** A Prava-capable flow uses person-scoped mandates. A physical bill records agreement only and explicitly reports zero charged.
+5. **Use the capability the merchant actually has.** A Prava adapter may charge. Shopify POS, checkout handoff, and at-venue flows record agreement and explicitly report zero charged by Sutra.
 6. **Leave evidence.** Every terminal group produces a signed receipt whose consent chain can be verified without trusting the UI.
 
 ## What the product does
@@ -58,7 +58,7 @@ One sentence becomes typed intent, participant questions, real OpenStreetMap ven
 
 ### Resolve a product, then verify it
 
-Search configured public catalogs or paste a public product URL. Sutra preserves merchant, price, currency, stock state, source, and resolution confidence before anyone is seated in the group.
+Open a live Shopify shelf, search any configured Shopify storefront, or paste an exact public product URL. Sutra preserves merchant, price, currency, stock state, source, and resolution confidence before anyone is seated in the group. Authenticated carts from other sites come through the click-invoked extension.
 
 ![Product discovery results with merchant, live price, stock state, and split action](docs/screenshots/readme-discover.png)
 
@@ -86,9 +86,11 @@ Sutra does not pretend every split has the same settlement capability.
 
 | Situation | What Sutra completes | What it does **not** claim |
 |---|---|---|
-| Prava-capable merchant or one order per person | Creates one hosted mandate session per payer, waits for each person’s passkey approval, then executes the group policy through person-scoped charges | That a pending mandate is already a charge |
+| Merchant with a real Sutra/Prava payment adapter | Creates one hosted mandate session per payer, waits for each person’s passkey approval, then executes the group policy through person-scoped charges | That a merchant URL alone proves adapter support |
+| Configured Shopify development store | After Sutra/Prava **test** approvals, creates one valid Shopify order with `test: true`, a fictional delivery address, and one visibly labeled test transaction per participant | Real money, multi-card Shopify Checkout, or a production merchant integration |
+| Confirmed Shopify POS counter | Records each exact agreed share, then gives the cashier a clear split-payment handoff | That Sutra connects to the terminal or that its signed agreement proves the POS payment |
+| Shopify/public online product without an adapter | Preserves live product facts, coordinates shares, and returns the group to merchant checkout | That Sutra placed the order; delivery address, shipping, tax and payment remain at checkout |
 | Physical restaurant/bar bill | Reconciles the bill, captures exact agreement, and signs a receipt with `owed_amount > 0` and `charged_amount = 0` | That Sutra paid the venue |
-| Ordinary shared online cart with one card field | Coordinates the decision and can return the organizer to checkout | That four single-use credentials were accepted by a one-card form, or that Sutra placed the merchant order |
 
 A shared online checkout becomes fully automatic only when the merchant supports split tender or a merchant adapter can reconcile the individual payment credentials. That protocol extension is designed in [`spec/PROTOCOL.md`](spec/PROTOCOL.md); merchant adoption is not a shipped claim.
 
@@ -176,8 +178,10 @@ The default demo is deliberately offline and reproducible. Real Prava sandbox ap
 
 - No completed, human-approved Prava sandbox card charge is documented in this repository yet. Real mandate-session creation is integrated; do not describe that as settled money.
 - Sutra does not place an ordinary shared merchant order when the checkout accepts only one card.
+- Shopify POS is a cashier handoff today, not a direct terminal integration. Merchant/POS receipts—not Sutra’s agreement receipt—prove payment.
+- The configured development-store proof accepts a fictional address in Sutra and writes a `test: true` Shopify order. On ordinary online handoff, address, shipping, tax and final payment remain at Shopify checkout.
 - The restaurant-bill rail records agreement and exact debt but never charges the venue.
-- Photo transcription depends on configured vision; pasted bill text and all arithmetic are deterministic.
+- Photo OCR runs on-device by default. Upload to a configured vision service requires an explicit disclosed click; pasted bill text and all arithmetic are deterministic.
 - Catalog coverage is best-effort over public data. Authenticated carts and heavily client-rendered pages require the extension or a merchant integration.
 - Venue search depends on public OpenStreetMap services and can time out under load.
 - The Chrome extension is load-unpacked only; it is not in the Web Store.

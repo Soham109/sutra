@@ -100,7 +100,7 @@ button, input, select { font: inherit; color: inherit }
 
 /* How much of this we actually believe. Green only when it is genuinely
    structured data; amber and red are not decoration, they are a warning that
-   the number below may need checking before anyone is asked to pay it. */
+   the number below may need checking before anyone is asked to confirm it. */
 .confidence { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 650; background: var(--surface-2); color: var(--ink-2) }
 .confidence:before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor }
 .confidence.is-high { background: var(--ok-soft); color: var(--ok); box-shadow: inset 0 0 0 1px var(--ok-line) }
@@ -110,6 +110,11 @@ button, input, select { font: inherit; color: inherit }
 /* -- sections ----------------------------------------------------------- */
 .section { margin-top: 15px }
 .label { display: flex; justify-content: space-between; align-items: baseline; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; color: var(--ink-3) }
+.cart-lines { overflow: hidden; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface) }
+.cart-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 9px 11px; font-size: 11.5px; line-height: 1.35 }
+.cart-line + .cart-line { border-top: 1px solid var(--line) }
+.cart-line b { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap }
+.cart-line span { color: var(--ink-2); font-family: var(--mono); font-size: 10.5px }
 
 .people { display: flex; flex-wrap: wrap; gap: 6px }
 .person { border: 1px solid var(--line-2); background: var(--surface); padding: 6px 11px; border-radius: 999px; cursor: pointer; color: var(--ink-2); font-size: 12.5px; transition: .14s }

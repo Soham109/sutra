@@ -101,6 +101,15 @@ export class Db {
         receipt_json TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
       );
+
+      -- Demo-only merchant proof. The address is deliberately never stored
+      -- here; only Shopify's non-sensitive order reference and verification
+      -- summary survive the request.
+      CREATE TABLE IF NOT EXISTS shopify_test_orders (
+        group_id TEXT PRIMARY KEY REFERENCES groups(id),
+        proof_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      );
     `)
 
     // Columns added after the first release. CREATE TABLE above covers fresh
@@ -260,6 +269,21 @@ export class Db {
       | { receipt_json: string }
       | undefined
     return row?.receipt_json
+  }
+
+  // ---- Shopify development-store proof ----------------------------------
+
+  saveShopifyTestOrder(groupId: string, proofJson: string): void {
+    this.sql
+      .prepare(`INSERT OR REPLACE INTO shopify_test_orders (group_id, proof_json) VALUES (?, ?)`)
+      .run(groupId, proofJson)
+  }
+
+  getShopifyTestOrder(groupId: string): string | undefined {
+    const row = this.sql
+      .prepare(`SELECT proof_json FROM shopify_test_orders WHERE group_id = ?`)
+      .get(groupId) as { proof_json: string } | undefined
+    return row?.proof_json
   }
 
   close(): void {

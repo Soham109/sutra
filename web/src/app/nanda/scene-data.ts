@@ -89,8 +89,8 @@ export const SCENE_TRANSCRIPT = `mode: simulated
   [PASS] the group cancels — not partial, not committed — aborted
   [PASS] nobody was ever charged, including the two who already approved — 0
   [PASS] verify_payment is REFUNDED
-  Either everyone in the locked set is charged inside one window, or nobody is.
-  That is the 'or cancel' half of pay_group()'s guarantee, shown, not asserted.
+  In this simulator case the policy fails before commit, so every simulated charge remains zero.
+  That is the pre-commit cancellation path shown, not a claim of atomic real-card settlement.
 
 === ACT 6: the structural property: an agent cannot pay an agent =====
   Arsh's headroom before: 1000

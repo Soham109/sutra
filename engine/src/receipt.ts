@@ -11,6 +11,7 @@ import {
   verify as edVerify,
 } from 'node:crypto'
 import { canonicalJson } from './types.js'
+import { capabilityOf } from './rails.js'
 
 // PKCS#8 DER prefix for a raw Ed25519 seed (RFC 8410).
 const PKCS8_ED25519_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex')
@@ -123,8 +124,8 @@ export function verifyReceipt(
 
   // The rail is not decoration: a receipt from a non-charging rail that claims
   // money moved is exactly the forgery this chain exists to make detectable.
-  if (receipt.rail === 'at_venue' && charged !== 0) {
-    errors.push('at_venue receipt reports a charged amount — no card is charged on this rail')
+  if (!capabilityOf(receipt.rail).charges && charged !== 0) {
+    errors.push(`${receipt.rail} receipt reports a charged amount — no card is charged on this rail`)
   }
 
   // Pinning the key matters: without it, an attacker signs with their own

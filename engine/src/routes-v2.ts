@@ -156,7 +156,16 @@ export function registerProductRoutes(
     const input = CreateGroupSchema.parse(req.body)
     social.assertSeatable(me.id, input.members)
     const members = input.members
-    const created = service.createGroup({ ...input, members, created_by: me.id, origin: 'extension' })
+    // Reading a page is not a merchant payment integration. Extension groups
+    // always stop at a checkout handoff; an imported URL must never silently
+    // opt into the mandate rail just because it has a valid hostname.
+    const created = service.createGroup({
+      ...input,
+      members,
+      created_by: me.id,
+      origin: 'extension',
+      rail: 'checkout_handoff',
+    })
     // Absolute, like /v1/groups already returns. These URLs are rendered into
     // the MERCHANT'S page by the extension's on-page sheet, so a relative path
     // resolves against amazon.com rather than against sutra — the two primary
@@ -270,9 +279,14 @@ export function registerProductRoutes(
   })
 
   app.get('/v1/people/:id/reliability', async (req) => {
+    const me = requireUser(req)
     const { id } = req.params as { id: string }
     const user = social.byId(id)
     if (!user) throw new UserError('no such person', 404)
+    const isFriend = social.friendsOf(me.id).some((friend) => friend.id === id)
+    if (id !== me.id && !isFriend) {
+      throw new UserError('reliability is visible only to you and your friends', 403)
+    }
     return { user: publicUser(user), reliability: social.reliability(id) }
   })
 
@@ -346,10 +360,11 @@ export function registerProductRoutes(
       settled: number
       backstop_armed: number
       owed_at_venue: number
+      agreed_not_charged: number
     }>()
     const bump = (cur: string, k: keyof NonNullable<ReturnType<typeof exposure.get>>, n: number) => {
       const e = exposure.get(cur) ?? {
-        authorized: 0, charging: 0, settled: 0, backstop_armed: 0, owed_at_venue: 0,
+        authorized: 0, charging: 0, settled: 0, backstop_armed: 0, owed_at_venue: 0, agreed_not_charged: 0,
       }
       e[k] += n
       exposure.set(cur, e)
@@ -366,7 +381,9 @@ export function registerProductRoutes(
         if (mine.status === 'approved') bump(g.currency, 'authorized', mine.cap_amount)
         if (mine.status === 'charging') bump(g.currency, 'charging', mine.share_amount)
         if (mine.status === 'charged') bump(g.currency, 'settled', mine.charged_amount)
-        if (mine.status === 'settled') bump(g.currency, 'owed_at_venue', mine.share_amount)
+        if (mine.status === 'settled') {
+          bump(g.currency, g.rail === 'at_venue' ? 'owed_at_venue' : 'agreed_not_charged', mine.share_amount)
+        }
         // A standing offer to cover someone else is exposure too, and it is
         // the one people forget they made.
         if (mine.backstop_mandate_id && mine.backstop_absorbed === 0 && !GROUP_TERMINAL.has(g.status)) {
@@ -395,6 +412,11 @@ export function registerProductRoutes(
       }
 
       if (GROUP_TERMINAL.has(g.status)) {
+        const yourAmount = mine?.status === 'charged'
+          ? mine.charged_amount
+          : mine?.status === 'settled'
+            ? mine.share_amount
+            : 0
         recent.push({
           group_id: g.id,
           title: g.title,
@@ -402,7 +424,8 @@ export function registerProductRoutes(
           rail: g.rail,
           currency: g.currency,
           charged: members.reduce((s, m) => s + m.charged_amount, 0),
-          your_amount: mine?.charged_amount || mine?.share_amount || 0,
+          your_amount: yourAmount,
+          amount_kind: mine?.status === 'charged' ? 'charged' : mine?.status === 'settled' ? 'agreed' : 'not_completed',
           at: g.created_at,
         })
         continue

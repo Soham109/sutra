@@ -62,8 +62,8 @@ export default function NandaPage() {
             <p>
               Not a screenshot, not a cached badge — this component calls each URL below the moment
               this page finishes loading, from wherever you are reading it. The thread fills as real
-              responses land, the same way sutra&rsquo;s own consent thread fills as real mandates are
-              approved: it can only move when something true has happened.
+              responses land, while the payment panel below is explicitly reproducible simulator proof—not a
+              claim that a real card was charged.
             </p>
           </div>
           <DiscoveryChain />

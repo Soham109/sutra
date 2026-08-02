@@ -20,9 +20,9 @@ export default function Landing() {
     <main>
       <section className="l-wrap l-hero"><div className="l-hero-copy">
         <h1>Split it before<br />you <span>pay it.</span></h1>
-        <p>Plan the thing, ask everyone the awkward questions, then let each person approve their own share on their own card. Every card is charged in the same moment, or none of them is. Nobody fronts the money and nobody chases anyone for it.</p>
+        <p>Plan the thing, import a real Shopify product or split the final bill. Sutra gives every person one exact decision, names the merchant finish line, and signs the outcome without pretending an agreement was a payment.</p>
         <div className="l-hero-actions"><Link className="l-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link><Link className="l-button l-button-quiet" href="/app/bill">Split a bill</Link></div>
-        <div className="l-hero-proof"><span>Nothing pooled</span><span>Nothing fronted</span><span>Nothing invented</span></div>
+        <div className="l-hero-proof"><span>No pooled wallet</span><span>Every rail named</span><span>Nothing invented</span></div>
         <LiveBadge />
       </div>
       <MandateOrbit />
@@ -51,8 +51,8 @@ export default function Landing() {
       </div></section>
       */}
 
-      <section className="l-final"><div className="l-wrap l-final-inner"><div><h2>Make the plan.<br /><span>Lose the treasurer.</span></h2><p>One group, one decision, everyone pays with their own card. Nobody fronts anything, nobody chases anyone.</p></div><Link className="l-final-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link></div></section>
+      <section className="l-final"><div className="l-wrap l-final-inner"><div><h2>Make the plan.<br /><span>Keep the finish honest.</span></h2><p>One group, individually capped decisions, and a receipt that distinguishes charged, ready for POS, checkout handoff and owed at venue.</p></div><Link className="l-final-button" href="/app/plan/new">Plan with Sutra bot <Arrow /></Link></div></section>
     </main>
-    <footer className="l-footer"><div className="l-wrap"><div className="l-brand"><Mark /><span>sutra</span></div><p>Group coordination and checkout—without turning one friend into the bank.</p><div><a href={SPEC}>Protocol</a><a href={REPO}>GitHub</a><span>GMP/1 · 2026</span></div></div></footer>
+    <footer className="l-footer"><div className="l-wrap"><div className="l-brand"><Mark /><span>sutra</span></div><p>Multi-person coordination, consent and rail-aware settlement evidence.</p><div><a href={SPEC}>Protocol</a><a href={REPO}>GitHub</a><span>GMP/1 · 2026</span></div></div></footer>
   </div>
 }

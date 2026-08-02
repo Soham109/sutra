@@ -3,7 +3,7 @@
 import type { GroupStatus } from '@/lib/api'
 import { Badge, Money, PolicyChip } from '@/components/ui'
 import { money } from '@/lib/format'
-import { asPolicy, statusTone, STATUS_LINE, type Receipt } from './model'
+import { asPolicy, statusTone, statusLine, type Receipt } from './model'
 
 export function GroupStatusBadge({ status }: { status: GroupStatus | string }) {
   const tone =
@@ -31,8 +31,9 @@ export function StatusBanner({ receipt }: { receipt: Receipt }) {
         <Badge>{receipt.gmp_version}</Badge>
       </div>
       <p className="small" style={{ marginTop: 8, color: 'var(--ink-2)' }}>
-        {STATUS_LINE[receipt.status] ?? 'This group reached a terminal state and the receipt was issued.'}
+        {statusLine(receipt)}
       </p>
+      <p className="tiny faint" style={{ marginTop: 8 }}>{receipt.settlement_disclosure}</p>
       <p style={{ marginTop: 10 }}>{receipt.decision_narrative}</p>
     </section>
   )
@@ -53,9 +54,16 @@ export function Totals({ receipt }: { receipt: Receipt }) {
           Charged total
         </span>
         <Money minor={receipt.totals.charged} currency={cur} size="lg" />
+
+        {!receipt.totals.charged && receipt.totals.owed > 0 ? (
+          <>
+            <span className="small" style={{ fontWeight: 550 }}>Agreed, not charged</span>
+            <Money minor={receipt.totals.owed} currency={cur} size="lg" />
+          </>
+        ) : null}
       </div>
 
-      {gap !== 0 && (
+      {receipt.totals.charged > 0 && gap !== 0 && (
         <p className="tiny faint" style={{ marginTop: 8 }}>
           {gap > 0
             ? `${money(gap, cur)} of the quote was never collected — those mandates were cancelled instead.`

@@ -10,8 +10,8 @@ const STEPS: { title: string; body: string }[] = [
     body: 'Each friend agrees on their own phone. On the card rail that is a Prava mandate; at a venue it is just the amount they will pay the waiter.',
   },
   {
-    title: 'The group commits together — or not at all',
-    body: 'When the rule is met, either every card is charged in one moment, or the table has a signed record of who owes what. If the rule fails, nothing moves.',
+    title: 'The rule chooses the finish line',
+    body: 'After the rule passes, the chosen rail runs. Charging is recoverable and may report a truthful partial; POS, checkout and venue rails record agreement without claiming payment.',
   },
 ]
 
@@ -44,15 +44,15 @@ const FLOW: { step: string; body: string }[] = [
   },
   {
     step: 'The engine commits',
-    body: 'When the group policy is satisfied, the engine charges every mandate in the same commit. Not one at a time, not first-come-first-served.',
+    body: 'When the group policy is satisfied, the engine locks one charge plan and processes it sequentially with stable idempotency references and reconciliation before retry.',
   },
   {
     step: 'Prava mints the credential',
     body: 'Each charge mints a single-use credential against that member’s own card — locked to the merchant, capped at the approved amount, expiring with the group.',
   },
   {
-    step: 'Or nothing happens',
-    body: 'If the policy is not met before the deadline, every mandate is cancelled. Nobody is charged, so there is nothing to chase and nothing to refund.',
+    step: 'Every outcome stays explicit',
+    body: 'If the policy fails before commit, unused mandates are cancelled. After charging starts, a mixed irreversible result is reported as partial instead of being called atomic.',
   },
 ]
 

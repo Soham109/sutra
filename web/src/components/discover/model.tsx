@@ -19,10 +19,10 @@ export const ROLE_LABEL: Record<Role, string> = {
 
 /** One sentence, shown wherever the role is chosen. Nobody knows this vocabulary yet. */
 export const ROLE_LINE: Record<Role, string> = {
-  payer: 'Approves their own share and pays it on their own card.',
-  backstop: 'Pays a share too, and covers other people’s shortfalls up to a cap they set.',
-  sponsor: 'Claims nothing — pays one named member’s share instead of their own.',
-  observer: 'Can watch the group and keep the receipt, but is never charged.',
+  payer: 'Confirms their own exact share; the selected finish line says whether payment follows.',
+  backstop: 'On a verified payment adapter, covers approved shortfalls up to a cap they set.',
+  sponsor: 'On a verified payment adapter, covers one named member’s share instead of their own.',
+  observer: 'Can watch the group and keep the receipt, but has no payment obligation.',
 }
 
 export const STRAGGLER_OPTIONS: { value: StragglerPolicy; label: string; line: string }[] = [
@@ -39,7 +39,7 @@ export const STRAGGLER_OPTIONS: { value: StragglerPolicy; label: string; line: s
   {
     value: 'halt_partial',
     label: 'Halt',
-    line: 'Stop everything. If anyone is missing at the deadline, nobody is charged.',
+    line: 'Stop everything if anyone is missing at the deadline; do not begin the selected finish line.',
   },
 ]
 

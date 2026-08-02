@@ -13,6 +13,7 @@ export function CancelGroup({ group, onGroup }: { group: Group; onGroup: (g: Gro
   const [refusal, setRefusal] = useState<string | null>(null)
 
   if (group.terminal) return null
+  const charges = group.rail_capability?.charges ?? group.rail === 'prava_mandates'
 
   const run = async () => {
     setBusy(true)
@@ -31,8 +32,9 @@ export function CancelGroup({ group, onGroup }: { group: Group; onGroup: (g: Gro
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) {
         setRefusal(
-          'Too late to cancel — the group is committing and the charges are already in flight. ' +
-            'Watch the log: every card either clears or fails, and the receipt records both.',
+          charges
+            ? 'Too late to cancel — the charge sequence has started. Watch the log: every provider result is reconciled and the receipt records any partial outcome.'
+            : 'Too late to cancel — the group is sealing the agreement. Watch the log for the final signed outcome.',
         )
       } else if (err instanceof ApiError && err.status === 404) {
         setRefusal('That group is no longer on the engine.')
@@ -66,12 +68,14 @@ export function CancelGroup({ group, onGroup }: { group: Group; onGroup: (g: Gro
           }
         >
           <p className="small">
-            Every mandate lapses and <b>nobody is charged</b> — including anyone who already approved. This cannot be
-            undone; you would have to start a new group.
+            {charges ? (
+              <>Every unused test mandate lapses and <b>no charge sequence begins</b>. This cannot be undone; you would have to start a new group.</>
+            ) : (
+              <>Every invitation closes and <b>no agreement is sealed as complete</b>. This cannot be undone; you would have to start a new group.</>
+            )}
           </p>
           <p className="small muted" style={{ marginTop: 10 }}>
-            Once the group reaches the point of no return the engine refuses to cancel, because the charges are already
-            with the card network.
+            Once the group reaches its point of no return, the engine refuses to cancel so the final record cannot contradict work already in flight.
           </p>
           {busy && (
             <div style={{ marginTop: 12 }}>

@@ -174,10 +174,9 @@ export const CreateGroupSchema = z.object({
   /** ISO 4217 codes to snapshot for per-member display currency (§21.3) */
   display_currencies: z.array(z.string().length(3)).default(['INR', 'EUR', 'GBP']),
   /**
-   * Settlement rail. Omitted means "infer from whether a real merchant exists"
-   * — see rails.ts. A bill from a restaurant has no chargeable merchant and
-   * lands on at_venue, where the engine allocates and records but never claims
-   * to have charged anybody.
+   * Settlement rail. Omitted merchant URLs default to checkout handoff; a URL
+   * never self-asserts a charging integration. Bills without a merchant adapter
+   * land at_venue. Only trusted/operator paths may select prava_mandates.
    */
   rail: RailSchema.optional(),
   /** Free-text provenance for the cart: 'bill', 'widget', 'plan', 'agent'… */
@@ -237,7 +236,7 @@ export interface GroupRow {
   auction_close_at: string | null
   /** FX rate snapshot for display currencies: {base, rates, at, source} */
   fx_json: string | null
-  /** 'prava_mandates' | 'at_venue' — see rails.ts */
+  /** Settlement capability selected for this group — see rails.ts. */
   rail: string
   /** where this cart came from: 'bill' | 'widget' | 'plan' | 'agent' | 'api' */
   origin: string | null

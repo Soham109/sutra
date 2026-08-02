@@ -175,15 +175,19 @@ export default function ApprovalPage() {
                 disabled={live.busy === 'hold'}
                 onClick={() => void live.run('hold')}
               >
-                {live.busy === 'hold' ? 'Pausing…' : 'Hold my share (pauses the mandate)'}
+                {live.busy === 'hold'
+                  ? 'Pausing…'
+                  : v.rail_capability.mandates
+                    ? 'Hold my share (pauses the mandate)'
+                    : 'Hold my agreement'}
               </button>
             ) : null}
             <button className="btn btn-danger btn-block" onClick={() => setDeclineOpen(true)}>
               Withdraw my approval
             </button>
             <p className="tiny faint">
-              Holding pauses your mandate and counts as <b>not approved</b> while the group decides. Withdrawing
-              cancels it outright.
+              Holding counts as <b>not approved</b> while the group decides. Withdrawing cancels your consent
+              outright. {v.rail_capability.mandates ? 'Any mandate is paused or cancelled with it.' : 'No card has been charged.'}
             </p>
           </div>
         )}
@@ -229,7 +233,12 @@ export default function ApprovalPage() {
                 : `That's right — I owe ${money(v.share_amount, cur)}`}
             </button>
             <p className="tiny faint" style={{ textAlign: 'center' }}>
-              No card is charged here. You pay {v.group.merchant.name} directly.
+              No card is charged here.{' '}
+              {v.rail === 'shopify_pos'
+                ? `You present your own card at ${v.group.merchant.name}'s Shopify POS counter.`
+                : v.rail === 'checkout_handoff'
+                  ? 'The order, delivery address and payment still happen at merchant checkout.'
+                  : `You pay ${v.group.merchant.name} directly.`}
             </p>
             <button className="btn btn-ghost btn-block" onClick={() => setDeclineOpen(true)}>
               That&apos;s not right — I&apos;m out

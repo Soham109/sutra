@@ -1,6 +1,5 @@
 'use client'
 
-import { money } from '@/lib/format'
 import type { Reliability } from '@/lib/api'
 import { LatencyMeter, Ring, formatLatency } from './charts'
 
@@ -10,10 +9,8 @@ import { LatencyMeter, Ring, formatLatency } from './charts'
 
 export function ReliabilityPanel({
   reliability: r,
-  settledCurrency,
 }: {
   reliability: Reliability
-  settledCurrency: string | null
 }) {
   if (r.groups === 0) return null // brand new — the stat row above already teaches this
 
@@ -88,8 +85,7 @@ export function ReliabilityPanel({
 
       {r.backstopped_total_minor > 0 && (
         <p className="record-backstop">
-          You’ve covered <b>{money(r.backstopped_total_minor, settledCurrency ?? 'USD')}</b> for
-          friends when they didn’t pay.
+          Backstop coverage appears on the original currency-specific receipts. It is not summed across currencies here.
         </p>
       )}
     </section>

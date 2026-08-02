@@ -66,7 +66,11 @@ export function NeedsYou({
                 </p>
               ) : (
                 <p className="need-cap">
-                  You’ll pay the venue directly. Nothing is charged through sutra.
+                  {a.rail === 'shopify_pos'
+                    ? 'Confirm this share, then present your own card at Shopify POS. Nothing is charged here.'
+                    : a.rail === 'checkout_handoff'
+                      ? 'Confirm the proposed share. Merchant checkout and payment are still pending.'
+                      : 'You’ll pay the venue directly. Nothing is charged through sutra.'}
                 </p>
               )}
 

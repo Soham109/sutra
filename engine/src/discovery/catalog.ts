@@ -70,7 +70,7 @@ export function buildCatalog(cfg: DiscoveryConfig): AiCatalog {
         // form a catalog entry is expected to point at.
         url: abs(cfg, WELL_KNOWN.namedAgentCard),
         description:
-          'One cart, N people, N card-network-enforced payment mandates, committed together: everyone is charged in one window or nobody is. Also coordinates the plan before the cart and splits a physical restaurant bill exactly. No pooled funds, no card numbers.',
+          'One cart, N people and one explicit finish line. Sutra coordinates person-scoped consent, exact allocation, recoverable Prava test charges where configured, Shopify POS or checkout handoff, and physical-bill agreement. No pooled funds; partial outcomes stay explicit.',
         tags: [
           'payments',
           'agentic-commerce',
@@ -191,7 +191,7 @@ export function buildIndexRecord(cfg: DiscoveryConfig, opts: IndexRecordOptions)
     identifier,
     media_type: 'application/ai-catalog+json',
     description:
-      'Multi-principal group checkout. One cart, N people, N card-network-enforced payment mandates, committed together — everyone is charged in one window or nobody is. No pooled funds, nobody fronts money, the engine never sees a card number.',
+      'Multi-principal purchase coordination. One cart, N people, independently capped decisions, an explicit settlement rail and a signed outcome. Charging is sequential and idempotent with reconciliation; POS, checkout and venue rails never claim a card charge.',
     tags: [
       'payments',
       'agentic-commerce',

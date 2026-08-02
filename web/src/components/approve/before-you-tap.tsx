@@ -60,11 +60,11 @@ export function BeforeYouTap({ v }: { v: MemberView }) {
             3
           </span>
           <div>
-            <b>If the group falls apart, you pay nothing.</b>
+            <b>If the rule fails before commit, this permission is cancelled.</b>
             <p>
-              Everyone is charged in the same moment or nobody is. If someone backs out, every
-              permission is cancelled instead — so there is no charge to refund and nothing to
-              wait on.
+              Charging starts only after the policy passes. Each attempt has a stable reference;
+              unknown provider results are checked before retry. If an irreversible mixed outcome
+              occurs, Sutra reports it as partial and names exactly what cleared.
             </p>
           </div>
         </li>

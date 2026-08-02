@@ -6,6 +6,7 @@
 // rather than extending it.
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { RailSchema } from './rails.js'
 import { currencyForCountry, extractIntent, locationPhrase, statedCurrency } from './agent/extract.js'
 import { minorUnits } from './catalog/parse.js'
 import { UserError, type GroupService } from './service.js'
@@ -262,7 +263,7 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
     return planView(d, plan, viewerFor(d, req, plan))
   })
 
-  /** The handover: coordination becomes a GMP/1 group with real mandates. */
+  /** The handover: coordination becomes a GMP/1 group on an explicit rail. */
   app.post('/v1/plans/:id/convert', async (req, reply) => {
     const { id } = req.params as { id: string }
     const planGate = d.plans.mustPlan(id)
@@ -277,6 +278,7 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
         tolerance_bps: z.number().int().min(0).max(5000).optional(),
         no_blame: z.boolean().optional(),
         title: z.string().max(140).optional(),
+        rail: RailSchema.optional(),
       })
       .parse(req.body ?? {})
     const { group, members } = await d.plans.convertToGroup(id, body)

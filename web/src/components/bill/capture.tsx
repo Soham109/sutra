@@ -57,6 +57,8 @@ export function BillCapture({
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<string | null>(null)
+  const [visionCandidate, setVisionCandidate] = useState<{ file: File; confidence: number } | null>(null)
+  const [visionBusy, setVisionBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
 
@@ -64,6 +66,7 @@ export function BillCapture({
     setError('')
     setStage('preparing')
     setProgress(0)
+    setVisionCandidate(null)
 
     const url = URL.createObjectURL(file)
     setPreview(url)
@@ -104,20 +107,11 @@ export function BillCapture({
 
         const confidence = Math.round(data.confidence ?? 0)
 
-        // A crumpled receipt in bad light comes back as confident nonsense, and
-        // on-device OCR has no way to know it. When the engine has a vision key
-        // configured, a low-confidence read is worth a second opinion — the
-        // photo goes up, the model TRANSCRIBES it (it is explicitly forbidden
-        // from doing arithmetic), and the same deterministic parser reconciles
-        // whatever comes back. If there is no key, or it fails, the local read
-        // still stands and the human still gets to correct it.
+        // A low-confidence photo can benefit from a configured vision service,
+        // but that would upload a receipt. Never do that as a silent fallback:
+        // keep the on-device draft, then offer one explicit, disclosed button.
         if (confidence < LOW_CONFIDENCE) {
-          const better = await secondOpinion(file).catch(() => null)
-          if (better) {
-            setStage('done')
-            onText(better, { confidence, source: 'vision' })
-            return
-          }
+          setVisionCandidate({ file, confidence })
         }
 
         setStage('done')
@@ -134,6 +128,25 @@ export function BillCapture({
   }, [onText])
 
   const pick = (input: HTMLInputElement | null) => input?.click()
+
+  const useVision = async () => {
+    if (!visionCandidate || visionBusy) return
+    setVisionBusy(true)
+    setError('')
+    try {
+      const better = await secondOpinion(visionCandidate.file)
+      if (!better) {
+        setError('The configured vision service was unavailable. Keep correcting the on-device draft below.')
+        return
+      }
+      onText(better, { confidence: visionCandidate.confidence, source: 'vision' })
+      setVisionCandidate(null)
+    } catch (caught) {
+      setError(`The vision service could not read that photo — ${(caught as Error).message}.`)
+    } finally {
+      setVisionBusy(false)
+    }
+  }
 
   return (
     <div className="capture">
@@ -202,9 +215,22 @@ export function BillCapture({
 
       {error && <p className="capture-error">{error}</p>}
 
+      {visionCandidate && (
+        <div className="well" style={{ marginTop: 10 }}>
+          <b>Local read confidence: {visionCandidate.confidence}%</b>
+          <p className="small muted" style={{ margin: '5px 0 10px' }}>
+            You can keep editing the on-device draft, or explicitly upload this receipt to the configured vision
+            service for a second transcription. The service receives the full photo.
+          </p>
+          <button type="button" className="btn btn-secondary" disabled={visionBusy} onClick={() => void useVision()}>
+            {visionBusy ? 'Uploading for a second read…' : 'Upload to vision service'}
+          </button>
+        </div>
+      )}
+
       <p className="capture-note">
-        The photo is read on this device and never uploaded. Whatever comes out is a draft — check
-        it against the paper before anyone agrees to a number.
+        The photo is read on this device by default. It leaves the device only if you explicitly choose the
+        disclosed vision-service upload above. Every result is a draft—check it against the paper before anyone agrees.
       </p>
     </div>
   )

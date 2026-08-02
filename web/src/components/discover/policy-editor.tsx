@@ -169,8 +169,8 @@ export function PolicyEditor({
           )}
           <p className="tiny faint">
             {policy.type === 'all_of'
-              ? 'The safest rule: one decline and nobody is charged at all.'
-              : 'People who never approve are not charged. The ones who do approve carry the cart between them.'}
+              ? 'The strictest rule: one decline stops the group before its selected finish line.'
+              : 'People who never approve are excluded. The approved members carry the proposed split between them.'}
           </p>
         </div>
       )}

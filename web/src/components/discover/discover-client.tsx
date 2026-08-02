@@ -11,6 +11,7 @@ import { ProductImage } from './product-image'
 import { PriceCompare } from './price-compare'
 import { SourceErrors, SourceStrip, UnavailableSources, type SourceHealth } from './sources'
 import { detailFromProduct, domainOf, looksLikeUrl, normaliseUrl } from './model'
+import { EXTENSION_INSTALL_URL } from '@/lib/links'
 
 interface Resolved {
   product: ProductDetail
@@ -52,70 +53,6 @@ function blankDetail(raw: string): ProductDetail {
     fine_print: [],
   }
 }
-
-/** A split with nothing to read from any page — a restaurant bill, a shared
- *  cab, anything without a product URL. No merchant, no link, just a name and
- *  a total the organizer types in themselves. */
-function manualDetail(label: string): ProductDetail {
-  return {
-    id: 'manual',
-    title: '',
-    price: { amount_minor: 0, currency: 'USD' },
-    unit_label: 'each',
-    merchant: { name: label, url: '', country_code_iso2: 'US', domain: '' },
-    product_url: '',
-    in_stock: true,
-    source: 'url',
-    variants: [],
-    images: [],
-    fine_print: [],
-  }
-}
-
-type Moment =
-  | { icon: string; label: string; kind: 'paste'; placeholder: string; hint: string }
-  | { icon: string; label: string; kind: 'manual'; hint: string }
-
-/**
- * Every one of these used to run a literal-text search for its own label —
- * "Movie tickets" searched for the string "Movie tickets" against a catalog
- * of three activewear stores, and returned nothing. Search only reaches a
- * handful of demo storefronts; pasting a link reads almost any single
- * product page directly. So each of these now routes to whichever of those
- * two things actually works for that kind of purchase, instead of pretending
- * search covers categories it does not.
- */
-const MOMENTS: Moment[] = [
-  {
-    icon: '◒', label: 'Movie tickets', kind: 'paste',
-    placeholder: 'Paste the tickets page — your BookMyShow or Fandango link',
-    hint: 'Sutra will try to read the listing. You verify the showtime, seats and price before continuing.',
-  },
-  {
-    icon: '✦', label: 'Flights', kind: 'paste',
-    placeholder: 'Paste the fare page from the airline or booking site',
-    hint: 'Paste the exact public fare page. If it cannot be read, you can enter the details yourself.',
-  },
-  {
-    icon: '⌂', label: 'A place to stay', kind: 'paste',
-    placeholder: 'Paste the listing — Airbnb, Booking.com, the hotel’s own page',
-    hint: 'Paste the public listing, then verify or enter the nightly rate before splitting it.',
-  },
-  {
-    icon: '♫', label: 'Concert tickets', kind: 'paste',
-    placeholder: 'Paste the tickets page for the show',
-    hint: 'Paste the exact public listing, then verify what was read before continuing.',
-  },
-  {
-    icon: '⌁', label: 'Dinner', kind: 'manual',
-    hint: 'A shared bill has no page to read — type the total and split it.',
-  },
-  {
-    icon: '◇', label: 'Group gift', kind: 'paste',
-    placeholder: 'Paste the product page for the gift',
-    hint: 'Works like any other item — paste the page, set who is chipping in.',
-  },
-]
 
 /** Queries that are known to return real products from the default shelf.
  *  Verified against the live engine rather than hopefully typed in. */
@@ -221,6 +158,10 @@ export function DiscoverClient() {
     } else if (query) {
       setQ(query)
       void runSearch(query, merchant)
+    } else {
+      // The page opens as a shop, not an empty search engine. These are still
+      // live Shopify results (never fixtures); typing any query replaces them.
+      void runSearch('shirt', '')
     }
   }, [params, resolveUrl, runSearch])
 
@@ -257,29 +198,6 @@ export function DiscoverClient() {
       )
       void runSearch(text, store)
     }
-  }
-
-  /** Nothing to read from any page — skip straight to a blank, editable draft. */
-  const startManual = (label: string) => {
-    setHint(null)
-    setResolved({
-      product: manualDetail(label),
-      strategy: 'entered by hand',
-      warnings: [`There is no page to read for “${label}” — the name, the total and who owes what are all yours to set.`],
-      partial: true,
-    })
-    setMode('build')
-    router.replace('/app/discover?step=build', { scroll: false })
-  }
-
-  const pickMoment = (m: Moment) => {
-    if (m.kind === 'manual') {
-      startManual(m.label)
-      return
-    }
-    setQ('')
-    setHint({ placeholder: m.placeholder, text: m.hint })
-    searchInput.current?.focus()
   }
 
   /** A search hit only carries the summary — read the real page before building. */
@@ -342,11 +260,14 @@ export function DiscoverClient() {
   return (
     <div className="page discover-page">
       <div className="page-head discover-head">
-        <span className="eyebrow">New split</span>
+        <span className="eyebrow">Shopify discovery</span>
         <h1>
-          Find it. <span>Then split it.</span>
+          Find it on Shopify. <span>Split it honestly.</span>
         </h1>
-        <p className="muted">Search a store, or paste a product link — then seat your friends.</p>
+        <p className="muted">
+          Search live Shopify storefronts. For another merchant or an authenticated cart, import the page with
+          the browser extension.
+        </p>
       </div>
 
       <form onSubmit={submit} className="card card-pad discover-search" style={{ marginBottom: 14 }}>
@@ -360,8 +281,8 @@ export function DiscoverClient() {
                 setQ(e.target.value)
                 if (hint) setHint(null)
               }}
-              placeholder={hint?.placeholder ?? 'Search “merino tee”, or paste any product link'}
-              aria-label="Search for a product, or paste a product link"
+              placeholder={hint?.placeholder ?? 'Search Shopify for “merino tee”, or paste an exact product link'}
+              aria-label="Search Shopify, or paste an exact product link"
               autoComplete="off"
               spellCheck={false}
             />
@@ -396,7 +317,7 @@ export function DiscoverClient() {
                   aria-label="Limit the search to one store"
                 />
                 <button type="button" onClick={() => setStore('')}>
-                  search all catalogues instead
+                  search the Shopify shelf instead
                 </button>
               </>
             ) : (
@@ -407,7 +328,7 @@ export function DiscoverClient() {
                   setTimeout(() => storeInput.current?.focus(), 0)
                 }}
               >
-                Filter by store
+                Search one Shopify store
               </button>
             )}
           </div>
@@ -442,17 +363,20 @@ export function DiscoverClient() {
         )}
       </form>
 
+      <div className="discover-truthbar" role="note">
+        <span><b>Catalog</b> live Shopify data</span>
+        <span><b>In store</b> Shopify POS handoff</span>
+        <span><b>Online</b> merchant adapter required</span>
+        <a href={EXTENSION_INSTALL_URL} target="_blank" rel="noreferrer"><b>Other sites</b> use the extension ↗</a>
+      </div>
+
       {!loading && !results && !resolved && (
-        <div className="discover-moments" aria-label="Common ways to start">
-          <p className="tiny faint discover-moments-label">Or start from what you’re actually splitting</p>
-          <div className="discover-moments-grid">
-            {MOMENTS.map((m) => (
-              <button key={m.label} type="button" onClick={() => pickMoment(m)}>
-                <span>{m.icon}</span>{m.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <section className="discover-capabilities" aria-label="What works today">
+          <article><span>01</span><b>Shopify catalog</b><p>Live product, variant, price, currency and stock data.</p><em>Works now</em></article>
+          <article><span>02</span><b>Shopify POS</b><p>Prepare exact shares, then let the cashier run split payment.</p><em>Merchant must confirm POS</em></article>
+          <article><span>03</span><b>Other merchants</b><p>Read the page or live cart already open in your browser.</p><a href={EXTENSION_INSTALL_URL} target="_blank" rel="noreferrer">Install extension ↗</a></article>
+          <article><span>04</span><b>One online cart</b><p>Coordinate only until that merchant supports the Sutra adapter.</p><em>Never shown as paid</em></article>
+        </section>
       )}
 
       {error && (

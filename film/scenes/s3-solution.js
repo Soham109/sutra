@@ -1,7 +1,7 @@
 // sutra — film · Scene 3 · THE SAME TRIP, DONE PROPERLY (0:40-1:05)
 // --------------------------------------------------------------------------
 // Four phones, side by side, running the same ₹9,600 Goa trip as scene 1 —
-// this time nobody fronts anything. Approving never charges a card; only
+// this time every test outcome is explicit. Approving never charges a card; only
 // the last approval, landing, charges all four in the same frame. The held
 // beat ("Nothing has been charged yet") is the scene's whole point and it
 // sits for well over two seconds before the fourth approval resolves it.
@@ -202,7 +202,7 @@
     E.rail.style.opacity = String(FILM.easeOut(FILM.progress(t, 500, 1100)));
     E.railFill.style.width = (approvedCount / 4 * 100) + '%';
     E.railFill.style.background = t >= CHORD_AT ? 'var(--ok)' : 'var(--brand)';
-    E.railState.textContent = t >= CHORD_AT ? 'COMMITTED · 4 cards in one moment' : approvedCount + ' / 4 mandates';
+    E.railState.textContent = t >= CHORD_AT ? 'COMMITTED · 4 test charges reconciled' : approvedCount + ' / 4 mandates';
     E.railState.className = 's3-rail-state' + (t >= CHORD_AT ? ' committed' : '');
     E.railNodes.forEach(function (node, i) {
       var on = t >= PEOPLE[i].ringTo;

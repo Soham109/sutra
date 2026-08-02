@@ -13,7 +13,7 @@ import { api } from '@/lib/api'
 
 // The organiser's view of a plan in flight: who has answered, what the group's
 // common window actually is, and the ranked board. It ends at one button —
-// turning the chosen option into a real group with real mandates.
+// turning a priced product into a group with an explicit merchant finish line.
 
 export default function PlanPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)

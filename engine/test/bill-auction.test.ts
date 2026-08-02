@@ -119,6 +119,7 @@ describe('scarcity still works where scarcity is real', () => {
         },
         members: [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }],
         policy: { type: 'quorum', m: 3 },
+        rail: 'prava_mandates',
       }),
     )
     expect(w.service.mustGroup(group.id).auction_close_at).not.toBeNull()

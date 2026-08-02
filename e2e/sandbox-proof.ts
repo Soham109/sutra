@@ -30,6 +30,7 @@ const money = (m: number) => `$${(m / 100).toFixed(2)}`
 
 async function main() {
   const health = await call<{ prava_adapter: string; app_base_url: string }>('/health')
+  const appBase = health.app_base_url.replace(/\/$/, '')
   console.log(`\nengine   ${API}`)
   console.log(`adapter  ${health.prava_adapter}`)
   if (health.prava_adapter !== 'sandbox') {
@@ -38,6 +39,7 @@ async function main() {
 
   const group = await call<{
     group_id: string
+    board_url: string
     members: { member_id: string; name: string; share_amount: number; approval_page_url: string }[]
   }>('/v1/groups', 'POST', {
     title: 'Ratatat — 2 tickets',
@@ -55,10 +57,13 @@ async function main() {
     members: [{ name: 'Soham' }, { name: 'Arsh' }],
     policy: { type: 'all_of' },
     deadline_minutes: 180,
+    rail: 'prava_mandates',
   })
 
   console.log(`\ngroup    ${group.group_id}`)
-  console.log(`board    ${API.replace(/\/$/, '')}/g/${group.group_id}/board\n`)
+  console.log(`board    ${group.board_url}`)
+  console.log(`2 phones ${appBase}/j/${group.group_id}`)
+  console.log('          Open this same join link on both devices; each person chooses their own seat.\n')
 
   for (const m of group.members) {
     const view = await call<{
@@ -69,11 +74,12 @@ async function main() {
 
     console.log(`${m.name}`)
     console.log(`  share ${money(m.share_amount)}   cap ${money(view.cap_amount)}   status ${view.status}`)
-    console.log(`  our page   ${m.approval_page_url}`)
-    console.log(`  PRAVA      ${view.approval_url ?? '(none)'}\n`)
+    console.log(`  sutra      ${m.approval_page_url}`)
+    console.log(`  Prava      ${view.approval_url ?? '(none)'}\n`)
   }
 
-  console.log('Open either PRAVA link on a phone and approve with the sandbox test card.')
+  console.log('Open the shared 2 phones link on both devices and choose one different seat on each.')
+  console.log('Each Sutra approval page redirects that person to their own Prava hosted ceremony.')
   console.log('The poller notices the mandate going active and commits the group by itself.\n')
 
   if (!process.argv.includes('--watch')) return
@@ -90,7 +96,8 @@ async function main() {
       console.log(`\n\n  terminal: ${g.status}`)
       const charged = g.members.reduce((s, m) => s + m.charged_amount, 0)
       console.log(`  charged through the card network: ${money(charged)}`)
-      console.log(`  receipt: ${API}/v1/groups/${group.group_id}/receipt\n`)
+      console.log(`  receipt UI: ${appBase}/app/receipts/${group.group_id}`)
+      console.log(`  receipt API: ${API}/v1/groups/${group.group_id}/receipt\n`)
       return
     }
     await new Promise((r) => setTimeout(r, 3000))

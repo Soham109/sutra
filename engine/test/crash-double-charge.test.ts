@@ -62,6 +62,7 @@ async function interruptedMidSettlement(straggler: 'retry_once' | 'drop_and_cont
       },
       members: [{ name: 'Ada' }, { name: 'Bo' }],
       policy: { type: 'all_of' },
+      rail: 'prava_mandates',
       straggler_policy: straggler,
     }),
   )

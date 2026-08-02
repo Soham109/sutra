@@ -1,8 +1,7 @@
 'use client'
 
-import { money } from '@/lib/format'
 import type { Dashboard } from '@/lib/api'
-import { commonCurrency, formatLatency } from './charts'
+import { formatLatency } from './charts'
 
 // The four facts a person wants before they read anything else on the page.
 // Every one of them is a straight read of `reliability`, computed by the
@@ -24,15 +23,7 @@ export function StatRow({ data }: { data: Dashboard }) {
     )
   }
 
-  const settledCurrency = commonCurrency([
-    ...data.exposure.map((e) => e.currency),
-    ...data.recent.map((x) => x.currency),
-  ])
-
   const tiles: { key: string; label: string; value: string }[] = []
-  if (settledCurrency) {
-    tiles.push({ key: 'settled', label: 'Settled', value: money(r.charged_total_minor, settledCurrency) })
-  }
   tiles.push({ key: 'groups', label: 'Groups', value: String(r.groups) })
   tiles.push({
     key: 'rate',

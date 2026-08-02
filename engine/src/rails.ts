@@ -3,25 +3,23 @@ import { z } from 'zod'
 // ---------------------------------------------------------------------------
 // Settlement rails.
 //
-// GMP/1's charging path requires a merchant Prava can reach: consent becomes a
-// mandate, the mandate becomes a one-time card credential, the credential pays
-// the merchant. That is the real rail and it is the default.
+// A merchant URL proves where an item came from; it does not prove payment
+// capability. Charging is therefore an explicit trusted-server choice. Every
+// other merchant flow names its real boundary: cashier-operated Shopify POS,
+// ordinary checkout handoff, or direct settlement at a venue.
 //
-// A physical restaurant bill has no such merchant. The honest response is not
-// to invent one — a receipt claiming a card charge that never happened is the
-// single worst thing this system could produce. So there is a second rail that
-// does everything except move money: exact itemised allocation, explicit
-// per-person acceptance recorded before the card machine arrives, and a signed
-// record of who owed what. Each person then pays the venue on their own card,
-// which every card terminal on earth already supports.
-//
-// The rail is carried in the receipt and rendered on every surface. The verb
-// changes with it: `charged` on the mandate rail, `accepted` and `settled at
-// venue` on the other. Neither surface is ever allowed to borrow the other's
-// language.
+// The rail is carried in the receipt and rendered on every surface. Only
+// `prava_mandates` may use `charged`; the other rails record exact agreement
+// and the next merchant-owned action. A receipt claiming money moved on a
+// non-charging rail is rejected by the verifier.
 // ---------------------------------------------------------------------------
 
-export const RailSchema = z.enum(['prava_mandates', 'at_venue'])
+export const RailSchema = z.enum([
+  'prava_mandates',
+  'shopify_pos',
+  'checkout_handoff',
+  'at_venue',
+])
 export type Rail = z.infer<typeof RailSchema>
 
 export interface RailCapability {
@@ -51,6 +49,29 @@ export const RAILS: Record<Rail, RailCapability> = {
       'Your card is charged directly by the merchant, up to the cap you approve and no further. ' +
       'The cap is enforced by the card network, not by this app. Nobody fronts money and no funds are pooled.',
   },
+  shopify_pos: {
+    rail: 'shopify_pos',
+    label: 'Shopify POS split tender',
+    charges: false,
+    mandates: false,
+    needs_merchant: true,
+    settled_verb: 'ready for Shopify POS',
+    disclosure:
+      'No card is charged through sutra. Everyone confirms their exact share here, then the cashier uses ' +
+      'Shopify POS split payment and charges each person directly. This receipt proves the agreement, not the POS payment.',
+  },
+  checkout_handoff: {
+    rail: 'checkout_handoff',
+    label: 'Merchant checkout handoff',
+    charges: false,
+    mandates: false,
+    needs_merchant: true,
+    settled_verb: 'approved for checkout',
+    disclosure:
+      'No card is charged and no merchant order is placed through sutra. Everyone confirms the proposed split, ' +
+      'then the group returns to the merchant checkout. A one-card checkout still needs a merchant adapter before ' +
+      'several people can pay one order without somebody fronting it.',
+  },
   at_venue: {
     rail: 'at_venue',
     label: 'Settled at the venue',
@@ -77,12 +98,16 @@ export function railFor(opts: { merchantUrl?: string | null; requested?: Rail })
     const host = new URL(url).hostname
     // The placeholder the schema defaults to is not a merchant.
     if (!host || host.endsWith('.test') || host === 'localhost') return 'at_venue'
-    return 'prava_mandates'
+    // A valid merchant URL proves where a product came from. It does not prove
+    // that merchant installed a Sutra/Prava adapter. Charging is therefore
+    // opt-in from trusted server-side capability data; generic URLs stop at
+    // merchant checkout.
+    return 'checkout_handoff'
   } catch {
     return 'at_venue'
   }
 }
 
 export function capabilityOf(rail: string): RailCapability {
-  return RAILS[(rail as Rail) in RAILS ? (rail as Rail) : 'prava_mandates']
+  return RAILS[(rail as Rail) in RAILS ? (rail as Rail) : 'checkout_handoff']
 }

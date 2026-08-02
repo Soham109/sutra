@@ -79,7 +79,7 @@ export const ENGINE_ENDPOINTS: readonly ApiEndpoint[] = [
     method: 'POST',
     path: '/v1/groups',
     summary:
-      'Create a group checkout: one cart, N members, one per-member Prava mandate each, bound by a commit policy. Returns a private approval URL per member.',
+      'Create a group decision: one cart, N members and a commit policy on an explicit rail. Generic merchant URLs default to checkout handoff; only a trusted operator or configured test-store adapter may select Prava mandates.',
     auth: 'bearer',
   },
   {
@@ -205,7 +205,7 @@ export const ENGINE_ENDPOINTS: readonly ApiEndpoint[] = [
     method: 'POST',
     path: '/v1/plans/:id/convert',
     summary:
-      'The handover: turn the chosen plan into a real GMP/1 group with real per-member mandates. Only the plan’s own organiser may call this, same as choose.',
+      'The handover: turn a chosen priced option into a GMP/1 group on an explicit POS or checkout-handoff rail. Venue plans stay plans until a real bill exists. Only the plan organiser may call this.',
     auth: 'session-organiser',
   },
 

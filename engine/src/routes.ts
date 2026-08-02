@@ -9,10 +9,16 @@ import type { Poller } from './poller.js'
 import { MockPrava } from './prava/mock.js'
 import { spendLimit } from './rate-limit.js'
 import { describePolicy, cartTotal, type Policy } from './types.js'
+import {
+  ShopifyTestOrderClient,
+  type ShopifyTestOrderProof,
+} from './shopify/test-order.js'
 
 export interface RoutesConfig {
   apiToken: string
   appBaseUrl: string
+  /** Optional, explicit development-store adapter. Never inferred from a URL. */
+  shopifyTest?: ShopifyTestOrderClient
   /**
    * Resolves the signed-in account behind a request, for the few core routes
    * that need to know who is asking. A function rather than the object itself
@@ -30,6 +36,7 @@ export function registerRoutes(
   poller: Poller,
   cfg: RoutesConfig,
 ): void {
+  const shopifyOrdersInFlight = new Set<string>()
   // Action endpoints (open/decline/hold/…) take POSTs with empty bodies;
   // the default parser 400s on those. Tolerate emptiness, keep strict JSON.
   app.removeContentTypeParser('application/json')
@@ -84,6 +91,18 @@ export function registerRoutes(
     const input = CreateGroupSchema.parse(req.body)
     if (viewer) {
       // Human path: never trust client created_by; always friend-gate.
+      if (input.rail === 'prava_mandates') {
+        const validTestProof =
+          service.prava.kind !== 'production' &&
+          input.origin === 'shopify_test' &&
+          !!cfg.shopifyTest?.matchesMerchant(input.merchant)
+        if (!validTestProof) {
+          throw new UserError(
+            'this merchant has no server-verified payment adapter — use Shopify POS or checkout handoff',
+            422,
+          )
+        }
+      }
       cfg.social?.assertSeatable?.(viewer.id, input.members)
       const { group, members } = service.createGroup({ ...input, created_by: viewer.id })
       return reply.status(201).send({
@@ -160,6 +179,85 @@ export function registerRoutes(
     const receipt = service.db.getReceipt(id)
     if (!receipt) return reply.status(404).send({ error: 'no receipt yet — group is not terminal' })
     return reply.type('application/json').send(receipt)
+  })
+
+  // -- Shopify development-store proof ------------------------------------
+
+  app.get('/v1/shopify-test/status', async () => ({
+    enabled: !!cfg.shopifyTest && service.prava.kind !== 'production',
+    store_domain: cfg.shopifyTest?.storeDomain ?? null,
+    storefront_domain: cfg.shopifyTest?.storefrontDomain ?? null,
+    adapter: service.prava.kind,
+    disclosure:
+      'Creates Shopify orders and transactions with test: true. No real money moves; this is not multi-card Shopify Checkout.',
+  }))
+
+  app.post('/v1/groups/:id/shopify-test-order', async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const adapter = cfg.shopifyTest
+    if (!adapter || service.prava.kind === 'production') {
+      return reply.status(404).send({ error: 'Shopify development-store proof is not configured' })
+    }
+    const group = service.mustGroup(id)
+    const holdsToken = (req.headers.authorization ?? '') === `Bearer ${cfg.apiToken}`
+    const viewer = cfg.social?.userFor(req as { headers: Record<string, unknown> })
+    if (!holdsToken && (!group.created_by || viewer?.id !== group.created_by)) {
+      return reply.status(403).send({ error: 'only the organiser can create the Shopify test order' })
+    }
+    if (group.origin !== 'shopify_test' || group.rail !== 'prava_mandates') {
+      throw new UserError('this group was not created as a Shopify test-order proof', 422)
+    }
+    if (group.status !== 'committed') {
+      throw new UserError('finish every Sutra test approval before creating the Shopify test order', 409)
+    }
+    const merchant = JSON.parse(group.merchant_json) as { url: string }
+    if (!adapter.matchesMerchant(merchant)) {
+      throw new UserError('the product is not from the configured Shopify development store', 422)
+    }
+    const existing = service.db.getShopifyTestOrder(id)
+    if (existing) return reply.send(JSON.parse(existing) as ShopifyTestOrderProof)
+    if (shopifyOrdersInFlight.has(id)) {
+      throw new UserError('the Shopify test order is already being created', 409)
+    }
+
+    const body = z.object({
+      email: z.string().email(),
+      shipping_address: z.object({
+        first_name: z.string().min(1).max(80),
+        last_name: z.string().min(1).max(80),
+        address1: z.string().min(1).max(200),
+        address2: z.string().max(200).optional(),
+        city: z.string().min(1).max(100),
+        province_code: z.string().min(1).max(20).optional(),
+        country_code: z.string().length(2),
+        zip: z.string().min(2).max(20),
+        phone: z.string().min(5).max(30).optional(),
+      }),
+    }).parse(req.body)
+
+    shopifyOrdersInFlight.add(id)
+    try {
+      const proof = await adapter.create({
+        group,
+        cart: JSON.parse(group.cart_json) as Cart,
+        members: service.db.membersOf(id),
+        email: body.email,
+        shippingAddress: body.shipping_address,
+      })
+      service.db.saveShopifyTestOrder(id, JSON.stringify(proof))
+      service.hub.emit(id, null, 'shopify.test_order_created', {
+        order_name: proof.order_name,
+        test: true,
+        transaction_count: proof.transaction_count,
+        total: proof.total_minor,
+        currency: proof.currency,
+      })
+      return reply.status(201).send(proof)
+    } catch (error) {
+      throw new UserError(`Shopify test order failed: ${(error as Error).message}`, 502)
+    } finally {
+      shopifyOrdersInFlight.delete(id)
+    }
   })
 
   app.get('/v1/groups/:id/events', async (req, reply) => {
@@ -392,6 +490,9 @@ export function groupView(service: GroupService, g: GroupRow) {
     created_by: g.created_by,
     circle_id: g.circle_id,
     product: g.product_json ? JSON.parse(g.product_json) : null,
+    shopify_test_order: service.db.getShopifyTestOrder(g.id)
+      ? JSON.parse(service.db.getShopifyTestOrder(g.id)!)
+      : null,
     deadline_at: g.deadline_at,
     decision_note: g.decision_note,
     terminal: GROUP_TERMINAL.has(g.status),

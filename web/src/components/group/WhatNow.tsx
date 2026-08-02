@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { money } from '@/lib/format'
-import type { GroupStatus } from '@/lib/api'
+import type { GroupStatus, Rail } from '@/lib/api'
 
 // What is actually going on, in the words a person would use.
 //
@@ -35,6 +35,7 @@ export function WhatNow({
   groupId,
   charges,
   terminal,
+  rail,
 }: {
   status: GroupStatus
   members: Member[]
@@ -43,6 +44,7 @@ export function WhatNow({
   /** true on the rail that actually charges cards */
   charges: boolean
   terminal: boolean
+  rail: Rail
 }) {
   const payers = members.filter((m) => m.role !== 'observer')
   const waiting = payers.filter((m) => WAITING.has(m.status))
@@ -60,7 +62,7 @@ export function WhatNow({
         </h2>
         <p>
           {charges
-            ? 'Each person is charged their own amount, on their own card, in the same moment. If any single one fails, the ones that already went through are not left stranded — the group lands on a partial result and says exactly who paid what.'
+            ? 'Sutra is processing each capped credential with an idempotent reference. Unknown results are reconciled before retry; if an irreversible mixed result occurs, the group reports exactly who paid what as partial.'
             : 'Recording everyone’s agreement and sealing the receipt. No card is charged through sutra on this kind of split.'}
         </p>
       </section>
@@ -72,8 +74,8 @@ export function WhatNow({
       <section className="whatnow">
         <h2>Everybody has answered.</h2>
         <p>
-          The rule is being checked now. Nothing has been charged yet — that only happens once the
-          rule passes, and then it happens to everyone at once.
+          The rule is being checked now. Nothing has been charged yet. On a charging rail, a guarded
+          and recoverable transaction sequence begins only after the rule passes.
         </p>
       </section>
     )
@@ -99,8 +101,12 @@ export function WhatNow({
           : ''}
         <b>Nothing has been charged.</b>{' '}
         {charges
-          ? 'Approving costs nothing — it only creates a permission. Every card is charged in the same moment once the rule passes, or none of them is.'
-          : 'This split records who owes what and produces a signed receipt. You pay the venue directly.'}
+          ? 'Approving costs nothing — it creates a capped permission. Charging begins only after the rule passes; retries reconcile provider state and any partial outcome stays explicit.'
+          : rail === 'shopify_pos'
+            ? 'This records each exact share. Once everyone agrees, take the amounts to the cashier for Shopify POS split payment.'
+            : rail === 'checkout_handoff'
+              ? 'This records the proposed split only. No card is charged and merchant checkout remains a separate next step.'
+              : 'This split records who owes what and produces a signed receipt. You pay the venue directly.'}
       </p>
 
       {/* The single most useful thing on the page when people are missing:

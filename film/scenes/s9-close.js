@@ -9,7 +9,7 @@
 // copy sourced straight from the code:
 //   - field shape: engine/src/receipt.ts (Receipt / ReceiptEntry)
 //   - "COMMITTED" narrative line: TerminalBanner.tsx COPY_CARD.committed
-//     ("Every share cleared on its own card, at the same moment. No one
+//     ("Every planned share cleared on its own capped credential. No one
 //     fronted anyone else.") — live copy, not invented.
 //   - settlement_disclosure: engine/src/rails.ts RAILS.prava_mandates
 //     ("Your card is charged directly by the merchant, up to the cap you
@@ -161,7 +161,7 @@
     var banner = el('div', 's9-banner', receipt);
     el('b', '', banner).textContent = "policy satisfied; 4 principal(s) charged on their own cards";
     banner.appendChild(document.createTextNode(
-      'Every share cleared on its own card, at the same moment. No one fronted anyone else.'
+      'Every planned share cleared on its own capped credential. The receipt names each provider transaction.'
     ));
 
     var totals = el('div', 's9-totals', receipt);
@@ -209,7 +209,7 @@
 
     var closeWrap = el('div', 's9-close', root);
     var l1 = el('div', 'l1', closeWrap);
-    l1.innerHTML = 'Nothing pooled. Nothing fronted.<br>Nothing invented.';
+    l1.innerHTML = 'No pooled wallet. Every handoff named.<br>Nothing invented.';
     el('div', 'url', closeWrap).textContent = 'sutra-gmp.vercel.app';
 
     var stats = el('div', 's9-stats', root);
@@ -279,5 +279,5 @@
   });
 
   window.FILM.caption('Every group ends in a signed receipt — and never claims a charge it did not make.', START, START + 19000);
-  window.FILM.caption('Nothing pooled. Nothing fronted. Nothing invented.', START + 19000, END);
+  window.FILM.caption('No pooled wallet. Every handoff named. Nothing invented.', START + 19000, END);
 })();

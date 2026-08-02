@@ -588,10 +588,10 @@ export class GroupService {
 
     // On a rail that does not charge, committing means the allocation is final
     // and everyone has agreed their number. No card is touched, so there is no
-    // saga to run — and the receipt will say `settled_at_venue`, never
-    // `charged`.
+    // saga to run. The receipt names the next step (venue, Shopify POS, or
+    // merchant handoff) and can never be mistaken for proof of payment.
     if (!capabilityOf(g.rail).charges) {
-      await this.settleAtVenue(g, plan)
+      await this.settleWithoutCharge(g, plan)
       return
     }
 
@@ -656,13 +656,10 @@ export class GroupService {
     }
   }
 
-  /**
-   * at_venue commit. Locks each member's obligation at the agreed amount and
-   * closes the group. `settled` is a distinct status from `charged` on purpose:
-   * every surface, and the signed receipt, must be able to tell a judge which
-   * of the two actually happened.
-   */
-  private async settleAtVenue(g: GroupRow, plan: ChargePlanEntry[]): Promise<void> {
+  /** Locks a non-charging agreement and closes the group. `settled` remains a
+   * distinct member status from `charged`; the rail on the group explains
+   * whether the next action is a venue till, Shopify POS, or online checkout. */
+  private async settleWithoutCharge(g: GroupRow, plan: ChargePlanEntry[]): Promise<void> {
     for (const entry of plan) {
       if (entry.source !== 'share') continue
       const m = this.mustMember(entry.member_id)
@@ -684,7 +681,7 @@ export class GroupService {
         this.cfg.notifier?.notify(m.user_id, {
           kind: 'group.committed',
           title: `“${g.title}” is locked in`,
-          body: 'Everyone’s share is settled at the venue.',
+          body: `${capabilityOf(g.rail).label} is next. No card was charged through sutra.`,
           url: `/g/${g.id}/board`,
         })
       }
@@ -1257,6 +1254,8 @@ export class GroupService {
         charge_txn_id: m.prava_charge_txn_id,
         outcome:
           m.status === 'charged' ? 'charged'
+          : m.status === 'settled' && g.rail === 'shopify_pos' ? 'ready_for_shopify_pos'
+          : m.status === 'settled' && g.rail === 'checkout_handoff' ? 'approved_for_checkout'
           : m.status === 'settled' ? 'settled_at_venue'
           : `not_charged:${m.status}`,
       })

@@ -50,6 +50,7 @@ function demoGroup(world: World, overrides: Record<string, unknown> = {}) {
       { name: 'Maya', role: 'payer' },
     ],
     policy: { type: 'all_of' },
+    rail: 'prava_mandates',
     deadline_minutes: 60,
     ...overrides,
   })
@@ -257,6 +258,7 @@ describe('priority auction (§21.1)', () => {
         { name: 'C', role: 'payer' },
       ],
       policy: { type: 'all_of' },
+      rail: 'prava_mandates',
       auction_window_seconds: 60,
     })
     const { group, members } = world.service.createGroup(input)
@@ -312,6 +314,7 @@ describe('tiered carts', () => {
         { name: 'Maya', role: 'payer' },
       ],
       policy: { type: 'quorum', m: 2 },
+      rail: 'prava_mandates',
     })
     const { group, members } = world.service.createGroup(input)
     const maya = members.find((m) => m.display_name === 'Maya')!

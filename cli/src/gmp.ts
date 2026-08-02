@@ -120,6 +120,7 @@ async function demo(scenario: string): Promise<void> {
     policy,
     straggler_policy: 'retry_once',
     deadline_minutes: 30,
+    rail: 'prava_mandates',
   })
 
   console.log(`  group ${group.group_id}`)
@@ -194,6 +195,7 @@ async function demoAuction(): Promise<void> {
     policy: { type: 'all_of' },
     auction_window_seconds: 300,
     deadline_minutes: 30,
+    rail: 'prava_mandates',
   })
   console.log(`  group ${group.group_id} — 3 claimants, 2 seats`)
   console.log(`  board: ${group.board_url}\n`)

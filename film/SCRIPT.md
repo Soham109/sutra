@@ -25,7 +25,7 @@ one orange accent. No glow, glass, fake browser chrome, or decorative charts.
 | 00:34–00:51 | Coordinate first | Sentence/link/page/bill inputs resolve into a plan; Maya’s answer changes venue order and score. |
 | 00:51–01:03 | Agent boundary | `@sutra` answers from real state, then refuses a payment instruction because only a passkey can consent. |
 | 01:03–01:19 | NANDA × Prava | `prepaid_credits` pooling is compared with `prava_mandates`; terminal invariants arrive as proof. |
-| 01:19–01:30 | Honest edge | Four card credentials are shown against one online card field, followed by the three honest completion rails. |
+| 01:19–01:30 | Shopify boundary | Live catalog, development-store test order proof, Shopify POS handoff, and the ordinary online-checkout boundary. |
 | 01:30–01:45 | Receipt and close | Exact entries, hash chain and Ed25519 signature resolve into the final promise. |
 
 ## Truth rules
@@ -35,6 +35,9 @@ one orange accent. No glow, glass, fake browser chrome, or decorative charts.
 - A physical bill uses the `at_venue` rail: it can settle agreement, not charge
   the venue.
 - An ordinary shared online cart with one card field is not placed by Sutra.
+- Shopify POS is a cashier handoff, not a direct Sutra integration or proof of payment.
+- In the configured development-store proof, Sutra explicitly collects a fictional demo address and creates a Shopify order with `test: true`; no real money moves.
+- In ordinary online handoff, delivery address, shipping, tax and final payment stay in Shopify checkout until a merchant adapter exists.
 - NANDA simulated output remains clearly described as protocol/plugin proof.
 - Captions and receipts use “charged” only for a rail capable of moving money.
 

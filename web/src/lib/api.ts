@@ -82,7 +82,7 @@ export type MemberStatus =
   | 'declined' | 'expired' | 'dropped' | 'charging' | 'charged' | 'settled' | 'failed'
 
 /** Which rail carried a split, and therefore what "settled" is allowed to mean. */
-export type Rail = 'prava_mandates' | 'at_venue'
+export type Rail = 'prava_mandates' | 'shopify_pos' | 'checkout_handoff' | 'at_venue'
 
 export type GroupStatus =
   | 'draft' | 'collecting' | 'deciding' | 'committing'
@@ -139,6 +139,8 @@ export interface Group {
   created_by: string | null
   circle_id: string | null
   product: Record<string, unknown> | null
+  origin: string | null
+  shopify_test_order: ShopifyTestOrderProof | null
   deadline_at: string
   decision_note: string | null
   terminal: boolean
@@ -146,6 +148,29 @@ export interface Group {
   members: GroupMember[]
   auction: { closes_at: string; open: boolean } | null
   fx: { base: string; rates: Record<string, number>; at: string; source: string } | null
+}
+
+export interface ShopifyTestStatus {
+  enabled: boolean
+  store_domain: string | null
+  storefront_domain: string | null
+  adapter: 'mock' | 'sandbox' | 'production'
+  disclosure: string
+}
+
+export interface ShopifyTestOrderProof {
+  order_id: string
+  order_name: string
+  admin_url: string
+  store_domain: string
+  test: true
+  financial_status: string
+  total_minor: number
+  currency: string
+  transaction_count: number
+  group_id: string
+  created_at: string
+  disclosure: string
 }
 
 export type Policy =
@@ -251,6 +276,8 @@ export interface Exposure {
   backstop_armed: number
   /** at_venue rail: agreed, owed to the venue, never charged by us */
   owed_at_venue: number
+  /** Exact non-charging agreement awaiting Shopify POS or merchant checkout. */
+  agreed_not_charged: number
 }
 
 export interface Dashboard {
@@ -268,6 +295,7 @@ export interface Dashboard {
     currency: string
     charged: number
     your_amount: number
+    amount_kind: 'charged' | 'agreed' | 'not_completed'
     at: string
   }[]
   exposure: Exposure[]

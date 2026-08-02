@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import type { GroupMember, GroupStatus } from '@/lib/api'
+import type { GroupMember, GroupStatus, Rail } from '@/lib/api'
 import { money } from '@/lib/format'
 
 // The end of the story, said plainly. "Nothing was charged" is the single most
@@ -11,7 +11,7 @@ const COPY_CARD: Record<string, { cls: string; title: string; line: string }> = 
   committed: {
     cls: 'banner banner-ok',
     title: 'Committed',
-    line: 'Every share cleared on its own card, at the same moment. No one fronted anyone else.',
+    line: 'Every planned share cleared on its own capped credential. The receipt records each provider transaction.',
   },
   partial: {
     cls: 'banner',
@@ -53,6 +53,26 @@ const COPY_VENUE: Record<string, { cls: string; title: string; line: string }> =
   },
 }
 
+function nonChargingCopy(rail: Rail, status: string) {
+  const base = COPY_VENUE[status]
+  if (!base || status !== 'committed') return base
+  if (rail === 'shopify_pos') {
+    return {
+      ...base,
+      title: 'Ready for Shopify POS',
+      line: 'Everyone confirmed an exact share. No card was charged through sutra — the cashier can now run split payment at the counter.',
+    }
+  }
+  if (rail === 'checkout_handoff') {
+    return {
+      ...base,
+      title: 'Split agreed',
+      line: 'Everyone confirmed the proposed split. No card was charged and no merchant order was placed through sutra.',
+    }
+  }
+  return base
+}
+
 /**
  * The question this product kept failing to answer: money moved — so now what?
  *
@@ -67,21 +87,35 @@ function WhatHappensToTheOrder({
   charges,
   merchant,
   paid,
+  rail,
+  checkoutUrl,
 }: {
   charges: boolean
   merchant: string
   paid: number
+  rail: Rail
+  checkoutUrl?: string
 }) {
   if (!charges) {
+    const pos = rail === 'shopify_pos'
+    const handoff = rail === 'checkout_handoff'
     return (
       <div className="afterword">
-        <b>Now settle up at the table.</b>
+        <b>{pos ? 'Now ask the cashier to split the payment.' : handoff ? 'Now return to the merchant checkout.' : 'Now settle up at the table.'}</b>
         <p>
-          No card was charged through sutra on this split — what you have is everyone’s agreement
-          and a signed record of who owed what. Hand {merchant} the {paid}{' '}
-          {paid === 1 ? 'card' : 'cards'} for the amounts above, or pay however you normally would.
-          The receipt is proof of the arithmetic, not proof of a payment.
+          No card was charged through sutra — what you have is everyone’s agreement and a signed record of the
+          exact shares. {pos
+            ? `At ${merchant}, ask the cashier to choose Split payment in Shopify POS, enter each amount, and let all ${paid} people present their own cards.`
+            : handoff
+              ? `Open ${merchant}'s checkout next. If it only accepts one card, the merchant still needs a Sutra adapter before this can finish without somebody fronting the order.`
+              : `Hand ${merchant} the ${paid} ${paid === 1 ? 'card' : 'cards'} for the amounts above, or pay however you normally would.`}{' '}
+          The receipt is proof of the arithmetic and consent, not proof of merchant payment.
         </p>
+        {handoff && checkoutUrl ? (
+          <a className="btn btn-primary" style={{ marginTop: 10 }} href={checkoutUrl} target="_blank" rel="noreferrer">
+            Continue to merchant checkout ↗
+          </a>
+        ) : null}
       </div>
     )
   }
@@ -114,6 +148,8 @@ export function TerminalBanner({
   groupId,
   charges,
   merchant,
+  rail,
+  checkoutUrl,
 }: {
   status: GroupStatus
   decisionNote: string | null
@@ -124,8 +160,10 @@ export function TerminalBanner({
   /** whether this rail actually charges cards, so the copy cannot claim one it did not */
   charges: boolean
   merchant: string
+  rail: Rail
+  checkoutUrl?: string
 }) {
-  const copy = (charges ? COPY_CARD : COPY_VENUE)[status]
+  const copy = charges ? COPY_CARD[status] : nonChargingCopy(rail, status)
   if (!copy) return null
 
   const charged = members.reduce((s, m) => s + m.charged_amount + m.backstop_absorbed, 0)
@@ -160,7 +198,7 @@ export function TerminalBanner({
       </div>
 
       {(status === 'committed' || status === 'partial') && (
-        <WhatHappensToTheOrder charges={charges} merchant={merchant} paid={paid} />
+        <WhatHappensToTheOrder charges={charges} merchant={merchant} paid={paid} rail={rail} checkoutUrl={checkoutUrl} />
       )}
 
       <div className="row wrap" style={{ gap: 10, marginTop: 14 }}>

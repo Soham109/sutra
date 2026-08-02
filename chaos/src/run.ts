@@ -130,6 +130,7 @@ async function iteration(iter: number, seed: number, rand: () => number): Promis
     straggler_policy: straggler,
     tolerance_bps: 500,
     deadline_minutes: 600,
+    rail: 'prava_mandates',
   })
 
   const { group, members } = service.createGroup(input)

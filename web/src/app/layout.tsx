@@ -8,10 +8,10 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: 'sutra', statusBarStyle: 'black-translucent' },
   title: 'sutra — buy together, without the group bank',
   description:
-    'Split any checkout before it is paid. Everyone approves their own share and the group commits together, or nobody is charged.',
+    'Coordinate a group purchase, collect person-scoped consent, and record the exact rail-specific outcome.',
   openGraph: {
     title: 'sutra — buy together, without the group bank',
-    description: 'N people, N cards, one coordinated checkout. No pooled funds and nobody fronts the money.',
+    description: 'N people, one coordinated decision, no pooled wallet, and a signed rail-aware outcome.',
     type: 'website',
   },
 }

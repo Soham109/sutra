@@ -8,7 +8,7 @@ import { EXTENSION_INSTALL_URL } from '@/lib/links'
 // The panel shows what is actually on somebody's screen at each moment: a
 // phone with the prompt, the browser extension reading a checkout page, the QR
 // that puts a link in four hands, four phones answering, and four phones
-// flipping to paid at once. Text is the caption; the device is the argument.
+// resolving to an explicit outcome. Text is the caption; the device is the argument.
 //
 // Everything drawn here is markup, not screenshots — so it stays correct when
 // the product changes, and it weighs nothing.
@@ -30,14 +30,14 @@ const STEPS: Step[] = [
   {
     n: '02',
     title: 'Or split the page you’re already on',
-    body: 'The browser extension reads the checkout you have open — the real price, currency and quantity, straight off the merchant’s own page — and turns it into a split without you retyping anything.',
-    aside: 'Works on stores nobody integrated with. Bookmarklet too, zero install.',
+    body: 'The browser extension reads the active product or supported cart — price, currency, quantities and line items from the merchant page — and prepares a split without retyping it.',
+    aside: 'Detection works without a merchant app. Order placement and payment still require a named merchant finish line.',
   },
   {
     n: '03',
     title: 'Everyone gets their own link',
     body: 'Show the QR at the table or drop the links in the chat. No account, no download — each person opens their own share on their own phone.',
-    aside: 'A leaked link still can’t do anything without that person’s passkey.',
+    aside: 'Account-linked seats stay person-scoped; payment approval, when supported, finishes on the provider’s hosted page.',
   },
   {
     n: '04',
@@ -47,15 +47,15 @@ const STEPS: Step[] = [
   },
   {
     n: '05',
-    title: 'Everyone approves. Nobody has paid yet.',
-    body: 'Each person approves a Prava mandate with their own passkey — a permission to charge one merchant, up to one amount. Approving costs nothing and shows up nowhere. No card has been touched.',
-    aside: 'Not a hold. Nothing is reserved against anyone’s balance.',
+    title: 'Everyone sees the exact boundary',
+    body: 'On the Prava test rail, each person approves a merchant-scoped, amount-capped credential. For Shopify POS, checkout handoff or a venue bill, the screen instead records agreement and plainly says no card was charged.',
+    aside: 'One interface, four explicit outcomes—never one vague “paid” state.',
   },
   {
     n: '06',
-    title: 'Then everyone pays at once — or nobody does',
-    body: 'Only once the group’s rule is satisfied does Prava mint a single-use card number per person and charge it. If somebody backs out, every mandate is cancelled instead: no charge, so no refund, and nothing to wait three days for.',
-    aside: 'The cap is enforced by the card network, not by our arithmetic.',
+    title: 'Commit, recover, and report exactly what happened',
+    body: 'Only after the policy passes does the charging rail begin its guarded sequence. Every attempt is idempotent, unknown provider results reconcile before retry, and an irreversible mixed result is reported as partial—not disguised as atomic success.',
+    aside: 'The signed receipt records charged, not charged, or handoff outcomes per person.',
   },
 ]
 

@@ -20,9 +20,15 @@ Importing a page answers: “What is the user looking at, approximately how much
 Checkout requires a capability after import:
 
 1. **Supported merchant/payment adapter:** Sutra can create person-scoped mandates and commit a merchant payment.
-2. **Merchant deep link or reserved cart:** Sutra coordinates the decision and returns the group to the merchant for the final authenticated action.
-3. **No merchant integration:** Sutra records the plan, exact split and consent, but must not say the merchant was paid.
-4. **Physical bill:** the `at_venue` rail records what each person owes; it explicitly does not claim a card charge.
+2. **Configured development-store proof:** after completed test approvals, Sutra can write a valid Shopify order with `test: true`, a fictional address and one labeled test transaction per participant. This is adapter proof, not real money or multi-card Checkout.
+3. **Confirmed Shopify POS counter:** Sutra records exact shares; the cashier separately runs Shopify POS split payment. Sutra does not connect to the terminal or prove the POS payment.
+4. **Merchant deep link or reserved cart:** Sutra coordinates the decision and returns the group to the merchant for address, fulfilment, tax and final authenticated payment.
+5. **No merchant integration:** Sutra records the plan, exact split and consent, but must not say the merchant was paid.
+6. **Physical bill:** the `at_venue` rail records what each person owes; it explicitly does not claim a card charge.
+
+## Delivery and fulfilment
+
+Sutra does not collect a delivery address for an ordinary online handoff. The buyer enters the address, shipping method and contact details inside Shopify checkout, where the merchant owns fulfilment and recalculates shipping and tax. If that changes the total, the previous split is only a quote and the group must confirm the new amount. The development-store proof is the narrow exception: an explicit form sends fictional demo address data directly to Shopify and Sutra deliberately does not retain it. A future production merchant adapter can create a reserved cart, return the final fulfilment-aware quote to Sutra, and require fresh consent before charging.
 
 ### Example: buying a domain with four friends
 

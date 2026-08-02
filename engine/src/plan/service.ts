@@ -84,7 +84,9 @@ export class PlanService {
       group_id: null,
       // Provisional. The rail is only really decided when an option is chosen,
       // because that is when we learn whether a chargeable merchant exists.
-      rail: 'prava_mandates',
+      // A plan is coordination, not payment capability. The concrete rail is
+      // chosen only when a priced product is converted.
+      rail: 'checkout_handoff',
       deadline_at: deadline.toISOString(),
       created_by: actorUserId ?? null,
       circle_id: parsed.circle_id ?? null,
@@ -542,6 +544,7 @@ export class PlanService {
       tolerance_bps?: number
       no_blame?: boolean
       title?: string
+      rail?: Rail
     } = {},
   ) {
     const plan = this.mustPlan(planId)
@@ -573,7 +576,7 @@ export class PlanService {
         'this option has no price attached — enter the amount, or split the real bill once you have it',
       )
     }
-    const qty = opts.qty ?? going.length
+    const qty = opts.qty ?? (option.source === 'overpass' ? going.length : 1)
 
     const place = option.place_json ? (JSON.parse(option.place_json) as Place) : null
 
@@ -581,16 +584,19 @@ export class PlanService {
     // from rather than by whether its URL happens to parse.
     //
     // A place from OpenStreetMap is a point on a map, not a merchant Prava can
-    // charge — and its `url` may well be the OSM node page or the restaurant's
-    // brochure site, neither of which takes payment. Letting that resolve to
-    // the card rail would put a group on a path that ends in a charge that
-    // cannot happen. A storefront product we resolved from a real merchant
-    // page is a different matter, and keeps the card rail.
-    const rail: Rail = option.source === 'overpass' ? 'at_venue' : 'prava_mandates'
-    // Card rail needs a chargeable merchant URL. Venue rail uses the OSM page
-    // (or the restaurant site) so the group header never links to venue.local.test.
+    // charge. A storefront URL proves catalog provenance, not payment
+    // capability, so product plans default to an explicit checkout handoff.
+    // Shopify POS is selected only by a human who has confirmed an in-person
+    // counter. Neither path mints a mandate or claims the order was placed.
+    const rail: Rail = option.source === 'overpass'
+      ? 'at_venue'
+      : opts.rail === 'shopify_pos'
+        ? 'shopify_pos'
+        : 'checkout_handoff'
+    // Merchant-facing rails keep the public product URL for their next-step
+    // handoff. Venue plans use the OSM page or restaurant website as context.
     const merchantUrl =
-      rail === 'prava_mandates'
+      rail !== 'at_venue'
         ? safeUrl(option.url ?? '')
         : option.url && /^https?:\/\//i.test(option.url)
           ? option.url
@@ -646,6 +652,7 @@ export class PlanService {
         plan_id: plan.id,
         option_id: option.id,
         source: option.source,
+        checkout_mode: rail,
         place,
         url: option.url,
       },

@@ -74,7 +74,7 @@ export function RequoteNote({
 }
 
 export function ApprovedCard({ v, held }: { v: MemberView; held: boolean }) {
-  const atVenue = v.rail === 'at_venue' || !v.rail_capability.charges
+  const noCharge = !v.rail_capability.charges
   return (
     <section className={held ? 'banner ap-flip' : 'banner banner-brand ap-flip'} style={{ textAlign: 'center' }}>
       <div style={{ fontSize: 30, lineHeight: 1 }} aria-hidden>
@@ -85,7 +85,7 @@ export function ApprovedCard({ v, held }: { v: MemberView; held: boolean }) {
       </div>
       <p className="small muted" style={{ marginTop: 6 }}>
         {held ? (
-          atVenue ? (
+          noCharge ? (
             <>
               Your agreement is paused. While it is paused you count as <b>not approved</b>, so the group cannot
               finish. Nothing is owed through sutra.
@@ -96,11 +96,16 @@ export function ApprovedCard({ v, held }: { v: MemberView; held: boolean }) {
               commit on your share. Nothing is charged, and nothing expires early.
             </>
           )
-        ) : atVenue ? (
+        ) : noCharge ? (
           <>
-            You&apos;ve agreed to{' '}
-            <span className="amount">{money(v.cap_amount, v.group.currency)}</span> at the venue. Nothing moves
-            through sutra — settle with the merchant once everyone is in. Policy:{' '}
+            You&apos;ve confirmed{' '}
+            <span className="amount">{money(v.share_amount, v.group.currency)}</span>. Nothing moves through sutra —{' '}
+            {v.rail === 'shopify_pos'
+              ? 'pay your share at the Shopify POS counter once everyone is in.'
+              : v.rail === 'checkout_handoff'
+                ? 'the merchant checkout and final payment are still ahead.'
+                : 'settle with the merchant once everyone is in.'}{' '}
+            Policy:{' '}
             <b>{v.group.policy_text}</b>.
           </>
         ) : (
@@ -113,7 +118,7 @@ export function ApprovedCard({ v, held }: { v: MemberView; held: boolean }) {
       </p>
       <div className="row" style={{ justifyContent: 'center', gap: 10, marginTop: 10 }}>
         <Badge tone={held ? 'warn' : 'brand'}>
-          {held ? 'paused' : atVenue ? 'agreed' : 'mandate active'}
+          {held ? 'paused' : noCharge ? 'agreed · not charged' : 'mandate active'}
         </Badge>
         <Countdown to={v.group.deadline_at} />
       </div>
@@ -141,15 +146,17 @@ export function ChargingCard({ v }: { v: MemberView }) {
 
 /** The celebratory moment. A ticket — but only when a card was actually charged. */
 export function Ticket({ v }: { v: MemberView }) {
-  const atVenue = v.rail === 'at_venue' || !v.rail_capability.charges
+  const noCharge = !v.rail_capability.charges
   const amount = v.charged_amount || v.share_amount
 
-  if (atVenue) {
+  if (noCharge) {
+    const pos = v.rail === 'shopify_pos'
+    const handoff = v.rail === 'checkout_handoff'
     return (
       <section className="ap-ticket ap-flip">
         <div className="ap-ticket-top">
           <div className="eyebrow" style={{ color: 'var(--ok)' }}>
-            Agreed — pay at the table
+            {pos ? 'Ready for Shopify POS' : handoff ? 'Split agreed · checkout pending' : 'Agreed — pay at the table'}
           </div>
           <div style={{ margin: '8px 0 2px' }}>
             <Money minor={amount} currency={v.group.currency} size="xl" />
@@ -161,16 +168,19 @@ export function Ticket({ v }: { v: MemberView }) {
         <div className="ap-perf" />
         <div className="ap-ticket-bottom">
           <div className="ap-stub">
-            <span className="k">You owe</span>
+            <span className="k">Your agreed share</span>
             <span className="amount">{money(amount, v.group.currency)}</span>
           </div>
           <div className="ap-stub">
-            <span className="k">Pay</span>
-            <span>{v.group.merchant.name} directly</span>
+            <span className="k">Next</span>
+            <span>{pos ? 'Present your card at the counter' : handoff ? 'Finish merchant checkout' : `Pay ${v.group.merchant.name} directly`}</span>
           </div>
           <p className="tiny muted" style={{ marginTop: 10 }}>
-            Nothing was charged through sutra. Show this amount when the check arrives — you still
-            pay the venue yourself, on your own card.
+            Nothing was charged through sutra. {pos
+              ? 'The cashier still needs to run this amount on your own card through Shopify POS.'
+              : handoff
+                ? 'Delivery address, shipping, tax and the final payment still happen at the merchant checkout.'
+                : 'Show this amount when the check arrives and pay the venue yourself.'}
           </p>
         </div>
       </section>
@@ -268,7 +278,11 @@ export function LeftBehindCard({ v }: { v: MemberView }) {
           : 'The group completed without your share.'}{' '}
         {mandates
           ? `Your mandate was cancelled and nothing can be drawn on it. ${v.group.merchant.name} was paid only by the members who approved.`
-          : `Nothing was charged through sutra for your share. The people who agreed settle with ${v.group.merchant.name} at the table.`}
+          : v.rail === 'shopify_pos'
+            ? `Nothing was charged through sutra for your share. The people who agreed still pay ${v.group.merchant.name} at Shopify POS.`
+            : v.rail === 'checkout_handoff'
+              ? `Nothing was charged through sutra for your share. Merchant checkout is still pending for the people who agreed.`
+              : `Nothing was charged through sutra for your share. The people who agreed settle with ${v.group.merchant.name} at the table.`}
       </p>
       {mandates && <PortalNote />}
     </section>
@@ -294,8 +308,8 @@ export function AbortedCard({ v, note }: { v: MemberView; note?: string | null }
           </>
         ) : (
           <>
-            <b>Nobody owes anything through sutra</b> — the agreement was never sealed, so there is nothing to settle at
-            the table from this record.
+            <b>Nobody owes anything through sutra</b> — the agreement was never sealed, so there is no merchant payment
+            represented by this record.
           </>
         )}
       </p>

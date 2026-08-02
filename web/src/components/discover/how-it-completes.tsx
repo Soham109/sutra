@@ -1,86 +1,148 @@
 'use client'
 
-/** Just the part of a cart line this needs: who claimed it. */
-interface Claimed {
-  claimants: string[]
-}
+export type CheckoutMode = '' | 'shopify_test_order' | 'shopify_pos' | 'checkout_handoff'
 
-// The question this product kept dodging: after everyone pays, who receives the
-// order?
-//
-// A Prava charge mints ONE single-use card per person, locked to that merchant
-// and capped at that person's own amount. Four people means four card numbers.
-// A normal online checkout has one card field. So a single shared cart paid by
-// four cards does not complete anywhere that cannot take more than one card for
-// one order — and almost no online checkout can.
-//
-// That is not a reason to hide the limit. It is a reason to detect which of the
-// two situations somebody is actually in, because they are genuinely different:
-//
-//   - Everyone is buying their own item. Four tickets, four orders, four cards,
-//     each covering exactly its owner's line. This completes today, unassisted,
-//     and nobody fronts anything. It is the case the protocol was built for.
-//
-//   - One shared thing, split N ways. The money reaches the merchant as N real
-//     charges, but their order system has no idea the four belong together.
-//     Completing it needs the merchant to accept more than one card for one
-//     order — split tender — which is routine at a physical till and rare
-//     online.
-//
-// Every charge in a group already carries a shared reference
-// (`gmp:{groupId}:{memberId}:share:N`), which is exactly the hook a
-// Prava-aware merchant would reconcile on. That is what GMP/1 proposes. It is
-// a proposal, and saying so is cheaper than being caught.
-
-export type Completion = 'own-item' | 'shared-cart' | 'at-venue'
-
-/**
- * Which of the two card-rail situations this cart is, decided from the claims
- * people actually made rather than from anything inferred.
- */
-export function completionOf(items: Claimed[], charges: boolean): Completion {
-  if (!charges) return 'at-venue'
-  const shared = items.some(
-    (i) => i.claimants.includes('mi_all') || i.claimants.length > 1,
+export function CheckoutModePicker({
+  value,
+  onChange,
+  isShopify,
+  testProof,
+  posConfirmed,
+  onPosConfirmed,
+}: {
+  value: CheckoutMode
+  onChange: (mode: CheckoutMode) => void
+  isShopify: boolean
+  testProof?: { available: boolean; adapter: 'mock' | 'sandbox' | 'production'; store: string | null }
+  posConfirmed: boolean
+  onPosConfirmed: (confirmed: boolean) => void
+}) {
+  return (
+    <section className="checkout-mode card card-pad">
+      <div className="section-head" style={{ marginBottom: 10 }}>
+        <div>
+          <span className="eyebrow">How will the merchant be paid?</span>
+          <h3 style={{ marginTop: 5 }}>Choose the real finish line</h3>
+        </div>
+      </div>
+      <div className="checkout-mode-grid">
+        {testProof?.available && (
+          <button
+            type="button"
+            className={`checkout-mode-card${value === 'shopify_test_order' ? ' is-on' : ''}`}
+            onClick={() => onChange('shopify_test_order')}
+            aria-pressed={value === 'shopify_test_order'}
+          >
+            <span className="checkout-mode-kicker">Demo proof · zero real money</span>
+            <b>Create a valid Shopify test order</b>
+            <p>
+              Each person completes a Sutra/{testProof.adapter === 'mock' ? 'Prava simulator' : 'Prava sandbox'} test
+              approval. The organiser then adds the delivery address and creates one Shopify test order with one
+              labeled test transaction per share.
+            </p>
+            <small>Shopify marks the order and every transaction as test. This is not multi-card Checkout.</small>
+          </button>
+        )}
+        <button
+          type="button"
+          className={`checkout-mode-card${value === 'shopify_pos' ? ' is-on' : ''}`}
+          onClick={() => onChange('shopify_pos')}
+          aria-pressed={value === 'shopify_pos'}
+        >
+          <span className="checkout-mode-kicker">Works now · in person</span>
+          <b>Split at Shopify POS</b>
+          <p>
+            Everyone confirms a share here. At the counter, the cashier uses Shopify POS split payment and
+            charges each person directly.
+          </p>
+          <small>
+            {isShopify
+              ? 'Use only after the store confirms this location takes payment on Shopify POS.'
+              : 'Use only after the merchant confirms its counter supports split tender.'}
+          </small>
+        </button>
+        <button
+          type="button"
+          className={`checkout-mode-card${value === 'checkout_handoff' ? ' is-on' : ''}`}
+          onClick={() => onChange('checkout_handoff')}
+          aria-pressed={value === 'checkout_handoff'}
+        >
+          <span className="checkout-mode-kicker">Coordination only · online</span>
+          <b>Return to online checkout</b>
+          <p>
+            Sutra records the exact proposed split, then sends the group back to the merchant. It does not place
+            or pay the order.
+          </p>
+          <small>A one-card checkout still needs a merchant adapter before several people can pay one order.</small>
+        </button>
+      </div>
+      {value === 'shopify_pos' && (
+        <label className="checkout-confirm">
+          <input
+            type="checkbox"
+            checked={posConfirmed}
+            onChange={(event) => onPosConfirmed(event.target.checked)}
+          />
+          <span>I confirmed this physical location uses Shopify POS and its cashier can take split payments.</span>
+        </label>
+      )}
+    </section>
   )
-  return shared ? 'shared-cart' : 'own-item'
 }
 
 export function HowItCompletes({
-  items,
-  charges,
+  mode,
   merchant,
   people,
 }: {
-  items: Claimed[]
-  charges: boolean
+  mode: CheckoutMode
   merchant: string
   people: number
 }) {
-  const kind = completionOf(items, charges)
-
-  if (kind === 'at-venue') {
+  if (mode === 'shopify_test_order') {
     return (
       <div className="completes is-ok">
-        <b>Everyone pays {merchant} directly.</b>
+        <b>End-to-end development-store proof.</b>
         <p>
-          No card is charged through sutra here. You get the arithmetic, everyone’s explicit
-          agreement, and a signed record of who owed what — then {people} of you hand over{' '}
-          {people} cards at the till, which every card machine has always been able to do.
+          Sutra runs the multi-person test approvals first. After every share succeeds, the organiser enters the
+          recipient and delivery address, and Sutra creates a real Shopify development-store order whose order and
+          per-person transaction records are explicitly marked test.
+        </p>
+        <p className="completes-fix">
+          This proves the adapter, allocation, address and order reconciliation. No real money moves, and it does
+          not claim Shopify&apos;s normal checkout accepted several cards.
         </p>
       </div>
     )
   }
 
-  if (kind === 'own-item') {
+  if (mode === 'shopify_pos') {
     return (
       <div className="completes is-ok">
-        <b>Each person’s card covers their own line.</b>
+        <b>Ready for a {people}-way Shopify POS payment.</b>
         <p>
-          Because nobody is sharing an item, each person ends up with a single-use card that
-          covers exactly what they picked — so {people} separate orders at {merchant} each go
-          through on their own card. Nobody fronts anything and there is nothing to settle up
-          afterwards.
+          Sutra locks the arithmetic and each person confirms their amount. Then the cashier enters each share as
+          a split payment at {merchant}; every person presents their own card.
+        </p>
+        <p className="completes-fix">
+          Sutra is not connected to the terminal. The signed receipt says “ready for Shopify POS,” not “paid,”
+          until the cashier actually completes those payments.
+        </p>
+      </div>
+    )
+  }
+
+  if (mode === 'checkout_handoff') {
+    return (
+      <div className="completes is-warn">
+        <b>This prepares the split; it does not pay the online order.</b>
+        <p>
+          Everyone confirms their proposed amount, but no Prava credential is minted and no card is charged.
+          The group then returns to {merchant} to finish checkout.
+        </p>
+        <p className="completes-fix">
+          If the checkout accepts only one card, somebody would still have to front the order. Full no-fronting
+          completion requires a merchant adapter that can reconcile several payments into one order.
         </p>
       </div>
     )
@@ -88,22 +150,8 @@ export function HowItCompletes({
 
   return (
     <div className="completes is-warn">
-      <b>This is one cart, and it will be paid by {people} different cards.</b>
-      <p>
-        Everyone’s share is charged to their own card and reaches {merchant} — nobody fronts
-        anything. But {merchant}’s checkout has one card field, so <b>sutra cannot place this
-        order for you</b> unless they accept more than one card for a single order. That is
-        routine at a till and rare online.
-      </p>
-      <p>
-        Every charge in this group carries the same reference, which is exactly what a
-        merchant would reconcile them on — that is the part of GMP/1 that is a proposal
-        rather than a shipped feature, and no merchant has adopted it yet.
-      </p>
-      <p className="completes-fix">
-        If each of you is buying a separate thing, give each line its own claimant instead —
-        then every card covers one whole item and the orders go through by themselves.
-      </p>
+      <b>Choose how this will finish before inviting anyone.</b>
+      <p>A merchant URL tells Sutra what the item costs. It does not prove the merchant can take a group payment.</p>
     </div>
   )
 }

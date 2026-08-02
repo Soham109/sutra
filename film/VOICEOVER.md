@@ -17,7 +17,7 @@ automatically prefers it over generated clips.
 | 00:14.5 | Sutra turns the group into a coordinated decision. |
 | 00:18.4 | Each person sees one exact share, one personal cap, and their own card. |
 | 00:23.6 | Approval is permission, not a charge. |
-| 00:28.2 | Only the last required yes commits every mandate, once, in one crash-safe window. |
+| 00:28.2 | The last required yes locks one charge plan. Every test transaction reconciles before any retry. |
 | 00:34.5 | Start with a sentence, a link, the open page, or a photographed bill. |
 | 00:40.1 | Then the agent gathers availability, distance, and private budgets. |
 | 00:45.6 | Real venues re-rank live, with reasons the group can inspect. |
@@ -25,11 +25,11 @@ automatically prefers it over generated clips.
 | 00:57.1 | But ask it to pay for you? Hard no. Your passkey is the boundary. |
 | 01:03.5 | The same protocol ships as a NANDA Town payments plugin. |
 | 01:08.6 | The bundled ledger credits the organiser. Prava mandates never do. |
-| 01:13.8 | Four person-scoped mandates route to one merchant, with no wallet in the middle. |
-| 01:19.5 | Honest limit: Sutra cannot make one card field accept four cards. |
-| 01:25 | It works where each person can pay separately, and says exactly what happened. |
+| 01:13.8 | The reproducible NANDA simulation proves scoped mandate semantics without a pooled balance. Merchant ordering is separate. |
+| 01:19.5 | Shopify product data is live; Shopify POS remains a cashier split-payment handoff. |
+| 01:25 | A configured development store also gets a valid test order. Ordinary online checkout still needs the merchant adapter. |
 | 01:30.6 | Every outcome ends in a signed, hash-chained, rail-aware receipt. |
-| 01:37 | Nothing pooled. Nothing fronted. Nothing invented. |
+| 01:37 | No pooled wallet. Every handoff named. Nothing invented. |
 
 ## Audio direction
 

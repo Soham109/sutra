@@ -340,7 +340,7 @@ export function narrate(e: GmpEvent, { currency, noBlame }: NarrateOpts): React.
     case 'group.committing':
       return <>Point of no return — the group is committing. Cancel is off the table from here.</>
     case 'group.committed':
-      return <>Committed. Every share went through on its own card, at the same moment.</>
+      return <>Committed. Every planned share cleared on its own capped credential.</>
     case 'group.partial':
       return <>Partially committed — some shares cleared, some did not. Only what cleared was charged.</>
     case 'group.aborted':

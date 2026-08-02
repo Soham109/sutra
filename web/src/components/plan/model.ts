@@ -1,4 +1,5 @@
 // Shapes the coordination surfaces render. Mirrors the engine's plan views.
+import type { Rail } from '@/lib/api'
 
 export interface Place {
   label: string
@@ -66,7 +67,7 @@ export interface PlanView {
     radius_m?: number
   }
   ask: string[]
-  rail: 'prava_mandates' | 'at_venue'
+  rail: Rail
   chosen_option_id: string | null
   group_id: string | null
   deadline_at: string

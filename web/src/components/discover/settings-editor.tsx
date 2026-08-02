@@ -30,6 +30,7 @@ export function SettingsEditor({
   onNoBlame,
   sampleShare,
   currency,
+  charges,
 }: {
   deadlineMinutes: number
   onDeadline: (n: number) => void
@@ -41,6 +42,7 @@ export function SettingsEditor({
   onNoBlame: (v: boolean) => void
   sampleShare: number
   currency: string
+  charges: boolean
 }) {
   return (
     <Section
@@ -74,7 +76,9 @@ export function SettingsEditor({
             </label>
           </Row>
           <p className="tiny faint">
-            Mandates expire when the group does. Nobody keeps a live claim on anybody’s card afterwards.
+            {charges
+              ? 'Test mandates expire when the group does. No unused credential stays live afterwards.'
+              : 'The invitation expires when the group does. This finish line creates no card mandate.'}
           </p>
         </div>
 
@@ -102,10 +106,10 @@ export function SettingsEditor({
             </label>
           </Row>
           <p className="tiny faint">
-            Absorbs small price drift without asking everyone again. A{' '}
+            Records the largest small price drift the group accepts without asking everyone again. A{' '}
             <span className="mono">{money(sampleShare, currency)}</span> share is approved with a cap of{' '}
             <span className="mono">{money(capFor(sampleShare, toleranceBps), currency)}</span> — anything above
-            that stops the charge and re-opens approval instead of quietly costing more.
+            that requires a new proposal instead of quietly costing more.
           </p>
         </div>
 

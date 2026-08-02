@@ -229,7 +229,7 @@ function skills(): AgentFactsSkill[] {
     {
       id: 'create_group_checkout',
       description:
-        'Create a group checkout: one cart, N members, one merchant-locked amount-capped payment mandate per member on their own card, committed together under a policy (all_of / quorum / weighted / veto / required / deadline). Everyone in the locked set is charged in one window, or every mandate is cancelled and nobody was charged. Returns one private approval URL per member; each member approves on their own device with their own passkey.',
+        'Create a group decision: one cart, N members, exact shares and a policy (all_of / quorum / weighted / veto / required / deadline) on an explicit settlement rail. Generic merchant URLs default to checkout handoff. A verified Prava rail uses independently capped credentials and a sequential idempotent charge saga; mixed irreversible outcomes are reported as partial.',
       inputModes: json,
       outputModes: json,
       supportedLanguages: ['en'],
@@ -305,7 +305,7 @@ export function buildAgentFacts(cfg: DiscoveryConfig, opts: AgentFactsOptions = 
     agent_name: `urn:ai:agent:${host}:${AGENT_SLUG}`,
     label: 'sutra — group checkout (GMP/1)',
     description:
-      'Group checkout for agents. Turns one cart and N humans into N card-network-enforced payment mandates — one per person, on that person’s own card, merchant-locked and capped at their share — committed together under a policy: everyone is charged in one window, or every mandate is cancelled and nobody was ever charged. Also coordinates the phase before the cart (who is in, when everyone is free, which real venue wins) and the case with no chargeable merchant at all (splitting a physical restaurant bill exactly, with a signed record and no false claim of payment). No pooled funds, nobody fronts money, the engine never sees a card number. Implements GMP/1, the Group Mandate Protocol.',
+      'Group purchase coordination for agents. Turns one cart and N humans into exact person-scoped decisions under one policy and one explicit rail. A verified Prava rail uses capped credentials with idempotent reconciliation and truthful partial outcomes; Shopify POS, checkout handoff and venue rails record agreement without claiming payment. Also coordinates private planning constraints, real venue ranking and exact physical-bill allocation. No pooled wallet; the engine never sees card numbers. Implements GMP/1.',
     version: cfg.version ?? ENGINE_VERSION,
     documentationUrl: abs(cfg, WELL_KNOWN.skillMd),
     provider: {

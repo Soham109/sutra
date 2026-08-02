@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { GroupMember } from '@/lib/api'
+import type { GroupMember, Rail } from '@/lib/api'
 import { Avatar, Badge, StatusBadge } from '@/components/ui'
 import { money } from '@/lib/format'
 import { RoleBadge } from './badges'
@@ -20,6 +20,7 @@ export function MemberPanel({
   anonymise,
   replaying,
   charges = true,
+  rail,
 }: {
   members: GroupMember[]
   currency: string
@@ -29,6 +30,7 @@ export function MemberPanel({
   replaying: boolean
   /** false on at_venue — no mandates, no card-network language */
   charges?: boolean
+  rail: Rail
 }) {
   return (
     <div className="card">
@@ -58,7 +60,11 @@ export function MemberPanel({
           ) : (
             <>
               This split records who agreed to pay <b>{merchant}</b> what. Nothing is charged through sutra — each
-              person settles at the table with their own card.
+              person {rail === 'shopify_pos'
+                ? 'presents their payment to the Shopify POS cashier.'
+                : rail === 'checkout_handoff'
+                  ? 'continues to the merchant checkout, which still owns payment and the order.'
+                  : 'settles with the venue directly.'}
             </>
           )}
         </p>

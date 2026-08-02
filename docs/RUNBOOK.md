@@ -260,10 +260,10 @@ Facts about the Railway side:
 4. **The engine cannot run on Vercel.** It needs file-backed SQLite, a 1.5-second poller that
    is the only mechanism by which approvals are ever detected, long-lived SSE connections, and
    an in-process event hub. Serverless kills all four.
-5. **Vercel needs both `ENGINE_URL` and `ENGINE_API_TOKEN`.** The proxy at
-   [`../web/src/app/api/[...path]/route.ts`](../web/src/app/api/[...path]/route.ts) reads
-   `ENGINE_API_TOKEN` on the server and attaches it as a bearer token. Forgetting it produces
-   "missing or invalid bearer token" on every API call.
+5. **Vercel needs `ENGINE_URL`; browser traffic must not receive operator authority.** The proxy at
+   [`../web/src/app/api/[...path]/route.ts`](../web/src/app/api/[...path]/route.ts) forwards the
+   first-party session cookie and deliberately does not stamp `ENGINE_API_TOKEN` onto browser
+   calls. Doing so would turn every visitor into an operator.
 
 ---
 
@@ -280,7 +280,7 @@ Facts about the Railway side:
 | `PORT` | Railway sets it | — | `4100` | |
 | `NODE_ENV` | `production` | — | `development` | With `production`, a missing `DB_PATH` throws at boot. |
 | `DB_PATH` | `/data/gmp.db` | — | empty | **Set this from PowerShell only.** Git Bash mangles the path. |
-| `ENGINE_API_TOKEN` | set | **set** | `dev-token` | One shared bearer token. Both hosts need the **same** value. |
+| `ENGINE_API_TOKEN` | set | optional for server-only jobs | `dev-token` | Operator bearer for trusted server/CLI calls. The browser proxy must never attach it automatically. |
 | `ENGINE_SIGNING_SEED` | set | — | empty | 32-byte hex seed for the Ed25519 receipt key. Must not change. |
 | `WEBHOOK_SECRET` | set | — | `dev-webhook-secret` | |
 | `ENGINE_URL` | — | `https://engine-production-e6fa.up.railway.app` | — | Where the Next.js proxy forwards `/api/*`. |
@@ -288,6 +288,11 @@ Facts about the Railway side:
 | `OPENAI_MODEL` | `gpt-4.1-nano` | — | `gpt-4.1-nano` | Cheapest tier that handles constrained tool-calling. |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | set | — | — | Web push. Already configured; push is live. |
 | `SHOPIFY_DOMAINS` | unset | — | unset | Comma-separated override for the default product-search shelf. |
+| `SHOPIFY_TEST_ORDER_ENABLED` | dedicated demo only | — | `false` | Enables only the development-store `test: true` order proof. Never point it at a live merchant store. |
+| `SHOPIFY_TEST_STORE` | dedicated demo only | — | `your-store.myshopify.com` | Admin API hostname for the development store. |
+| `SHOPIFY_STOREFRONT_DOMAIN` | dedicated demo only | — | demo storefront host | Public hostname whose products may unlock the proof rail. |
+| `SHOPIFY_ADMIN_ACCESS_TOKEN` | dedicated demo secret | — | empty | Offline token with `write_orders`; never expose as `NEXT_PUBLIC_*` or record it. |
+| `SHOPIFY_API_VERSION` | dedicated demo only | — | `2026-07` | Shopify Admin GraphQL version for the proof adapter. |
 | `ALLOW_DEV_AUTH` | **unset** | — | — | Leave unset in production. It re-enables the header-based identity bypass. |
 
 `OPENAI_API_KEY` is optional in every path. The deterministic extractor

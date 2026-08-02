@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { api, type Policy, type ProductDetail } from '@/lib/api'
+import { api, type Policy, type ProductDetail, type ShopifyTestStatus } from '@/lib/api'
 import { useSession } from '@/components/session'
-import { Badge, ErrorNote, Guardrail, Money } from '@/components/ui'
+import { Badge, ErrorNote, Money } from '@/components/ui'
 import { money } from '@/lib/format'
 import { CartEditor } from './cart-editor'
 import { ClaimsEditor } from './claims-editor'
@@ -13,7 +13,7 @@ import { PolicyEditor } from './policy-editor'
 import { ProductImage } from './product-image'
 import { SettingsEditor } from './settings-editor'
 import { SplitPreview } from './split-preview'
-import { HowItCompletes } from './how-it-completes'
+import { CheckoutModePicker, HowItCompletes, type CheckoutMode } from './how-it-completes'
 import {
   type DraftFee,
   type DraftItem,
@@ -63,6 +63,8 @@ interface BuilderDraftSnapshot {
   straggler: StragglerPolicy
   noBlame: boolean
   circleId: string
+  checkoutMode?: CheckoutMode
+  posConfirmed?: boolean
 }
 
 const DRAFT_MAX_AGE = 7 * 24 * 60 * 60 * 1000
@@ -97,6 +99,9 @@ export function Builder({
   const [straggler, setStraggler] = useState<StragglerPolicy>('drop_and_continue')
   const [noBlame, setNoBlame] = useState(false)
   const [circleId, setCircleId] = useState('')
+  const [checkoutMode, setCheckoutMode] = useState<CheckoutMode>('')
+  const [posConfirmed, setPosConfirmed] = useState(false)
+  const [shopifyTest, setShopifyTest] = useState<ShopifyTestStatus | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [draftStatus, setDraftStatus] = useState<'checking' | 'restored' | 'saving' | 'saved'>('checking')
@@ -147,6 +152,8 @@ export function Builder({
           setStraggler(draft.straggler)
           setNoBlame(draft.noBlame)
           setCircleId(draft.circleId ?? '')
+          setCheckoutMode(draft.checkoutMode ?? '')
+          setPosConfirmed(draft.posConfirmed ?? false)
           setDraftStatus('restored')
         } else {
           window.localStorage.removeItem(draftKey)
@@ -162,6 +169,12 @@ export function Builder({
       draftHydrated.current = true
     }
   }, [draftKey, product.product_url])
+
+  useEffect(() => {
+    void api.get<ShopifyTestStatus>('/v1/shopify-test/status')
+      .then(setShopifyTest)
+      .catch(() => setShopifyTest(null))
+  }, [])
 
   useEffect(() => {
     if (!draftHydrated.current || busy) return
@@ -182,6 +195,8 @@ export function Builder({
         straggler,
         noBlame,
         circleId,
+        checkoutMode,
+        posConfirmed,
       }
       try {
         window.localStorage.setItem(draftKey, JSON.stringify(snapshot))
@@ -192,7 +207,7 @@ export function Builder({
       }
     }, 350)
     return () => window.clearTimeout(timer)
-  }, [busy, circleId, deadlineMinutes, draftKey, fees, items, members, noBlame, policy, product.product_url, straggler, title, toleranceBps, variantId])
+  }, [busy, checkoutMode, circleId, deadlineMinutes, draftKey, fees, items, members, noBlame, policy, posConfirmed, product.product_url, straggler, title, toleranceBps, variantId])
 
   /** Members and claims move together: a line claimed by "everyone" keeps
    *  meaning everyone as the group grows, and a removed person stops claiming. */
@@ -222,6 +237,9 @@ export function Builder({
 
   const payers = claimers(members)
   const weightTotal = payers.reduce((a, m) => a + Math.max(0, m.weight), 0)
+  const testProofAvailable =
+    !!shopifyTest?.enabled &&
+    normaliseHost(product.merchant.domain) === normaliseHost(shopifyTest.storefront_domain ?? '')
 
   const problems: Problem[] = []
   if (!title.trim()) {
@@ -247,6 +265,23 @@ export function Builder({
   }
   if (items.some((it) => !it.name.trim())) {
     problems.push({ text: 'One of the lines has no description. Name it so people know what they are approving.' })
+  }
+  if (!checkoutMode) {
+    problems.push({ text: 'Choose how the merchant will actually be paid. A product link alone is not a payment integration.' })
+  }
+  if (checkoutMode === 'shopify_pos' && !posConfirmed) {
+    problems.push({ text: 'Confirm that this specific physical location can take split payments in Shopify POS.' })
+  }
+  if (checkoutMode === 'shopify_test_order' && !testProofAvailable) {
+    problems.push({ text: 'This product is not from the configured Shopify development store.' })
+  }
+  if (
+    checkoutMode !== 'shopify_test_order' &&
+    members.some((member) => member.role === 'backstop' || member.role === 'sponsor')
+  ) {
+    problems.push({
+      text: 'Backstops and sponsors require a verified payment adapter. Use payers/observers for a POS or checkout handoff.',
+    })
   }
   const sponsorless = members.filter((m) => m.role === 'sponsor' && !m.sponsorFor)
   if (sponsorless.length > 0) {
@@ -329,7 +364,9 @@ export function Builder({
         deadline_minutes: deadlineMinutes,
         created_by: user?.id,
         circle_id: circleId || undefined,
-        product,
+        rail: checkoutMode === 'shopify_test_order' ? 'prava_mandates' : checkoutMode,
+        origin: checkoutMode === 'shopify_test_order' ? 'shopify_test' : 'discover',
+        product: { ...product, checkout_mode: checkoutMode },
       })
       window.localStorage.removeItem(draftKey)
       router.push(`/app/groups/${res.group_id}`)
@@ -342,9 +379,17 @@ export function Builder({
     }
   }
 
+  const createLabel = checkoutMode === 'shopify_pos'
+    ? 'Create Shopify POS split'
+    : checkoutMode === 'shopify_test_order'
+      ? 'Start Shopify test-order proof'
+    : checkoutMode === 'checkout_handoff'
+      ? 'Prepare checkout handoff'
+      : 'Choose a finish line'
+
   const createButton = (
     <button type="button" className="btn btn-primary btn-block btn-lg" disabled={!ready} onClick={() => void create()}>
-      {busy ? 'Creating…' : `Create the group · ${money(split.total, currency)}`}
+      {busy ? 'Creating…' : `${createLabel} · ${money(split.total, currency)}`}
     </button>
   )
 
@@ -364,6 +409,8 @@ export function Builder({
     setStraggler('drop_and_continue')
     setNoBlame(false)
     setCircleId('')
+    setCheckoutMode('')
+    setPosConfirmed(false)
     setError('')
     setDraftStatus('saved')
   }
@@ -486,24 +533,59 @@ export function Builder({
             onNoBlame={setNoBlame}
             sampleShare={split.shares.find((s) => s.payable > 0)?.payable ?? Math.round(split.total / Math.max(1, payers.length))}
             currency={currency}
+            charges={checkoutMode === 'shopify_test_order'}
+          />
+
+          <CheckoutModePicker
+            value={checkoutMode}
+            onChange={setCheckoutMode}
+            isShopify={product.source === 'shopify' || strategy === 'shopify-json'}
+            testProof={{
+              available: testProofAvailable,
+              adapter: shopifyTest?.adapter ?? 'mock',
+              store: shopifyTest?.storefront_domain ?? null,
+            }}
+            posConfirmed={posConfirmed}
+            onPosConfirmed={setPosConfirmed}
           />
         </div>
 
         <div className="col" style={{ gap: 14, flex: '1 1 300px', minWidth: 0, position: 'sticky', top: 70 }}>
-          <SplitPreview split={split} currency={currency} toleranceBps={toleranceBps} />
+          <SplitPreview
+            split={split}
+            currency={currency}
+            toleranceBps={toleranceBps}
+            charges={checkoutMode === 'shopify_test_order'}
+          />
 
           {/* Says whether this split can actually complete before anybody is
               asked to approve it, rather than after. The two cases are
               genuinely different and the app can tell them apart. */}
           <HowItCompletes
-            items={items}
-            charges
+            mode={checkoutMode}
             merchant={product.merchant.name}
             people={Math.max(1, payers.length)}
           />
 
           <div className="card card-pad col" style={{ gap: 12 }}>
-            <Guardrail merchant={product.merchant.name} cap={split.total} currency={currency} />
+            {checkoutMode === 'shopify_test_order' ? (
+              <p className="guardrail">
+                Test mode only. Sutra test approvals are mirrored into a valid Shopify test order after you add
+                the delivery address. No real money moves.
+              </p>
+            ) : checkoutMode === 'shopify_pos' ? (
+              <p className="guardrail">
+                Nothing is charged through sutra. Each person confirms their exact share, then pays{' '}
+                <b>{product.merchant.name}</b> directly at Shopify POS.
+              </p>
+            ) : checkoutMode === 'checkout_handoff' ? (
+              <p className="guardrail">
+                Nothing is charged and no order is placed through sutra. This records the proposed split before the{' '}
+                <b>{product.merchant.name}</b> checkout handoff.
+              </p>
+            ) : (
+              <p className="guardrail">Choose a finish line above. No one can be invited until the payment path is explicit.</p>
+            )}
 
             {problems.length > 0 && (
               <div className="col" style={{ gap: 8 }}>
@@ -535,12 +617,17 @@ export function Builder({
             {createButton}
 
             <p className="tiny faint" style={{ lineHeight: 1.55 }}>
-              Creating the group only sends everyone a link. No card is touched until each person approves their
-              own share on their own device.
+              {checkoutMode === 'shopify_test_order'
+                ? 'Creating the group sends test approval links. The Shopify order is created only after every test share succeeds and you supply the delivery address.'
+                : 'Creating the group only sends agreement links. Sutra does not place the merchant order or charge a card on this finish line.'}
             </p>
           </div>
         </div>
       </div>
     </div>
   )
+}
+
+function normaliseHost(value: string): string {
+  return value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
 }

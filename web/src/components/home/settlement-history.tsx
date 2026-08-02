@@ -23,8 +23,8 @@ export function SettlementHistory({ recent }: { recent: RecentItem[] }) {
     return (
       <div className="settle-chart-empty">
         <p>
-          Nothing settled yet. Once a group finishes, what you actually paid shows up here as a bar
-          per group — tallest is the most you’ve paid, not necessarily the most recent.
+          Nothing completed yet. Once a group finishes, its recorded amount appears here. The rail label tells
+          you whether it was charged, agreed for a venue, prepared for Shopify POS, or left for checkout.
         </p>
       </div>
     )

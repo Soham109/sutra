@@ -25,6 +25,7 @@ import { GroupService } from './service.js'
 import { MockPrava } from './prava/mock.js'
 import { PravaClient } from './prava/client.js'
 import type { PravaAdapter } from './prava/adapter.js'
+import { ShopifyTestOrderClient } from './shopify/test-order.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '..', '..')
@@ -54,11 +55,30 @@ function buildAdapter(): PravaAdapter {
   return new PravaClient(process.env.PRAVA_BASE_URL ?? 'https://sandbox.api.prava.space', key)
 }
 
+function buildShopifyTestAdapter(): ShopifyTestOrderClient | undefined {
+  if (process.env.SHOPIFY_TEST_ORDER_ENABLED !== 'true') return undefined
+  const storeDomain = process.env.SHOPIFY_TEST_STORE
+  const accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN
+  if (!storeDomain || !accessToken) {
+    console.error(
+      'SHOPIFY_TEST_ORDER_ENABLED=true but SHOPIFY_TEST_STORE or SHOPIFY_ADMIN_ACCESS_TOKEN is missing — proof disabled',
+    )
+    return undefined
+  }
+  return new ShopifyTestOrderClient({
+    storeDomain,
+    storefrontDomain: process.env.SHOPIFY_STOREFRONT_DOMAIN,
+    accessToken,
+    apiVersion: process.env.SHOPIFY_API_VERSION,
+  })
+}
+
 export async function main(): Promise<void> {
   const db = new Db(DB_PATH)
   const hub = new EventHub(db, process.env.WEBHOOK_SECRET ?? 'dev-webhook-secret')
   const signer = new ReceiptSigner(process.env.ENGINE_SIGNING_SEED || undefined)
   const prava = buildAdapter()
+  const shopifyTest = buildShopifyTestAdapter()
   // Inbox before GroupService so invite/commit moments can notify.
   const notifier = new Notifier(db)
   const service = new GroupService(db, prava, hub, signer, {
@@ -90,12 +110,26 @@ export async function main(): Promise<void> {
   registerRoutes(app, service, poller, {
     apiToken: resolvedToken,
     appBaseUrl: APP_BASE_URL,
+    shopifyTest,
     social: {
       userFor: (req) => currentUserFrom(social, req),
       assertSeatable: (actorId, seats) => social.assertSeatable(actorId, seats),
     },
   })
 
+  const configuredShopifyDomains = process.env.SHOPIFY_DOMAINS
+    ? process.env.SHOPIFY_DOMAINS.split(',')
+    : [
+        ...(shopifyTest ? [shopifyTest.storefrontDomain] : []),
+        'allbirds.com',
+        'gymshark.com',
+        'fashionnova.com',
+        'kyliecosmetics.com',
+        'bombayshavingcompany.com',
+        'boat-lifestyle.com',
+        'mamaearth.in',
+        'beardo.in',
+      ]
   const catalog = new Catalog({
     // Any Shopify storefront works; these are only the default shelf searched
     // when the user does not scope the query to a merchant.
@@ -105,20 +139,7 @@ export async function main(): Promise<void> {
     // whole search look broken, so nothing goes in this list unchecked.
     // Deliberately spread across US and Indian storefronts, since the split is
     // as likely to be in rupees as dollars.
-    shopifyDomains: (
-      process.env.SHOPIFY_DOMAINS ??
-      [
-        'allbirds.com',
-        'gymshark.com',
-        'fashionnova.com',
-        'kyliecosmetics.com',
-        'bombayshavingcompany.com',
-        'boat-lifestyle.com',
-        'mamaearth.in',
-        'beardo.in',
-      ].join(',')
-    )
-      .split(',')
+    shopifyDomains: configuredShopifyDomains
       .map((s) => s.trim())
       .filter(Boolean),
   })

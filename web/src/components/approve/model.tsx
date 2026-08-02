@@ -2,7 +2,7 @@
 // The approval page is the only screen most people ever see, so the wording
 // lives here next to the logic that chooses it — never buried in JSX.
 
-import { ApiError, type CartItem, type GmpEvent, type Group, type GroupStatus, type MemberStatus, type Policy } from '@/lib/api'
+import { ApiError, type CartItem, type GmpEvent, type Group, type GroupStatus, type MemberStatus, type Policy, type Rail } from '@/lib/api'
 import { money, toMinor } from '@/lib/format'
 
 export type Fx = NonNullable<Group['fx']>
@@ -33,7 +33,7 @@ export interface MemberView {
   auction: { open: boolean; closes_at: string; contested_items: ContestedItem[] } | null
   fx: Fx | null
   /** Which rail carries this split, and therefore what this page may promise. */
-  rail: 'prava_mandates' | 'at_venue'
+  rail: Rail
   rail_capability: {
     rail: string
     label: string
@@ -54,7 +54,7 @@ export interface MemberView {
     deadline_at: string
     no_blame: boolean
     terminal: boolean
-    rail: 'prava_mandates' | 'at_venue'
+    rail: Rail
   }
   my_items: CartItem[]
 }
@@ -172,20 +172,20 @@ export function declineCopy(policy: Policy | null, you: string): DeclineCopy {
     case 'quorum':
       return {
         title: 'The group can go ahead without you',
-        body: `The policy is quorum(${policy.m}): any ${policy.m} approvals commit the group. You will not be charged, and the others may still pay their shares. If your share is needed to reach the total, someone's backstop covers it.`,
+        body: `The policy is quorum(${policy.m}): any ${policy.m} approvals commit the group. Your share is excluded, and the others may still continue. On a verified payment adapter, an approved backstop can cover a shortfall.`,
         confirm: "Decline — I'm out",
       }
     case 'weighted':
       return {
         title: 'The group can go ahead without you',
-        body: `The policy is weighted(${policy.threshold}): approvals are weighted and the group commits once they clear the threshold. You will not be charged; the others may still pay.`,
+        body: `The policy is weighted(${policy.threshold}): approvals are weighted and the group commits once they clear the threshold. Your share is excluded; the others may still continue.`,
         confirm: "Decline — I'm out",
       }
     case 'veto':
       return policy.member === you
         ? {
             title: 'You can stop this on your own',
-            body: `You hold the veto. Declining ends the purchase for everyone and nobody is charged.`,
+            body: `You hold the veto. Declining stops the group before its selected finish line.`,
             confirm: 'Decline — stop the purchase',
           }
         : declineCopy(policy.inner, you)
@@ -193,7 +193,7 @@ export function declineCopy(policy: Policy | null, you: string): DeclineCopy {
       return policy.member === you
         ? {
             title: 'Nothing happens without you',
-            body: `The policy requires your approval. If you decline, the group cannot commit and no one is charged.`,
+            body: `The policy requires your approval. If you decline, the group cannot commit or begin its finish line.`,
             confirm: 'Decline — cancel for everyone',
           }
         : declineCopy(policy.inner, you)

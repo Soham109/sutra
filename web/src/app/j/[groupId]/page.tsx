@@ -107,7 +107,11 @@ export default function JoinPage() {
         <p>
           <b>Picking a name cannot spend money.</b>{' '}
           {data.rail === 'at_venue' || data.rail_capability?.charges === false
-            ? 'The next screen only confirms that person’s share; everyone pays the venue directly.'
+            ? data.rail === 'shopify_pos'
+              ? 'The next screen only confirms that person’s share; everyone still presents their own card at Shopify POS.'
+              : data.rail === 'checkout_handoff'
+                ? 'The next screen only confirms that person’s proposed share; merchant checkout and payment are still pending.'
+                : 'The next screen only confirms that person’s share; everyone pays the venue directly.'
             : 'The next screen still requires that person’s passkey, on their device, against their card.'}
         </p>
       </div>

@@ -12,10 +12,12 @@ export function SplitPreview({
   split,
   currency,
   toleranceBps,
+  charges,
 }: {
   split: SplitResult
   currency: string
   toleranceBps: number
+  charges: boolean
 }) {
   const paying = split.shares.filter((s) => s.role !== 'observer')
   const exact = split.unassigned === 0 && paying.length > 0
@@ -58,7 +60,7 @@ export function SplitPreview({
                   {s.name || 'Unnamed'}
                 </div>
                 <div className="tiny faint">
-                  {s.role === 'observer' && 'Never charged'}
+                  {s.role === 'observer' && 'No payment obligation'}
                   {s.role === 'sponsor' &&
                     (s.covering.length > 0
                       ? `Covering ${s.covering.map((c) => c.name).join(', ')}`
@@ -75,7 +77,7 @@ export function SplitPreview({
                 ) : (
                   <>
                     <Money minor={s.payable} currency={currency} />
-                    <span className="tiny faint mono" title="The ceiling on their mandate once tolerance is applied">
+                    <span className="tiny faint mono" title="The largest amount this proposal permits once tolerance is applied">
                       cap {money(s.cap, currency)}
                     </span>
                   </>
@@ -98,7 +100,9 @@ export function SplitPreview({
           Shares sum to exactly <span className="mono">{money(split.total, currency)}</span> — odd cents go to the
           earliest member, never to rounding. Each cap is{' '}
           <span className="mono">{(toleranceBps / 100).toFixed(2)}%</span> above the share, so a small price
-          change at checkout doesn’t send everyone back to re-approve.
+          change at checkout doesn’t silently exceed the proposal. {charges
+            ? 'On this test charging rail, that cap is also applied to the credential.'
+            : 'This finish line records the cap but does not charge it.'}
         </p>
       )}
 

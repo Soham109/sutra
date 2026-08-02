@@ -1,7 +1,6 @@
 'use client'
 
 import type { Reliability } from '@/lib/api'
-import { money } from '@/lib/format'
 import { Skeleton } from '@/components/ui'
 
 /** Seconds, spoken the way a person would say them: 42s, 3m 10s, 1h 04m. */
@@ -48,21 +47,20 @@ interface Cell {
   note?: string
 }
 
-export function cellsFor(r: Reliability, currency = 'USD'): Cell[] {
+export function cellsFor(r: Reliability): Cell[] {
   return [
     { label: 'Groups', value: String(r.groups), note: 'seats held' },
     { label: 'Approved', value: String(r.approvals), note: 'own mandate signed' },
     { label: 'Declined', value: String(r.declines), note: 'walked away' },
     { label: 'Approval rate', value: rateText(r.approval_rate), note: 'of decisions made' },
     { label: 'Median reply', value: latencyText(r.median_latency_s), note: 'invite → decision' },
-    { label: 'Charged', value: money(r.charged_total_minor, currency), note: 'own card, own share' },
-    { label: 'Absorbed', value: money(r.backstopped_total_minor, currency), note: 'covered for others' },
+    { label: 'Payment totals', value: 'Receipts', note: 'kept separate by currency' },
   ]
 }
 
 /** The record as a hairline grid of facts. Never coloured — these are not scores. */
-export function RecordGrid({ r, currency = 'USD' }: { r: Reliability | null; currency?: string }) {
-  const cells = r ? cellsFor(r, currency) : null
+export function RecordGrid({ r }: { r: Reliability | null; currency?: string }) {
+  const cells = r ? cellsFor(r) : null
 
   return (
     <div
@@ -76,7 +74,7 @@ export function RecordGrid({ r, currency = 'USD' }: { r: Reliability | null; cur
         overflow: 'hidden',
       }}
     >
-      {(cells ?? Array.from({ length: 7 }, () => null)).map((c, i) => (
+      {(cells ?? Array.from({ length: 6 }, () => null)).map((c, i) => (
         <div key={c ? c.label : i} style={{ background: 'var(--surface)', padding: '11px 13px' }}>
           <div className="eyebrow" style={{ marginBottom: 4 }}>
             {c ? c.label : ' '}

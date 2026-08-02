@@ -158,7 +158,7 @@ function skills(): AgentSkill[] {
       id: 'create_group_checkout',
       name: 'Create a group checkout',
       description:
-        'Take one cart and N people and produce N separate payment mandates, one on each person’s own card, each locked to the merchant and capped at that person’s share. A commit policy (everyone / quorum of m / weighted / veto / required / deadline) decides whether the group commits. Either everyone in the locked set is charged in one window, or every mandate is cancelled and nobody was charged. No pooled funds, nobody fronts money, and the engine never sees a card number. Approval happens on each member’s own device with their own passkey — you get one private approval URL per member to hand out, and you cannot approve for them.',
+        'Take one cart and N people, calculate exact person-scoped shares, apply a commit policy (everyone / quorum / weighted / veto / required / deadline), and select an explicit finish line. Generic merchant URLs use checkout handoff; Shopify POS and venue rails record agreement without claiming payment. A verified Prava rail uses independently capped credentials and a sequential idempotent charge saga with explicit partial outcomes. No pooled wallet, and the engine never sees a card number.',
       tags: ['payments', 'group-checkout', 'split-payment', 'mandates', 'multi-principal', 'gmp1'],
       examples: [
         'Buy 4 tickets to the show tonight and have everyone pay their own share.',
@@ -172,7 +172,7 @@ function skills(): AgentSkill[] {
       id: 'coordinate_group_plan',
       name: 'Coordinate a group plan',
       description:
-        'The phase before a cart exists. From one sentence of intent, work out what the group is even doing: collect each person’s RSVP, free windows, location and budget ceiling privately, geocode the area, pull real venues from OpenStreetMap, and rank concrete options on that evidence. Nothing on the board is invented — the model only fills slots, the geocoder supplies coordinates and the ranker supplies the ordering. When the group picks one, convert the plan into a real group checkout with real mandates.',
+        'The phase before a cart exists. From one sentence of intent, collect each person’s RSVP, free windows, location and budget ceiling privately, geocode the area, pull real venues from OpenStreetMap, and rank concrete options on that evidence. Nothing on the board is invented. Venue budgets remain planning estimates until the real bill; priced products can convert to an explicit POS or checkout handoff.',
       tags: ['coordination', 'scheduling', 'availability', 'places', 'ranking', 'group-decision'],
       examples: [
         'Find somewhere for six of us to eat in Bandra on Friday evening, under ₹800 a head.',
@@ -257,8 +257,8 @@ function skills(): AgentSkill[] {
 /**
  * The GMP/1 capability extension.
  *
- * A2A has no vocabulary for "this agent moves money on behalf of several people
- * at once", and that is precisely the thing a client must understand before
+ * A2A has no vocabulary for "this agent coordinates one purchase across
+ * several principals", and that is precisely the thing a client must understand before
  * calling us. `capabilities.extensions` is the spec's designated place for
  * exactly this, so unlike the AgentFacts case (see agent-facts.ts) no
  * off-spec key is needed here — this is a conforming use of A2A, not a
@@ -274,13 +274,13 @@ export function gmpExtension(cfg: DiscoveryConfig): AgentExtension {
   return {
     uri: paymentsExtensionUri(cfg),
     description:
-      'GMP/1 — the Group Mandate Protocol. This agent coordinates a purchase authorised by N principals at once: one cart, one mandate per person on that person’s own card, each merchant-locked and amount-capped, bound by a commit policy and committed together. Funds are never pooled and never touch this engine. Activate with the A2A-Extensions header (the mechanism A2A v1.0 standardises); we also accept the unstandardised X-A2A-Extensions spelling defensively, but no version of the A2A spec actually names it.',
+      'GMP/1 coordinates one cart across N principals: exact shares, person-scoped consent, one policy and one explicit settlement rail. Verified Prava flows use capped credentials with idempotent recovery; Shopify POS, checkout handoff and venue flows record agreement without claiming payment. Funds are never pooled by this engine. Activate with A2A-Extensions (or the legacy X-A2A-Extensions spelling) to acknowledge these semantics.',
     required: false,
     params: {
       protocol: PROTOCOL,
       multi_principal: true,
       pools_funds: false,
-      fronts_money: false,
+      fronting_outcome: 'depends_on_selected_rail',
       sees_card_numbers: false,
       settlement_provider: 'Prava',
       /**
@@ -368,7 +368,7 @@ export function buildAgentCard(cfg: DiscoveryConfig): AgentCard {
     protocolVersion: '0.3.0',
     name: 'sutra',
     description:
-      'Group checkout for agents. sutra turns one cart and N humans into N card-network-enforced payment mandates — one per person, on that person’s own card, locked to the merchant and capped at their share — and commits them together under a policy: everyone is charged in one window, or every mandate is cancelled and nobody was ever charged. It also does the part before the cart (who is in, when everyone is free, which real venue wins) and the part where there is no chargeable merchant at all (splitting a physical restaurant bill exactly, with a signed record and no false claim of payment). No pooled funds, nobody fronts money, and the engine never sees a card number. Implements GMP/1, the Group Mandate Protocol. Note: this agent speaks its own REST API, described at /skill.md and in the GMP/1 capability extension below — it does not implement the A2A canonical method set.',
+      'Group purchase coordination for agents. Sutra turns one cart and N humans into exact person-scoped decisions under one policy and one explicit rail. Verified Prava flows use capped credentials with idempotent recovery and truthful partial outcomes; Shopify POS, checkout handoff and venue rails record agreement without claiming payment. It also coordinates private planning constraints, real venue ranking and exact bill allocation. No pooled wallet; the engine never sees card numbers. Implements GMP/1 over its documented REST binding; it does not implement the A2A canonical method set.',
     url: rest.url,
     preferredTransport: REST_BINDING,
     additionalInterfaces: [rest],
