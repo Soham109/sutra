@@ -177,7 +177,8 @@ export default function PeoplePage() {
         <header className="page-head">
           <h1>People</h1>
           <p className="muted" style={{ maxWidth: '58ch' }}>
-            Find friends, accept requests, and see who is available for your next group.
+            Search anyone on Sutra by name or handle to send a request. Below that are the people
+            you already know — friends, and anyone you have shared a group or plan with.
           </p>
         </header>
 
@@ -324,7 +325,9 @@ export default function PeoplePage() {
                   </div>
                 ) : (
                   <div className="well small muted">
-                    {q ? 'Nobody matches that search.' : 'That is everyone — you are already friends with the rest.'}
+                    {q
+                      ? 'Nobody matches that search.'
+                      : 'Nobody yet. Search above by name or @handle to find anyone on Sutra and send them a request.'}
                   </div>
                 )}
               </Section>
