@@ -46,6 +46,49 @@ export class GroupService {
   /** in-process re-entrancy guard for executeCommit */
   private readonly committing = new Set<string>()
 
+  /**
+   * The address Prava sees for this seat.
+   *
+   * This is not cosmetic. Sessions minted with an `@….local` address create fine
+   * and accept the card and the OTP, then Prava's own passkey registration fails
+   * with a 400 from `_otpSubmitHandler` — observed 2026-08-02 on two independent
+   * devices, so it is a server-side rejection rather than a WebAuthn quirk.
+   * `.local` is reserved for link-local names (RFC 6762) and never resolves on
+   * the public internet, so anything checking deliverability refuses it.
+   *
+   * Prava's own guidance (2026-08-02): use a real mailbox domain, not `.local`
+   * or similar. So: `PRAVA_MEMBER_EMAIL` wins outright when set — that is the
+   * escape hatch for a sandbox proof run, where every seat should land on one
+   * address the operator actually controls. Otherwise prefer the real address
+   * on the linked sutra account, then fall back to our own public host.
+   * `social.ts` also hands account-less users a `.local` address, so a linked
+   * account is checked, not trusted.
+   */
+  private memberEmail(m: MemberRow): string {
+    const override = process.env.PRAVA_MEMBER_EMAIL?.trim()
+    if (override && isRoutableEmail(override)) return override
+    if (m.user_id) {
+      const row = this.db.sql
+        .prepare(`SELECT email FROM users WHERE id = ?`)
+        .get(m.user_id) as { email?: string } | undefined
+      const email = row?.email?.trim()
+      if (email && isRoutableEmail(email)) return email
+    }
+    return `${m.id}@${this.mailHost()}`
+  }
+
+  /** Our own public hostname — a real, DNS-resolvable domain, unlike `.local`. */
+  private mailHost(): string {
+    try {
+      const host = new URL(this.cfg.appBaseUrl).hostname
+      // localhost has no public DNS either; only a deployed host is usable.
+      if (host && host.includes('.') && !isReservedHost(host)) return host
+    } catch {
+      // fall through to the default below
+    }
+    return 'sutra-gmp.vercel.app'
+  }
+
   constructor(
     readonly db: Db,
     readonly prava: PravaAdapter,
@@ -249,7 +292,7 @@ export class GroupService {
     if (m.status === 'viewed' && m.share_amount > 0 && !m.prava_session_id) {
       const session = await this.prava.createMandateSession({
         userId: m.id,
-        userEmail: `${m.id}@members.gmp.local`,
+        userEmail: this.memberEmail(m),
         totalAmount: toDecimalString(m.cap_amount),
         currency: g.currency,
         merchant,
@@ -281,7 +324,7 @@ export class GroupService {
     if (m.backstop_cap > 0 && !m.backstop_session_id) {
       const session = await this.prava.createMandateSession({
         userId: `${m.id}:bs`,
-        userEmail: `${m.id}@members.gmp.local`,
+        userEmail: this.memberEmail(m),
         totalAmount: toDecimalString(m.backstop_cap),
         currency: g.currency,
         merchant,
@@ -1359,6 +1402,25 @@ export function adjustCartForLocked(cart: Cart, lockedNames: Set<string>): Cart 
     items.push({ ...item, claimants: surviving, qty })
   }
   return { ...cart, items }
+}
+
+/**
+ * Hosts that exist only on a local network or in documentation, and so never
+ * resolve for anyone else. `.local` is the one that actually bit us — see
+ * `GroupService.memberEmail`.
+ */
+const RESERVED_HOST = /(^|\.)(local|localhost|internal|invalid|test|example|home|lan)$/i
+
+function isReservedHost(host: string): boolean {
+  return RESERVED_HOST.test(host.trim().toLowerCase())
+}
+
+/** Deliverable-looking: one @, a dotted domain, and a public-looking suffix. */
+function isRoutableEmail(email: string): boolean {
+  const at = email.lastIndexOf('@')
+  if (at <= 0 || at === email.length - 1) return false
+  const host = email.slice(at + 1).toLowerCase()
+  return host.includes('.') && !isReservedHost(host)
 }
 
 function sleep(ms: number): Promise<void> {

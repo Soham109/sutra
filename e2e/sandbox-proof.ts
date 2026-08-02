@@ -46,7 +46,12 @@ async function main() {
     merchant: {
       id: 'velvet',
       name: 'Velvet Ticket Co.',
-      url: 'https://velvet.example.com',
+      // Prava (2026-08-02): "when passing the merchant URL, make sure you use a
+      // valid https:// domain." This was `velvet.example.com` — example.com is
+      // reserved for documentation (RFC 2606) and that subdomain resolves
+      // nowhere, so it is exactly the shape they are rejecting. Override with
+      // PROOF_MERCHANT_URL to point the run at a different real storefront.
+      url: process.env.PROOF_MERCHANT_URL ?? 'https://www.ticketmaster.com',
       country_code_iso2: 'US',
     },
     cart: {
