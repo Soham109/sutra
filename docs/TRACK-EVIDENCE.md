@@ -8,10 +8,10 @@ writing it — nothing here is copied from another document without being checke
 ## Prava overall
 
 **The mandate-per-person consent model, the commit saga, crash-resume, and receipts are all
-real and load-bearing, not decorative. The one thing every score here is capped on is that no
-human has yet completed a passkey approval on a real Prava sandbox mandate — that gap is not
-yet closed, and this document is written so the next sentence can be swapped for a real
-transaction id the moment it lands.**
+real and load-bearing, not decorative. A human has now completed a passkey approval on a real
+Prava sandbox mandate — two humans, in fact, on two separate mandates — and the gap this
+section used to describe is closed. What follows is the file-and-line evidence for the
+machinery, then the transaction itself.**
 
 Each member gets their own mandate session, capped at their own share, never a shared or
 pooled amount. `engine/src/service.ts:250-253` calls `createMandateSession` per member with
@@ -43,14 +43,25 @@ Live evidence: `curl https://engine-production-e6fa.up.railway.app/health` retur
 real `sk_test_` key, not the offline mock. The web app is live at
 https://sutra-gmp.vercel.app.
 
-**The honest gap, stated so it can be swapped.** As of this writing, no completed, human-
-approved Prava sandbox charge is documented anywhere in this repository. Every real hosted
-approval session minted against `sandbox.collect.prava.space` has stayed pending and was
-cancelled, because completing it requires a human tapping their own passkey — no script can do
-this (Prava's mandate consent is a passkey ceremony on its own hosted page, `spec/PROTOCOL.md`,
-"Consent object"). When that step is
-completed, this paragraph should be replaced with the resulting group id, transaction id, and
-a link to the verified receipt; nothing else in this section needs to change.
+**The completed charge.** Group `gs_01KZ1SW0EXN2V3N4Y1V0K5E4H4` — Velvet Sessions, Group Pass,
+₹18,600, from the configured Shopify development store — split ₹9,300 between two
+participants, each approving their own capped Prava mandate on a separate device with the
+team's shared Prava test card: two independent human passkey approvals and two person-scoped
+mandates, not two different physical cardholders. Rail `prava_mandates`, status `committed`,
+both entries `charged`, receipt totals `{"quoted":1860000,"charged":1860000,"owed":1860000}`
+(minor units, INR). Charges ran sequentially with idempotent recovery, never atomically or
+simultaneously, and this is Prava **sandbox** money, not real money — it never reaches the
+Shopify store; the Shopify test order is a merchant record, not a settlement. It does not
+change the standing limitation that Sutra does not place the merchant order for an ordinary
+shared online cart. Verify it yourself:
+
+```bash
+curl -s https://sutra-gmp.vercel.app/api/v1/groups/gs_01KZ1SW0EXN2V3N4Y1V0K5E4H4/receipt > receipt.json
+npm run -w cli gmp -- verify receipt.json --engine https://sutra-gmp.vercel.app/api
+```
+
+which checks the hash chain, the recomputed totals, and the Ed25519 signature against the
+engine's own pinned `/health` key.
 
 ## Visa Intelligent Commerce
 

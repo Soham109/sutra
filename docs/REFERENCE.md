@@ -285,13 +285,13 @@ permanently in public.
 
 ### Designed, not built
 
-- **A real card charge.** Mandate sessions mint correctly against the real
-  Prava sandbox and the poller commits the group by itself once a mandate goes
-  active — but completing one requires a human opening the hosted approval URL
-  on a phone and passing the passkey ceremony, and no script can do that on
-  their behalf. That is the security property of the protocol, and it is also
-  the largest thing this repository cannot demonstrate on its own. If a receipt
-  here shows a real charge, a person tapped for it.
+A real, human-approved Prava sandbox charge has since been completed — group
+`gs_01KZ1SW0EXN2V3N4Y1V0K5E4H4`, ₹18,600 split between two participants; see
+[`README.md`](../README.md) and [`TRACK-EVIDENCE.md`](TRACK-EVIDENCE.md) — so that item is
+off this list. What stays permanent: completing a mandate always requires a human opening the
+hosted approval URL and passing the passkey ceremony, and no script can do that on their
+behalf. That is the security property of the protocol, not a gap.
+
 - **Per-participant authorisation on the coordination layer.** A plan link is a
   bearer capability by design — the whole point is answering on a phone with no
   account — but the plan view hands every participant's id to anyone holding

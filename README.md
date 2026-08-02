@@ -101,7 +101,14 @@ The default demo is offline and reproducible on purpose. Real Prava sandbox appr
 
 ## Current limits, plainly
 
-No completed, human-approved Prava sandbox card charge is documented in this repository yet — mandate-session creation is real and integrated, but do not describe that as settled money. Sutra does not place an ordinary shared merchant order when the checkout accepts only one card. Shopify POS is a cashier handoff, not a terminal integration. The restaurant-bill rail records agreement and exact debt but never charges the venue. Post-capture refunds are not supported on any rail today — the remedy is a merchant-initiated refund or a cardholder chargeback. The Chrome extension is load-unpacked only, not in the Web Store. The production engine is a durable single-writer SQLite deployment, not a horizontally scaled service. Native mobile apps are roadmap work; the responsive PWA is what ships now.
+A real, human-approved Prava sandbox charge is now documented: group `gs_01KZ1SW0EXN2V3N4Y1V0K5E4H4`, Velvet Sessions — Group Pass, ₹18,600 from the configured Shopify development store, split ₹9,300 between two participants who each approved their own capped Prava mandate on a separate device with the team's shared Prava test card — two independent human approvals and two person-scoped mandates, not two different physical cardholders. Rail `prava_mandates`, status `committed`, both entries `charged`, charged sequentially with idempotent recovery, never atomically. It is sandbox money, not real money, and it does not reach the Shopify store — the Shopify test order is a merchant record, not a settlement. Verify it yourself:
+
+```bash
+curl -s https://sutra-gmp.vercel.app/api/v1/groups/gs_01KZ1SW0EXN2V3N4Y1V0K5E4H4/receipt > receipt.json
+npm run -w cli gmp -- verify receipt.json --engine https://sutra-gmp.vercel.app/api
+```
+
+That does not change the standing limitation below: Sutra does not place an ordinary shared merchant order when the checkout accepts only one card. Shopify POS is a cashier handoff, not a terminal integration. The restaurant-bill rail records agreement and exact debt but never charges the venue. Post-capture refunds are not supported on any rail today — the remedy is a merchant-initiated refund or a cardholder chargeback. The Chrome extension is load-unpacked only, not in the Web Store. The production engine is a durable single-writer SQLite deployment, not a horizontally scaled service. Native mobile apps are roadmap work; the responsive PWA is what ships now.
 
 The full built/partial/not-built inventory is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12.
 
