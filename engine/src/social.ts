@@ -285,21 +285,29 @@ export class Social {
   }
 
   /**
-   * Circles, splits and plans only seat people who already said yes.
-   * Every seat must be a real account — either you, or a mutual friend.
+   * You may not attach somebody else's ACCOUNT to your group unless they have
+   * already agreed to know you. Otherwise anyone could seat a stranger by id
+   * and have the group show up in that stranger's dashboard.
+   *
+   * A seat with no `user_id` is a bare name, and that is deliberately allowed.
+   * It creates a link-only participant: they get a URL, they open it on their
+   * phone, they never make an account. That is the entire pass-the-phone
+   * design, and it is the only thing that makes splitting a restaurant bill
+   * with somebody you met that evening possible. An earlier version of this
+   * check rejected bare names outright, which was a security rule quietly
+   * deleting the product's most common real-world case.
+   *
+   * What such a seat costs the person is real and the UI says so: no
+   * notifications and no history, because there is no account to attach either
+   * to.
    */
-  assertLinkedFriends(
+  assertSeatable(
     actorId: string,
     seats: { name: string; user_id?: string | null }[],
   ): void {
     for (const seat of seats) {
       const id = seat.user_id?.trim()
-      if (!id) {
-        throw new UserError(
-          `“${seat.name}” needs a sutra account — find them on People and become friends first`,
-          400,
-        )
-      }
+      if (!id) continue
       if (id === actorId) continue
       if (!this.byId(id)) throw new UserError(`no such person for “${seat.name}”`, 404)
       if (!this.areFriends(actorId, id)) {
@@ -349,7 +357,7 @@ export class Social {
   // ---- circles ------------------------------------------------------------
 
   createCircle(input: { ownerId: string; name: string; emoji?: string; policy?: Policy; memberIds: string[] }): Circle {
-    this.assertLinkedFriends(
+    this.assertSeatable(
       input.ownerId,
       input.memberIds.map((user_id) => ({ name: this.byId(user_id)?.name ?? user_id, user_id })),
     )

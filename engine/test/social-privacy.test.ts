@@ -105,21 +105,47 @@ describe('becoming someone’s friend', () => {
     expect(social.friendsOf(b.id)).toHaveLength(0)
   })
 
-  it('assertLinkedFriends rejects strangers and nameless seats', () => {
+  /**
+   * The line this guard has to draw, and the line it must NOT draw.
+   *
+   * Attaching somebody's real account to your group without their consent is an
+   * abuse vector: it would put your group in their dashboard and their name on
+   * your split. That is refused.
+   *
+   * Seating a bare name is a completely different act and is allowed. It makes
+   * a link-only participant — a URL, opened on a phone, no account, ever. That
+   * is the pass-the-phone design, and it is the only reason splitting a
+   * restaurant bill with somebody you met that evening works at all. An earlier
+   * version of this check rejected bare names too, which read as a tightened
+   * security rule and was actually deleting the product's commonest case.
+   */
+  it('refuses somebody else’s account, but never refuses a plain name', () => {
     const social = world()
-    const a = social.createUser({ handle: 'a', name: 'A' })
-    const b = social.createUser({ handle: 'b', name: 'B' })
-    const c = social.createUser({ handle: 'c', name: 'C' })
-    social.requestFriend(a.id, b.id)
-    social.acceptFriend(b.id, a.id)
+    const me = social.createUser({ handle: 'a', name: 'A' })
+    const friend = social.createUser({ handle: 'b', name: 'B' })
+    const stranger = social.createUser({ handle: 'c', name: 'C' })
+    social.requestFriend(me.id, friend.id)
+    social.acceptFriend(friend.id, me.id)
 
-    expect(() => social.assertLinkedFriends(a.id, [{ name: 'Ghost' }])).toThrow(/needs a sutra account/)
-    expect(() => social.assertLinkedFriends(a.id, [{ name: 'C', user_id: c.id }])).toThrow(/aren’t friends yet/)
+    // A stranger's account cannot be dragged in.
+    expect(() => social.assertSeatable(me.id, [{ name: 'C', user_id: stranger.id }])).toThrow(
+      /aren’t friends yet/,
+    )
+    // Nor an id that does not exist at all.
+    expect(() => social.assertSeatable(me.id, [{ name: 'X', user_id: 'us_nope' }])).toThrow(/no such person/)
+
+    // You, and your friends, by account.
     expect(() =>
-      social.assertLinkedFriends(a.id, [
-        { name: 'A', user_id: a.id },
-        { name: 'B', user_id: b.id },
+      social.assertSeatable(me.id, [
+        { name: 'A', user_id: me.id },
+        { name: 'B', user_id: friend.id },
       ]),
+    ).not.toThrow()
+
+    // And the person at the table with no account and no id at all.
+    expect(() => social.assertSeatable(me.id, [{ name: 'Whoever was at dinner' }])).not.toThrow()
+    expect(() =>
+      social.assertSeatable(me.id, [{ name: 'Guest', user_id: null }, { name: 'B', user_id: friend.id }]),
     ).not.toThrow()
   })
 

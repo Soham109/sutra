@@ -96,7 +96,7 @@ export class PlanService {
         seats.push({ name: u.name, user_id: u.id, role: 'guest' })
       }
     }
-    if (actorUserId) this.d.social.assertLinkedFriends(actorUserId, seats)
+    if (actorUserId) this.d.social.assertSeatable(actorUserId, seats)
     for (const p of seats) this.addParticipant(id, p)
 
     this.d.store.appendEvent(id, null, 'plan.created', {

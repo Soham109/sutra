@@ -20,7 +20,7 @@ export interface RoutesConfig {
    */
   social?: {
     userFor: (req: { headers: Record<string, unknown> }) => { id: string } | undefined
-    assertLinkedFriends?: (actorId: string, seats: { name: string; user_id?: string | null }[]) => void
+    assertSeatable?: (actorId: string, seats: { name: string; user_id?: string | null }[]) => void
   }
 }
 
@@ -84,7 +84,7 @@ export function registerRoutes(
     const input = CreateGroupSchema.parse(req.body)
     if (viewer) {
       // Human path: never trust client created_by; always friend-gate.
-      cfg.social?.assertLinkedFriends?.(viewer.id, input.members)
+      cfg.social?.assertSeatable?.(viewer.id, input.members)
       const { group, members } = service.createGroup({ ...input, created_by: viewer.id })
       return reply.status(201).send({
         group_id: group.id,
@@ -99,7 +99,7 @@ export function registerRoutes(
       })
     }
     // Operator/agent path (token only).
-    if (input.created_by) cfg.social?.assertLinkedFriends?.(input.created_by, input.members)
+    if (input.created_by) cfg.social?.assertSeatable?.(input.created_by, input.members)
     const { group, members } = service.createGroup(input)
     return reply.status(201).send({
       group_id: group.id,

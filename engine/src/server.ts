@@ -92,7 +92,7 @@ export async function main(): Promise<void> {
     appBaseUrl: APP_BASE_URL,
     social: {
       userFor: (req) => currentUserFrom(social, req),
-      assertLinkedFriends: (actorId, seats) => social.assertLinkedFriends(actorId, seats),
+      assertSeatable: (actorId, seats) => social.assertSeatable(actorId, seats),
     },
   })
 

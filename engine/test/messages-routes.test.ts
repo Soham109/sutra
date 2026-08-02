@@ -452,6 +452,12 @@ describe('who may read or post in the thread', () => {
     app = w.app
     const organiser = w.social.createUser({ handle: 'yuki', name: 'Yuki' })
     const member = w.social.createUser({ handle: 'zack', name: 'Zack' })
+    // Seating somebody by their ACCOUNT requires that they already agreed to
+    // know you — otherwise anyone could drop a stranger's name into a plan and
+    // have it appear in that stranger's dashboard. A bare name needs no such
+    // agreement, but this test is specifically about a linked account.
+    w.social.requestFriend(organiser.id, member.id)
+    w.social.acceptFriend(member.id, organiser.id)
     const plan = w.plans.createPlan(
       {
         intent_text: 'movie night',

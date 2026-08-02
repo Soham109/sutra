@@ -154,7 +154,7 @@ export function registerProductRoutes(
   app.post('/v1/extension/groups', async (req, reply) => {
     const me = requireUser(req)
     const input = CreateGroupSchema.parse(req.body)
-    social.assertLinkedFriends(me.id, input.members)
+    social.assertSeatable(me.id, input.members)
     const members = input.members
     const created = service.createGroup({ ...input, members, created_by: me.id, origin: 'extension' })
     // Absolute, like /v1/groups already returns. These URLs are rendered into
@@ -555,7 +555,7 @@ export function registerProductRoutes(
     const cart = billToCart(bill, { claimantsByItemIndex: body.claimants })
 
     if (!me) throw new UserError('sign in to continue', 401)
-    social.assertLinkedFriends(me.id, body.members)
+    social.assertSeatable(me.id, body.members)
 
     const { group, members } = service.createGroup({
       title: body.title,

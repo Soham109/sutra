@@ -146,7 +146,7 @@ export function registerPlanRoutes(app: FastifyInstance, d: PlanRoutesDeps): voi
         contact: z.string().max(200).optional(),
       })
       .parse(req.body)
-    d.social.assertLinkedFriends(me.id, [body])
+    d.social.assertSeatable(me.id, [body])
     d.plans.addParticipant(id, body)
     if (body.user_id && body.user_id !== me.id) {
       d.notifier?.notify(body.user_id, {
