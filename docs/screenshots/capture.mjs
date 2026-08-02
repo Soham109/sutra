@@ -24,10 +24,14 @@ const BASE = process.env.SUTRA_URL ?? 'https://sutra-gmp.vercel.app'
 const MAX_BYTES = 600 * 1024
 
 const CHROME = [
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-].find((p) => existsSync(p))
+  process.env.CHROME_PATH,
+].filter(Boolean).find((p) => existsSync(p))
 
 if (!CHROME) {
   console.error('No Chrome or Edge found. Install one, or edit the CHROME list.')
@@ -417,10 +421,10 @@ async function main() {
     await page.goto(`${BASE}/app/plan/new`, { waitUntil: 'networkidle2', timeout: 45_000 })
     await typeInto(
       page,
-      'textarea[aria-label="Describe a plan, paste a link, or paste a bill"]',
+      'textarea[aria-label="Plan an idea"]',
       'Dinner tomorrow with Arjun and Kavya near Koramangala, Bangalore, under ₹1000 each',
     )
-    await clickText(page, 'Plan with Sutra bot')
+    await clickText(page, 'Review the plan')
     // Not the literal apostrophe: the source uses a typographic ’ (U+2019),
     // which is what `innerText` actually renders — a straight ' never matches.
     await waitForText(page, 'what I read', 20_000)
@@ -428,6 +432,56 @@ async function main() {
     // straight out of the sentence — no need to add anyone by hand.
     await clickText(page, 'Ask the group')
     await page.waitForFunction(() => location.pathname.startsWith('/app/plans/'), { timeout: 20_000 })
+
+    // A board with zero answers proves venue discovery, but not coordination.
+    // Answer every requested question for the three throwaway seats so the
+    // screenshot shows the real common-window and ranking arithmetic too.
+    // These are ordinary participant-link calls against the live API; no
+    // state is injected into React and no displayed number is staged.
+    const planId = new URL(page.url()).pathname.split('/').pop()
+    const answerResult = await page.evaluate(async (pid) => {
+      const get = await fetch(`/api/v1/plans/${pid}`, { credentials: 'include' })
+      if (!get.ok) return { ok: false, reason: `plan fetch returned ${get.status}` }
+      const plan = await get.json()
+      const places = [
+        { label: 'Koramangala', lat: 12.9352, lng: 77.6245, source: 'manual' },
+        { label: 'Indiranagar', lat: 12.9784, lng: 77.6408, source: 'manual' },
+        { label: 'Jayanagar', lat: 12.9141, lng: 77.6101, source: 'manual' },
+      ]
+
+      for (const [i, participant] of plan.participants.entries()) {
+        if (!participant.participant_id) continue
+        const day = new Date(Date.now() + 24 * 60 * 60 * 1000)
+        day.setUTCHours(13, i * 15, 0, 0)
+        const end = new Date(day)
+        end.setUTCHours(17, 30 - i * 15, 0, 0)
+        const payloads = {
+          rsvp: { kind: 'rsvp', in: true },
+          location: { kind: 'location', place: places[i % places.length] },
+          availability: {
+            kind: 'availability',
+            windows: [{ start: day.toISOString(), end: end.toISOString() }],
+            anytime: false,
+          },
+          budget: { kind: 'budget', ceiling_minor: 100000, currency: 'INR' },
+          constraint: { kind: 'constraint', text: 'vegetarian options' },
+        }
+        for (const kind of plan.ask) {
+          const payload = payloads[kind]
+          if (!payload) continue
+          const sent = await fetch(`/api/v1/participants/${participant.participant_id}/signal`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          })
+          if (!sent.ok) return { ok: false, reason: `${participant.name}/${kind} returned ${sent.status}` }
+        }
+      }
+      return { ok: true }
+    }, planId)
+    if (!answerResult.ok) note(`could not populate plan answers: ${answerResult.reason}`)
+    await page.reload({ waitUntil: 'networkidle2', timeout: 45_000 })
 
     // Venue search can take a long time (STATUS.md: up to ~40s) or return
     // nothing at all. Wait generously; do not fabricate a result either way.

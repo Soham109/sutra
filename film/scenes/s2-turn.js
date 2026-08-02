@@ -80,7 +80,21 @@
     line2.style.fontWeight = '600';
     line2.innerHTML = '<span class="brand">Everyone approves. Everyone pays.</span><br>Same moment. Or nobody does.';
 
-    root._els = { backdrop: backdrop, line1: line1, mark: mark, line2: line2 };
+    var stack = el('div', 's2-stack', root);
+    [
+      ['01', 'INTENT', 'sentence · link · photo · agent'],
+      ['02', 'COORDINATE', 'people · time · place · budget'],
+      ['03', 'ALLOCATE', 'items · shares · policy · backstops'],
+      ['04', 'GMP/1', 'one capped consent per person'],
+      ['05', 'COMMIT', 'merchant paid · signed receipt'],
+    ].forEach(function (x) {
+      var row = el('div', 's2-stack-row', stack);
+      el('span', 's2-stack-num', row).textContent = x[0];
+      el('b', '', row).textContent = x[1];
+      el('em', '', row).textContent = x[2];
+    });
+
+    root._els = { backdrop: backdrop, line1: line1, mark: mark, line2: line2, stack: stack };
   }
 
   function draw(t, root) {
@@ -109,6 +123,11 @@
     var l2In = FILM.easeOut(FILM.progress(t, LINE2_IN_FROM, LINE2_IN_TO));
     E.line2.style.opacity = String(l2In);
     E.line2.style.transform = 'translate(-50%, 0) translateY(' + FILM.lerp(10, 0, l2In) + 'px)';
+
+    var stackIn = FILM.easeOut(FILM.progress(t, 7600, 8400));
+    E.stack.style.opacity = String(stackIn);
+    E.stack.style.transform = 'translateX(-50%) translateY(' + FILM.lerp(35, 0, stackIn) + 'px)';
+    E.line2.style.opacity = String(l2In * (1 - FILM.progress(t, 7600, 8300)));
   }
 
   window.FILM.register({

@@ -18,13 +18,17 @@ const here = dirname(fileURLToPath(import.meta.url))
 const OUT = join(here, 'build', 'frames')
 
 const CHROME = [
+  process.env.CHROME_PATH,
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-].find((p) => existsSync(p))
+].filter(Boolean).find((p) => existsSync(p))
 
 if (!CHROME) {
-  console.error('No Chrome or Edge found. Install one, or edit the CHROME list.')
+  console.error('No Chrome or Edge found. Install one or set CHROME_PATH.')
   process.exit(1)
 }
 

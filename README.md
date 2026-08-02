@@ -2,215 +2,205 @@
 
 # Sutra
 
-### One cart. Everyone's own card. Nobody fronts the money.
+### Split it before you pay it.
 
-Sutra lets a group pay for one thing together without one person's card taking
-the whole hit. Each person approves a permission capped at their own share, on
-their own card — and either everyone is charged at once, or nobody is.
+**Group checkout for agents and humans: one decision, one capped approval per person, no pooled wallet.**
 
-**[Open the product](https://sutra-gmp.vercel.app)** &nbsp;·&nbsp;
-**[Engine health](https://engine-production-e6fa.up.railway.app/health)** &nbsp;·&nbsp;
-**[Architecture](https://sutra-gmp.vercel.app/docs)** &nbsp;·&nbsp;
-**[Protocol](spec/PROTOCOL.md)**
+[Open Sutra](https://sutra-gmp.vercel.app) · [NANDA proof](https://sutra-gmp.vercel.app/nanda) · [Protocol](spec/PROTOCOL.md) · [API reference](docs/REFERENCE.md)
 
-<sub>Built on [Prava](https://docs.prava.space) · Team `__init__ to win it` —
-Soham + Arshjeet · Agentic Commerce Hackathon, August 2026</sub>
-
-<br />
-
-![The Sutra landing page](docs/screenshots/01-landing-light.png)
+Built on [Prava](https://docs.prava.space) for the Agentic Commerce Hackathon · team `__init__ to win it`
 
 </div>
 
+![Sutra landing page: plan the group decision, then let each person approve their own share](docs/screenshots/readme-hero.png)
+
+Sutra coordinates a purchase before money moves. A group can begin with a sentence, a product link, or a restaurant bill; collect everyone’s constraints; calculate exact shares; and ask each person for consent to only their own amount.
+
+The payment primitive underneath is **GMP/1, the Group Mandate Protocol**: N principals, N independently capped mandates, one group policy, and a signed terminal receipt. Sutra never stores a pooled balance and never sees a card number.
+
 ## The problem
 
-Somebody pays first, then spends a fortnight asking for it back. One person's
-card takes the group order — the shared cart, the concert tickets, the
-restaurant bill — and then they chase four Venmo requests, guess who forgot,
-and eat the balance of whoever ghosts. Every online checkout assumes exactly
-one payer says yes. A group almost never is one person.
+Today, “group payment” usually means one person becomes the lender. They place the order on one card, send requests afterwards, and absorb the risk when somebody forgets or declines.
 
-## How it actually works
+Agentic payment protocols inherit the same assumption: one user authorizes one agent. They can describe a group purchase, but the payment layer still sees one principal. Sutra adds the missing coordination layer without turning the organizer—or the agent—into a wallet.
 
-1. Someone starts a group buy — a cart, a bill, or a plan that turns into one.
-2. Everyone approves their own **mandate**: a permission capped at their own
-   share, on their own card, with their own passkey. Nothing is charged yet.
-3. Once the group's rule is satisfied — everyone approved, a quorum, whatever
-   the group picked — every approved card is charged **at once**, in one step.
-4. If the rule can't be met — someone declines, the deadline passes — every
-   mandate is **cancelled** instead. No partial charges, nobody left exposed.
-5. A signed, hash-chained receipt records exactly who was asked, who approved,
-   and what — if anything — actually moved.
+## From intent to consent
 
-No balance is ever held by Sutra. There is no such column in the schema.
+```mermaid
+flowchart LR
+    A["Sentence · link · bill"] --> B["Interpret facts and ask the group"]
+    B --> C["Rank options and calculate exact shares"]
+    C --> D["Freeze cart hash · cap · policy"]
+    D --> E1["Person 1 approves"]
+    D --> E2["Person 2 approves"]
+    D --> E3["Person N approves"]
+    E1 --> F["GMP/1 decision + commit saga"]
+    E2 --> F
+    E3 --> F
+    F --> G["Prava card rail or at-venue agreement rail"]
+    G --> H["Ed25519-signed, hash-chained receipt"]
+```
 
-![The approval page: one person's mandate, capped at their own share](docs/screenshots/06-approval-pending-light.png)
+1. **Bring the context.** Describe a plan, paste a public product page, or enter a bill.
+2. **Ask, don’t assume.** Every participant gets a private link for availability, location, budget, RSVP, and constraints. These answers cannot authorize payment.
+3. **Make the decision inspectable.** Real venues come from OpenStreetMap; product facts retain their source; rankings expose their factors; bill arithmetic must reconcile.
+4. **Bind consent to the exact thing.** Each payer sees their items, share, cap, merchant, policy, and cart hash before approving.
+5. **Commit through the correct rail.** A Prava-capable flow uses person-scoped mandates. A physical bill records agreement only and explicitly reports zero charged.
+6. **Leave evidence.** Every terminal group produces a signed receipt whose consent chain can be verified without trusting the UI.
 
-## What it does
+## What the product does
 
-**Your dashboard.** What needs an answer from you, what you are waiting on from
-other people, and exactly what your card is exposed to right now — never a
-running balance, because Sutra never holds one.
+### Plan with the group, not around them
 
-![The dashboard: what needs you, and what your card is exposed to right now](docs/screenshots/02-dashboard-light.png)
+One sentence becomes typed intent, participant questions, real OpenStreetMap venues, common time windows, and an explainable shortlist. OpenAI can help extract intent, but deterministic rules remain the fallback and never invent venue or payment facts.
 
-**Planning.** One sentence — *"dinner saturday near Koramangala, under 900
-each"* — becomes real venues from OpenStreetMap, ranked against everyone's
-answers with a score you can read the reasons for, not just trust.
+![Plan board with participants and real OpenStreetMap venues](docs/screenshots/readme-plan.png)
 
-![A ranked plan board: real venues, each score explained in a sentence](docs/screenshots/09-plan-board-light.png)
+### Resolve a product, then verify it
 
-**Paste a link, split it.** Paste a product URL or search a catalog; Sutra
-resolves it to a priced line and figures out whether it's a whole-cart split
-or everyone buying their own thing (see *the honest boundary* below).
+Search configured public catalogs or paste a public product URL. Sutra preserves merchant, price, currency, stock state, source, and resolution confidence before anyone is seated in the group.
 
-![Pasting a product link and turning it into a priced cart](docs/screenshots/03-discover-search-light.png)
+![Product discovery results with merchant, live price, stock state, and split action](docs/screenshots/readme-discover.png)
 
-**Bill splitting.** Photograph or paste a restaurant bill. It's parsed,
-reconciled against the printed total — a mismatch is reported, never papered
-over — and split into exact shares down to the minor unit.
+### Turn a bill into exact, reviewable shares
 
-![A photographed bill, itemised and reconciled against its printed total](docs/screenshots/04-bill-parsed-light.png)
+Paste receipt text—or use vision when configured—then reconcile parsed lines against the printed total. Assign items, distribute fees in minor units, and stop when the arithmetic or OCR integrity check is suspicious. This is the **at-venue rail**: it records who owes what; it does not charge a card.
 
-**The browser extension.** Import whatever product page you're looking at
-into a group cart. It's "load unpacked" only — not on the Chrome Web Store yet.
+![Itemised bill with reconciliation, item claimants, and exact per-person totals](docs/screenshots/readme-bill.png)
 
-**Group thread, with `@sutra`.** Message the group about the plan; tag
-`@sutra` and it answers from the group's real state. It never authors a fact
-and refuses anything payment-shaped.
+### Give every person one clear decision
 
-**Receipts.** Every commit produces an Ed25519-signed, hash-chained receipt
-you can verify offline, without trusting our server.
+The approval surface contains the whole decision: exact share, items, group policy, progress, deadline, and the rail-specific consequence. Payment consent is separate from planning answers.
 
-![A signed receipt, showing owed vs charged per member](docs/screenshots/07-receipt-settled-light.png)
+<p align="center">
+  <img src="docs/screenshots/readme-approval.png" width="520" alt="Individual approval page showing one exact share, the group state, and the explicit no-charge disclosure for an at-venue split" />
+</p>
 
-## The honest boundary
+### Operate as a real group product
 
-A Prava charge mints **one single-use card per person**, locked to a merchant
-and capped at that person's own share. Four people means four card numbers —
-and a normal checkout has one card field. That works cleanly in two shapes,
-and breaks in a third:
+The shipped web/PWA also includes accounts, friends, circles, pass-the-phone participation, private invite links, a live group thread with an `@sutra` state bot, notifications, a dashboard for pending decisions and card exposure, receipts, and an unpacked Chrome extension for importing the current merchant page.
 
-|  | Everyone buys their own item | Paying in person | One shared cart, split online |
-|---|---|---|---|
-| Example | four tickets, one each | a restaurant bill, a bar tab | one Amazon cart, four people |
-| Completes today? | yes, unassisted | yes — Sutra does the arithmetic, people hand over cards at the till | **no** |
-| Why | each card covers exactly one whole order | any till has always taken more than one card | the merchant's checkout has one card field, and cannot take four |
+## The money boundary
 
-**Sutra does not place the merchant order for a shared cart.** Doing that
-needs the merchant to accept more than one card for one order — split tender
-— which is routine at a physical till and rare online. Sutra detects which of
-these three situations a cart is actually in from what people claimed, rather
-than guessing, and says so before anyone approves anything — see
-[`web/src/components/discover/how-it-completes.tsx`](web/src/components/discover/how-it-completes.tsx).
-Every charge in a group already carries a shared reference a Prava-aware
-merchant could reconcile split-tender against; that is a proposal in
-`spec/PROTOCOL.md`, not a shipped feature, and no merchant has adopted it.
+Sutra does not pretend every split has the same settlement capability.
 
-## Try it in 60 seconds
+| Situation | What Sutra completes | What it does **not** claim |
+|---|---|---|
+| Prava-capable merchant or one order per person | Creates one hosted mandate session per payer, waits for each person’s passkey approval, then executes the group policy through person-scoped charges | That a pending mandate is already a charge |
+| Physical restaurant/bar bill | Reconciles the bill, captures exact agreement, and signs a receipt with `owed_amount > 0` and `charged_amount = 0` | That Sutra paid the venue |
+| Ordinary shared online cart with one card field | Coordinates the decision and can return the organizer to checkout | That four single-use credentials were accepted by a one-card form, or that Sutra placed the merchant order |
+
+A shared online checkout becomes fully automatic only when the merchant supports split tender or a merchant adapter can reconcile the individual payment credentials. That protocol extension is designed in [`spec/PROTOCOL.md`](spec/PROTOCOL.md); merchant adoption is not a shipped claim.
+
+## Why the engine is difficult
+
+The happy path is not the differentiator. Card charges do not roll back like database rows, so GMP/1 is a crash-resumable commit saga built around evidence:
+
+- **No pooled funds:** there is no wallet, balance, or ledger table in the engine schema.
+- **Consent cannot stretch:** cart hash and cap are part of the approved object; a larger share requires fresh consent.
+- **Definite refusal is not retried:** a terminal provider response closes that attempt.
+- **Unknown is not failure:** after a lost response, the engine asks the provider for the idempotency reference before it considers retrying.
+- **No silent double charge:** attempt references survive restart and are reconstructed from the append-only event log.
+- **Partial means partial:** if an irreversible mixed outcome occurs, the receipt reports it instead of manufacturing “atomic” success.
+- **At-venue never says charged:** receipt verification rejects a non-charging rail that claims money moved.
+
+Commit policies include `all_of`, quorum, weighted threshold, veto, required members, and deadline fallback. Roles include payer, sponsor, backstop, and observer. The exact state machines and failure semantics live in the [GMP/1 specification](spec/PROTOCOL.md).
+
+## Project NANDA: a payment adapter, not another ledger
+
+[`nanda-town-prava/`](nanda-town-prava/) is a real NANDA Town `payments` plugin registered as `prava_mandates` under `nest.plugins.payments`. It replaces the simulator’s pooled `prepaid_credits` model with merchant-scoped, amount-capped authorization headroom.
+
+| | `prepaid_credits` | `prava_mandates` |
+|---|---|---|
+| Value model | Internal pooled balances | Each principal’s own card authorization |
+| `pay()` | Debit one agent, credit another | Create/execute a merchant payment mandate |
+| Human authorization | Process-controlled | Hosted approval + passkey in live mode |
+| Payee | Another simulator agent | External merchant |
+| Group purchase | No multi-principal primitive | `pay_group()` binds N mandates to one policy |
+| Agent-to-agent transfer | Supported | Deliberately impossible on this rail |
+
+![Live NANDA discovery evidence served by Sutra](docs/screenshots/readme-nanda.png)
+
+Run the narrated, self-grading comparison with no keys or network:
+
+```bash
+npm run nanda:scene
+```
+
+The scene discovers the installed plugin through Python entry-point metadata, runs a four-agent purchase with a mid-flight decline and backstop, checks conservation invariants, and compares the same scenario with `prepaid_credits`. Simulated receipts are marked `simulated: true`; live mode requires human approval and never impersonates it. See the [plugin README](nanda-town-prava/README.md) and [evidence pack](docs/NANDA-EVIDENCE.md).
+
+## Architecture
+
+| Layer | Responsibility | Primary code |
+|---|---|---|
+| Web / PWA | Planning, discovery, people, approvals, dashboard, receipts | [`web/`](web/) |
+| Coordination | Intent extraction, participant signals, time/geo math, explainable ranking | [`engine/src/plan/`](engine/src/plan/) · [`engine/src/agent/`](engine/src/agent/) |
+| Commerce intake | URL resolution, public catalogs, bill parsing and integrity checks | [`engine/src/catalog/`](engine/src/catalog/) · [`engine/src/bill/`](engine/src/bill/) |
+| GMP/1 engine | Share allocation, policies, mandate lifecycle, commit/recovery, receipts | [`engine/src/service.ts`](engine/src/service.ts) · [`engine/src/protocol/`](engine/src/protocol/) |
+| Payment adapters | Real Prava REST client, local mock, fault-injection proxy | [`engine/src/prava/`](engine/src/prava/) |
+| Agent surfaces | MCP server, A2A AgentCard, AgentFacts, SkillMD, AI catalog | [`mcp/`](mcp/) · [`engine/src/discovery/`](engine/src/discovery/) |
+| Merchant-page intake | Shared detector, bookmarklet, unpacked extension | [`widget/`](widget/) · [`extension/`](extension/) |
+| NANDA Town | Python `payments` plugin and simulator-compatible protocol adapter | [`nanda-town-prava/`](nanda-town-prava/) |
+
+The engine is intentionally one persistent process today: SQLite, the approval poller, SSE fan-out, and the in-process event hub depend on a single replica. Deployment invariants are documented in the [runbook](docs/RUNBOOK.md).
+
+## Run it locally
+
+Requires Node.js 22.5+.
 
 ```bash
 npm install
-cp .env.example .env      # optional — every value has a working default (mock Prava, SQLite)
-npm run dev                # engine on :4100, web app on :3000
+cp .env.example .env     # optional; defaults use SQLite + mock Prava
+npm run dev              # web :3000 · engine :4100
 ```
 
-Then, in another terminal:
+In another terminal:
 
 ```bash
-npm run demo               # 4 approvals -> 4 charges -> a verified receipt, end to end
+npm run demo             # four approvals → commit → verified receipt
 ```
 
-```
-══════ COMMITTED ══════
-all 4 approved; locked 4 member(s)
+Useful verification commands:
 
-✓ Soham    charged    charged $46.50
-✓ Arsh     charged    charged $46.50
-✓ Dev      charged    charged $46.50
-✓ Maya     charged    charged $46.50
-
-receipt: ✓ chain + signature verified
+```bash
+npm test -w engine       # protocol, API, integrations, failure semantics
+npm run test:widget      # detector shared by widget/bookmarklet/extension
+npm run build            # production Next.js build + type checking
+npm run nanda:test       # Python adapter suite
+npm run nanda:scene      # narrated NANDA differentiator
 ```
 
-Or skip local setup entirely: the live app above runs the same code.
+The default demo is deliberately offline and reproducible. Real Prava sandbox approval requires a human to complete the hosted passkey ceremony; automation must not approve a mandate on someone’s behalf.
 
-## Architecture, briefly
+## Current limits—plainly
 
-One sentence goes into a **coordination layer** that turns it into typed
-signals, real venues, and an explainable ranked shortlist; the group's choice
-becomes a priced cart with a chosen settlement rail. That cart is handed to
-the **GMP/1 protocol engine**, which computes each person's capped share,
-mints a Prava mandate session per person, and commits or cancels the whole
-group atomically once its policy is satisfied — crash-resumable, idempotent,
-with every attempt reconstructed from an append-only event log.
+- No completed, human-approved Prava sandbox card charge is documented in this repository yet. Real mandate-session creation is integrated; do not describe that as settled money.
+- Sutra does not place an ordinary shared merchant order when the checkout accepts only one card.
+- The restaurant-bill rail records agreement and exact debt but never charges the venue.
+- Photo transcription depends on configured vision; pasted bill text and all arithmetic are deterministic.
+- Catalog coverage is best-effort over public data. Authenticated carts and heavily client-rendered pages require the extension or a merchant integration.
+- Venue search depends on public OpenStreetMap services and can time out under load.
+- The Chrome extension is load-unpacked only; it is not in the Web Store.
+- The production engine is a durable single-writer SQLite deployment, not a horizontally scaled service.
+- Native mobile apps are roadmap work; the responsive PWA is what ships now.
 
-Full diagram, the protocol formally, and the coordination layer's exact
-arithmetic: the in-app **[`/docs`](https://sutra-gmp.vercel.app/docs)** page ·
-[`spec/PROTOCOL.md`](spec/PROTOCOL.md) · [`docs/COORDINATION.md`](docs/COORDINATION.md)
-· [`spec/AP2-EXTENSION.md`](spec/AP2-EXTENSION.md) (where this sits relative to AP2 v0.2).
+The detailed built/partial/not-built inventory is in [`docs/PRODUCT_AND_MOBILE_ROADMAP.md`](docs/PRODUCT_AND_MOBILE_ROADMAP.md).
 
-## Tests and evidence
+## Documentation
 
-Every number below is from a run performed on 2026-08-02. Test counts move
-daily on an active repo — re-run these yourself rather than trusting a copy.
+| Read this | When you need |
+|---|---|
+| [`spec/PROTOCOL.md`](spec/PROTOCOL.md) | GMP/1 objects, policies, state machines, commit saga, rails, receipts |
+| [`docs/COORDINATION.md`](docs/COORDINATION.md) | Signal model, common-window math, geo model, ranking arithmetic |
+| [`docs/REPO-MAP.md`](docs/REPO-MAP.md) | Code-level map with concrete implementation references |
+| [`docs/REFERENCE.md`](docs/REFERENCE.md) | Endpoint inventory, failure taxonomy, built-vs-designed claims |
+| [`docs/PRODUCT_ARCHITECTURE.md`](docs/PRODUCT_ARCHITECTURE.md) | Web, extension, merchant checkout, accounts, and mobile boundaries |
+| [`docs/NANDA-EVIDENCE.md`](docs/NANDA-EVIDENCE.md) | NANDA plugin transcripts, baseline diff, registry evidence |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Local operation, deployment, keys, recovery, production invariants |
+| [`docs/HACKATHON.md`](docs/HACKATHON.md) | Track positioning, judging evidence, submission checklist |
 
-**Engine — run from PowerShell, not Git Bash.** (`npm test -w engine` under
-Git Bash fails every file with a config error and runs zero tests — a known
-environment trap on this machine, not a bug to "fix.")
+## Team
 
-```
-> npm test -w engine
- Test Files  35 passed (35)
-      Tests  626 passed (626)
-   Duration  2.63s
-```
+Built by **Soham Aggarwal and Arshjeet** as team `__init__ to win it` for the Agentic Commerce Hackathon, August 2026.
 
-**Widget/page-detector** (`npm run test:widget`, the detector shared by the
-widget, bookmarklet and extension):
-
-```
-tests 33
-pass 33
-fail 0
-```
-
-**NANDA Town plugin** (`cd nanda-town-prava && pytest -q`, using its own
-`.venv`):
-
-```
-117 passed, 1 skipped in 0.36s
-```
-
-**Build**: `npm run build` — Next.js compiles clean, 19 routes, no type
-errors, verified same day.
-
-Longer runs (chaos fault-injection, a live end-to-end plan against real
-OpenStreetMap, a sample bill split) live in
-[`docs/REFERENCE.md`](docs/REFERENCE.md) — they take longer than 90 seconds to
-read, not because they're less true.
-
-## Endpoints and deeper reference
-
-61 documented HTTP routes across the protocol, the coordination layer, bills,
-discovery, people, and threads — plus the 36-case failure taxonomy (every way
-a group payment can go wrong, and what Sutra does about it), the honest notes
-on the Prava integration, and what's built versus only designed:
-**[`docs/REFERENCE.md`](docs/REFERENCE.md)**.
-
-A few to start with:
-
-| Method | Path | What |
-|---|---|---|
-| POST | `/v1/groups` | create a group checkout |
-| POST | `/v1/members/:id/open` | first open — lazily mints the Prava session |
-| GET | `/v1/groups/:id/receipt` | the signed receipt |
-| POST | `/v1/agent/plan` | one sentence → a plan |
-| POST | `/v1/bill/split` | parsed bill → a group on the `at_venue` rail |
-| GET | `/.well-known/agent-card.json` | A2A AgentCard (also `/skill.md`, `/agent-facts.json`, `/api/agents`) |
-
-## Operating this
-
-Deploying either half, rotating a key, or fixing something that broke:
-[`docs/RUNBOOK.md`](docs/RUNBOOK.md). Submitting to the hackathon:
-[`docs/HACKATHON.md`](docs/HACKATHON.md). Everything else: [`docs/README.md`](docs/README.md).
+The project’s standard is simple: if money did not move, the product, receipt, README, and demo must all say so.

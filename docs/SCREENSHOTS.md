@@ -1,90 +1,67 @@
-# Screenshots
+# Product screenshots
 
-Every image in [`docs/screenshots/`](screenshots/) is a real capture of the live product at
-`https://sutra-gmp.vercel.app`, taken by [`docs/screenshots/capture.mjs`](screenshots/capture.mjs).
-Nothing is staged: the script registers a throwaway account, drives the actual UI (typing,
-clicking, waiting on real network responses) to create a real bill split and a real link split
-with real bare-name friends, approves some shares and leaves others pending, settles one group,
-and screenshots each screen as it actually rendered. No image was edited after capture beyond
-lossless-ish PNG palette compression to hit the size budget.
+The screenshots in [`docs/screenshots/`](screenshots/) are generated from the deployed product, not mockups.
 
-Regenerate everything with:
+[`capture.mjs`](screenshots/capture.mjs) opens `https://sutra-gmp.vercel.app` in headless Chrome, registers a disposable account, and drives the visible UI to create:
+
+- a product search and link split;
+- a reconciled three-person bill split;
+- a group with two accepted shares and one still deciding;
+- the individual decision page and terminal signed receipt;
+- a plan with three participant responses and real OpenStreetMap venues;
+- the live NANDA/A2A discovery evidence page.
+
+The latest run metadata—including deployment, disposable handle, group IDs, timestamp, and findings—is recorded in [`run-report.json`](screenshots/run-report.json). The current run completed on 2 August 2026 against production. Its only skipped artifact was the Chrome extension, which cannot be captured honestly without loading the unpacked extension in a real browser on a merchant page.
+
+## Reproduce
 
 ```bash
 node docs/screenshots/capture.mjs
+node docs/screenshots/prepare-readme.mjs
 ```
 
-Point it at a different deployment with `SUTRA_URL=https://your-deploy.example npm exec node docs/screenshots/capture.mjs`
-(defaults to production). Each run creates a fresh throwaway account (`rohandesai<timestamp>`) so
-re-running never collides with a previous one.
+Override the deployment or Chrome executable when needed:
 
-Captured: **2 Aug 2026**, against production (web `sutra-gmp.vercel.app`, engine
-`engine-production-e6fa.up.railway.app`), account `Rohan Desai` / `@rohandesai639383`.
+```bash
+SUTRA_URL=http://localhost:3000 CHROME_PATH=/path/to/chrome node docs/screenshots/capture.mjs
+```
 
-## Index
+The capture script supports standard Google Chrome, Chromium, and Microsoft Edge locations on macOS and Windows.
 
-Two names exist for most images: the descriptive one this script writes, and a short alias
-the README links to. Both files are byte-identical copies.
+## Judge-facing frames
 
-| # | File (+ README alias) | Shows | Theme |
-|---|---|---|---|
-| 1 | `01-landing-light.png` | The landing page, top of page, logged out. | light |
-| 2 | `02-dashboard-light.png` (`dashboard.png`) | The signed-in dashboard with real data: 1 pending approval, 2 groups, an exposure figure, and a "waiting on others" panel listing both the bill split (2 of 3 approved) and the link split (0 of 3). | light |
-| 3 | `03-discover-search-light.png` (`discover.png`) | `/app/discover` after a real search for "merino tee" — 2 real Allbirds results, live prices, source-strip timing. | light |
-| 4 | `04-bill-parsed-light.png` (`bill-split.png`) | `/app/bill` with a real receipt pasted and parsed: itemised lines, the green "the maths checks out" reconciliation, three real (bare-name) people seated and their per-person totals. | light |
-| 5 | `05-group-midflight-light.png` (`group-thread.png`) | The bill-split group page mid-flight (2 of 3 accepted, 1 pending) — consent thread, event log, cart, invite panel. **See the caveat below — this page is showing a real product bug, not a capture artefact.** | light |
-| 6 | `06-approval-pending-light.png` | `/a/:memberId` for the still-pending member (Arjun) — the screen most people ever see, mid-decision. | light |
-| 7 | `07-receipt-settled-light.png` (`receipt.png`) | The signed receipt for the same group once all three accepted and it settled: consent chain, hash links, the "public key matches the live engine" verification panel. | light |
-| 8 | `08-nanda-light.png` | `/nanda` — the four-endpoint discovery chain (all green, fetched live by the browser) and the `prava_mandates` vs `prepaid_credits` contrast section. | light |
-| 9 | `09-plan-board-light.png` (`plan.png`) | The plan board for "Dinner tomorrow with Arjun and Kavya near Koramangala" — 7 real venues from OpenStreetMap, ranked, in ~5s. | light |
-| 10 | `10-dashboard-dark.png` | The dashboard again, in dark theme, captured after the bill split settled — now also showing a populated "Settled" chart and receipt row. | dark |
-| 11 | `11-landing-dark.png` | The landing page in dark theme, same framing as #1. | dark |
+The README uses the `readme-*.png` files. [`prepare-readme.mjs`](screenshots/prepare-readme.mjs) creates them as focused crops of the full product captures so their text remains readable at GitHub width. It changes no text, number, status, or browser state.
 
-`extension.png` (linked from the README) was **not captured** — see "Not captured" below.
+| README frame | Source | What it proves |
+|---|---|---|
+| `readme-hero.png` | `01-landing-light.png` | Product positioning and the primary entry points |
+| `readme-plan.png` | `09-plan-board-light.png` | Three participant responses, real venue options, and computed scores |
+| `readme-discover.png` | `03-discover-search-light.png` | Merchant provenance, live price/stock facts, and the split action |
+| `readme-bill.png` | `04-bill-parsed-light.png` | Printed-total reconciliation, item assignment, and exact minor-unit shares |
+| `readme-approval.png` | `06-approval-pending-light.png` | One person’s complete decision and explicit at-venue no-charge disclosure |
+| `readme-nanda.png` | `08-nanda-light.png` | Four live agent-discovery endpoints fetched by the browser |
 
-## An important caveat on #5 / `group-thread.png`
+## Full capture index
 
-This screenshot is real and unedited, and it is showing a genuine bug, not a stale capture.
-At the moment it was taken, member `Arjun Mehta` had not yet accepted; `Rohan Desai` and
-`Kavya Menon` had — confirmed by the receipt captured 90 seconds later (`07`), which correctly
-shows all three settled at essentially the same timestamp. But the group war-room page
-(`/app/groups/:id`) header, consent thread and member panel all say **"0/3 approved"** and
-**"Waiting on Rohan Desai, Arjun Mehta and Kavya Menon"** — i.e. it never registers the two
-acceptances that had already happened, even though the raw event log lower on the same page
-correctly lists both `member.accepted` entries.
+| File | State captured |
+|---|---|
+| `01-landing-light.png` | Logged-out landing page, light theme |
+| `02-dashboard-light.png` | Signed-in dashboard with pending and waiting groups |
+| `03-discover-search-light.png` | Public catalog search results |
+| `04-bill-parsed-light.png` | Parsed and reconciled bill before sending shares |
+| `05-group-midflight-light.png` | Bill group with two of three shares accepted |
+| `06-approval-pending-light.png` | Remaining participant’s decision page |
+| `07-receipt-settled-light.png` | Signed at-venue receipt; charged total remains zero |
+| `08-nanda-light.png` | NANDA evidence page after all live fetches complete |
+| `09-plan-board-light.png` | Plan board after all three participants answer |
+| `10-dashboard-dark.png` | Terminal dashboard state, dark theme |
+| `11-landing-dark.png` | Landing page, dark theme |
 
-Root cause: [`web/src/components/group/derive.tsx`](../web/src/components/group/derive.tsx)
-replays the event log through a `switch (e.type)` to compute each member's live status. It has
-a `case 'member.approved':` (the card-rail mandate event) but **no `case 'member.accepted':`**
-(the `at_venue`/bill-split rail's acceptance event, emitted by `acceptShare()` in
-[`engine/src/service.ts`](../engine/src/service.ts)). Every bill split's live group page is
-affected — the "who has approved" thread and the N-of-M count stay frozen at their
-pre-acceptance status for the life of the group, on every device watching it, live and on
-reload, until the group finally terminates and the terminal banner (which reads different
-data) takes over. The member's own `/a/:memberId` page and the final receipt are both correct;
-only this shared war-room view is wrong. This did not affect the dashboard (`02`/`10`), which
-reads a separate, non-live `/v1/my/dashboard` aggregate and correctly showed "2 of 3 approved"
-throughout.
+The short filenames (`dashboard.png`, `discover.png`, and similar) are compatibility aliases written by the capture script. New documentation should use the numbered full captures or the focused README frames.
 
-This screenshot is left as captured, per the brief ("if a screen looks bad, that is a finding
-to report, not something to hide"). Before using `group-thread.png` in anything judge-facing,
-either fix the missing case (mirror `case 'member.approved'`, mapping to
-`m.status = 'approved'`, reading the amount off the event's `amount` field rather than
-`share`/`cap`) and recapture, or swap in a different image.
+## Integrity notes
 
-## Not captured
-
-- **`extension.png`** — the Chrome extension needs a real Chrome instance with the unpacked
-  extension loaded and a real merchant page open (`document.title`, DOM scraping, the
-  content-script cart detector). That is a fundamentally different harness from a headless
-  Puppeteer session driving the web app, and this script does not attempt it. Faking a browser
-  chrome around a cropped product page would not be a real capture, so nothing was written.
-  Cut the link from the README, or capture it by hand from a real loaded-unpacked session.
-
-## What else was checked and looked fine
-
-- The `/app/discover` search, the receipt reconciliation, and the plan board's venue search
-  (7 real OpenStreetMap results in ~5s for "near Koramangala") all worked cleanly on this run —
-  STATUS.md's note that venue search was unreliable earlier in the day did not reproduce.
-- The receipt's Ed25519 signature panel reported "Public key matches the live engine" for real,
-  against the deployed engine's `/health` key, not a canned string.
+- The bill flow is deliberately labelled `at_venue`: it creates exact agreement and a signed receipt, but no card charge. The terminal receipt records `charged_amount = 0`.
+- The plan’s participants are disposable capture identities; the venue rows are returned by the real deployed coordination path.
+- The screenshot harness does not complete a Prava passkey ceremony and must never be cited as proof of a settled sandbox card charge.
+- `extension.png` is intentionally absent. A fake browser frame would be easier and would be false.

@@ -29,7 +29,11 @@
     "e2e:sandbox": "tsx e2e/sandbox-smoke.ts",
     "e2e:proof": "tsx e2e/sandbox-proof.ts",
     "e2e:auth": "tsx e2e/auth-check.ts",
-    "e2e:agent-mesh": "tsx e2e/agent-mesh.ts"
+    "e2e:agent-mesh": "tsx e2e/agent-mesh.ts",
+    "film:preview": "npx http-server film -p 4173 -c-1",
+    "film:render": "node film/render.mjs",
+    "film:voice": "node film/build-narration-neural.mjs",
+    "film:assemble": "node film/assemble.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

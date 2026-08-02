@@ -1,330 +1,110 @@
-// sutra — film · Scene 7 · NANDA (2:00-2:25)
-// --------------------------------------------------------------------------
-// Two panes, same $186.00 group purchase, run for real:
-//
-//   Left  — prepaid_credits (NANDA Town's bundled plugin): three agents pay
-//           the organiser directly; the only rail it has pools their money
-//           into his own balance.
-//   Right — prava_mandates (ours): four principals' own mandates are each
-//           charged on their own card, straight to the merchant, never
-//           through the organiser.
-//
-// Every name and number here is the real, live output of
-// `npm run nanda:scene` (nanda-town-prava/scripts/town_scene.py), run twice
-// (a throwaway venv and the project's own nanda-town-prava/.venv) with
-// byte-identical results, and cross-checked against
-// nanda-town-prava/scripts/town_scene.py's source:
-//   Act 7 (prepaid_credits): Arsh, Dev, Priya each pay 6200 into Soham
-//     directly -> Soham's own balance goes 0 -> 18600.
-//   Act 2-4 (prava_mandates): Soham 6510, Arsh 6510, Dev DECLINED (0),
-//     Maya backstop 5580 -> velvet-tickets receives the full 18600; no
-//     agent's own balance ever moves.
-// The four terminal lines are the literal, current console output of
-// town_scene.py Act 4 (verified against the source in scripts/town_scene.py
-// and against two independent runs) — not SCRIPT.md's own paraphrase of
-// them, which turned out to have drifted from the script's real wording.
+// sutra — film · Scene 7 · NANDA AS A PRODUCT COMPONENT
+// Two integrations, shown distinctly: open-web agent discovery and the actual
+// NANDA Town payments plugin. Then the real pay_group() differentiator.
 
 (function () {
   var START = 120000;
   var END = 145000;
 
-  function el(tag, className, parent) {
-    var e = document.createElement(tag);
-    if (className) e.className = className;
-    if (parent) parent.appendChild(e);
-    return e;
-  }
-
-  var PALETTE = ['#2E2AD8', '#B7410E', '#12734F', '#7A2E8E', '#0F6C8C', '#A4231F', '#8A6D0B', '#3E5C2A'];
-  function accentFor(seed) {
-    var h = 0;
-    for (var i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
-    return PALETTE[Math.abs(h) % PALETTE.length];
-  }
-  function initials(name) {
-    return name.slice(0, 2).toUpperCase();
-  }
-  function money(n) {
-    return '₹' + n.toLocaleString('en-US');
+  function el(tag, cls, parent, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (parent) parent.appendChild(node);
+    if (text != null) node.textContent = text;
+    return node;
   }
 
   function injectStyle() {
     var css = ''
-      + '#film-scene-s7-nanda{position:relative}'
-      + '.s7-title{position:absolute;left:50%;top:66px;transform:translateX(-50%);text-align:center}'
-      + '.s7-title .eyebrow{color:var(--brand-ink)}'
-      + '.s7-title .sub{margin-top:6px;font-size:14px;color:var(--ink-3)}'
-
-      + '.s7-panes{position:absolute;left:50%;top:150px;transform:translateX(-50%);width:1740px;height:660px;'
-      + 'display:flex;gap:36px}'
-      + '.s7-pane{width:852px;height:660px;background:var(--surface);border:1px solid var(--line);'
-      + 'border-radius:var(--r-lg);box-shadow:var(--shadow-2);padding:26px 34px;position:relative;overflow:hidden}'
-      + '.s7-pane .hd{text-align:center}'
-      + '.s7-pane .hd .nm{font-family:var(--font-mono);font-size:19px;font-weight:700;letter-spacing:-.01em}'
-      + '.s7-pane .hd .sb{margin-top:3px;font-size:12px;color:var(--ink-3)}'
-
-      + '.s7-people{margin-top:26px;display:flex;justify-content:center;gap:26px}'
-      + '.s7-person{text-align:center;opacity:0}'
-      + '.s7-person .av{width:52px;height:52px;border-radius:999px;color:#fff;display:grid;place-items:center;'
-      + 'font-size:16px;font-weight:700;margin:0 auto}'
-      + '.s7-person .av.declined{background:var(--surface-3) !important;color:var(--ink-3);'
-      + 'border:2px dashed var(--line-2)}'
-      + '.s7-person .nm{margin-top:8px;font-size:13px;font-weight:640}'
-      + '.s7-person .amt{margin-top:2px;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)}'
-      + '.s7-person .amt.declined{color:var(--bad)}'
-
-      + '.s7-flow{position:relative;height:210px;margin-top:6px}'
-      + '.s7-coin{position:absolute;top:0;width:12px;height:12px;border-radius:999px;background:var(--warn)}'
-      + '.s7-line{position:absolute;top:0;width:3px;background:var(--ink-3);opacity:.35}'
-      + '.s7-boundary{position:absolute;left:50%;top:56px;transform:translateX(-50%);width:760px;height:2px;'
-      + 'border-top:2px dashed var(--line-2)}'
-      + '.s7-boundary .lbl{position:absolute;left:50%;top:-11px;transform:translateX(-50%);background:var(--surface);'
-      + 'padding:0 10px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;'
-      + 'color:var(--ink-3)}'
-
-      + '.s7-dest{margin-top:8px;display:flex;flex-direction:column;align-items:center;gap:6px}'
-      + '.s7-dest .box{min-width:220px;text-align:center;border-radius:var(--r);padding:14px 22px;'
-      + 'border:1px solid var(--line)}'
-      + '.s7-dest .box .lbl{font-size:12px;color:var(--ink-3)}'
-      + '.s7-dest .box .val{margin-top:3px;font-family:var(--font-mono);font-size:28px;font-weight:700}'
-      + '.s7-dest .aside{font-size:12px;color:var(--ink-3)}'
-
-      + '.s7-stamp{position:absolute;left:50%;bottom:30px;transform:translateX(-50%) scale(0.85);'
-      + 'opacity:0;padding:10px 24px;border-radius:999px;font-family:var(--font-mono);font-size:15px;'
-      + 'font-weight:750;letter-spacing:.04em;border:1.5px solid}'
-      + '.s7-stamp.bad{background:var(--bad-soft);color:var(--bad);border-color:var(--bad-line)}'
-      + '.s7-stamp.ok{background:var(--ok-soft);color:var(--ok);border-color:var(--ok-line)}'
-
-      + '.s7-term{position:absolute;left:50%;top:230px;transform:translateX(-50%);width:1480px;height:430px;'
-      + 'background:var(--ink);border:1px solid rgba(255,255,255,.08);border-radius:24px;box-shadow:var(--shadow-3);padding:68px 52px 34px;'
-      + 'opacity:0}'
-      + '.s7-term:before{content:"LIVE / PROTOCOL INTEGRATION";position:absolute;left:52px;top:25px;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:#77736c}'
-      + '.s7-term:after{content:"●  ●  ●";position:absolute;right:40px;top:22px;font-size:13px;letter-spacing:5px;color:#ff5c35}'
-      + '.s7-term .prompt{font-family:var(--font-mono);font-size:15px;color:var(--ink-3);margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid #2b2926}'
-      + '.s7-term .ln{font-family:var(--font-mono);font-size:18px;line-height:1.72;color:#e8e6df;'
-      + 'white-space:pre-wrap}'
-      + '.s7-term .ln .tag{color:var(--ok);font-weight:700}'
-      + '.s7-caret{display:inline-block;width:10px;height:19px;background:#e8e6df;margin-left:1px;vertical-align:-3px}';
-    var style = el('style', '', document.head);
-    style.textContent = css;
-  }
-
-  // -- real content (see file header) -------------------------------------
-
-  var LEFT_PEOPLE = [
-    { name: 'Arsh', amt: 6200 },
-    { name: 'Dev', amt: 6200 },
-    { name: 'Priya', amt: 6200 },
-  ];
-  var RIGHT_PEOPLE = [
-    { name: 'Soham', amt: 6510 },
-    { name: 'Arsh', amt: 6510 },
-    { name: 'Dev', amt: 0, declined: true },
-    { name: 'Maya', amt: 5580, note: 'backstop' },
-  ];
-
-  // Verbatim, current console output of town_scene.py Act 4 (checked against
-  // scripts/town_scene.py source and two independent live runs).
-  var TERM_LINES = [
-    'group committed despite a mid-flight decline — committed',
-    'Dev was never charged',
-    "Maya's backstop card absorbed exactly the shortfall the other two couldn't cover",
-    "no_pooled_funds — no agent's headroom ever exceeds what it started with",
-  ];
-
-  var PEOPLE_IN_AT = 700;
-  var FLOW_AT = 1500;
-  var FLOW_DUR = 4200;
-  var STAMP_AT = FLOW_AT + FLOW_DUR + 300;
-  var PANES_OUT_AT = STAMP_AT + 1400;
-  var TERM_IN_AT = PANES_OUT_AT + 500;
-  var TERM_PROMPT = 'python scripts/town_scene.py';
-  var TYPE_CPS = 60;
-  var CAPTION_FROM = 17300;
-
-  function buildPane(parent, name, sub) {
-    var pane = el('div', 's7-pane', parent);
-    var hd = el('div', 'hd', pane);
-    el('div', 'nm', hd).textContent = name;
-    el('div', 'sb', hd).textContent = sub;
-    return pane;
-  }
-
-  function buildPeople(pane, list) {
-    var wrap = el('div', 's7-people', pane);
-    return list.map(function (p) {
-      var person = el('div', 's7-person', wrap);
-      var av = el('div', 'av' + (p.declined ? ' declined' : ''), person);
-      if (!p.declined) av.style.background = accentFor(p.name);
-      av.textContent = initials(p.name);
-      el('div', 'nm', person).textContent = p.name;
-      var amt = el('div', 'amt' + (p.declined ? ' declined' : ''), person);
-      amt.textContent = p.declined ? 'declined' : money(p.amt) + (p.note ? ' · ' + p.note : '');
-      return { cfg: p, el: person };
-    });
+      + '#film-scene-s7-nanda{position:relative;background:#f7f6f2!important;color:#121210}'
+      + '.n7-head{position:absolute;left:92px;right:92px;top:112px;display:flex;align-items:flex-end;justify-content:space-between}'
+      + '.n7-kicker{font:12px var(--font-mono);letter-spacing:.16em;color:#ff8b6f;text-transform:uppercase}'
+      + '.n7-head h2{margin-top:9px;font-size:40px;line-height:1.05;letter-spacing:-.04em}'
+      + '.n7-head h2 span{color:#c63817}.n7-live{font:11px var(--font-mono);color:#12734f;padding:9px 14px;border:1px solid #a9d8c1;background:#e3f3ea;border-radius:999px}'
+      + '.n7-layer{position:absolute;left:92px;right:92px;top:230px;height:520px}'
+      + '.n7-discovery{display:block}'
+      + '.n7-card{border:1px solid #302d29;background:linear-gradient(145deg,#171614,#10100f);border-radius:22px;box-shadow:0 24px 70px #0008}'
+      + '.n7-explain{display:none}'
+      + '.n7-code{margin-top:24px;padding:15px;border:1px solid #34312d;border-radius:12px;background:#090909;font:13px var(--font-mono);color:#ff9d84}'
+      + '.n7-chain{padding:24px 38px;position:relative;overflow:hidden;height:500px;background:#fff}'
+      + '.n7-chain-title{font:12px var(--font-mono);letter-spacing:.12em;color:#8c887f}'
+      + '.n7-chain-line{position:absolute;left:140px;right:140px;top:145px;height:4px;background:#292724}.n7-chain-fill{height:100%;background:linear-gradient(90deg,#ff6743,#ffaf56,#22b37a);box-shadow:0 0 26px #22a06b88}'
+      + '.n7-nodes{display:flex;justify-content:space-between;margin:32px 70px 0}.n7-node{width:210px;text-align:center;position:relative}'
+      + '.n7-dot{margin:auto;width:70px;height:70px;border-radius:22px;display:grid;place-items:center;background:linear-gradient(145deg,#174f3b,#0d2c21);border:2px solid #38b982;color:#7ae2b5;font-size:28px;box-shadow:0 15px 35px #0008}'
+      + '.n7-node b{display:block;margin-top:14px;font:14px var(--font-mono);color:#f1eee7}.n7-node small{display:block;margin-top:5px;color:#9a958b;font-size:12px}'
+      + '.n7-registry{margin:25px 70px 0;display:flex;align-items:center;gap:14px;padding:16px 22px;background:linear-gradient(90deg,#ff6b47,#ff9a57);color:#fff;border-radius:14px;box-shadow:0 15px 34px #0006}'
+      + '.n7-registry code{font:14px var(--font-mono);font-weight:700}.n7-registry i{margin-left:auto;font:11px var(--font-mono);color:#fff;font-style:normal}'
+      + '.n7-discovery-flow{display:grid;grid-template-columns:1fr 100px 1.2fr 100px 1fr;align-items:center;margin:24px 70px 0;gap:12px}.n7-discovery-block{height:145px;border-radius:20px;border:1px solid #3b3731;padding:20px;background:#10100f;display:flex;flex-direction:column;justify-content:center;text-align:center}.n7-discovery-block strong{font-size:22px}.n7-discovery-block span{margin-top:9px;color:#9a958b;font:11px var(--font-mono)}.n7-discovery-block.brand{background:linear-gradient(145deg,#4c251b,#21130e);border-color:#7b3d2b}.n7-discovery-block.town{background:linear-gradient(145deg,#183c30,#0e211a);border-color:#286249}.n7-discovery-arrow{height:4px;background:linear-gradient(90deg,#ff6743,#46c88e);position:relative}.n7-discovery-arrow:after{content:"›";position:absolute;right:-4px;top:-25px;font-size:40px;color:#53ce98}'
+      + '.n7-purchase{display:grid;grid-template-columns:380px 1fr 360px;gap:30px;align-items:center}'
+      + '.n7-call{padding:30px}.n7-call .ey{font:11px var(--font-mono);color:#ff8b6f;letter-spacing:.12em}.n7-call h3{margin-top:13px;font-size:30px;line-height:1.1}.n7-call pre{margin-top:22px;white-space:pre-wrap;font:13px/1.7 var(--font-mono);color:#bbb6ac}.n7-call strong{color:#fff}'
+      + '.n7-principals{display:flex;justify-content:space-between;align-items:flex-start;position:relative;padding-top:26px}'
+      + '.n7-principals:after{content:"";position:absolute;left:8%;right:8%;top:160px;height:2px;background:#ff6b47;box-shadow:0 0 24px #ff6b4766}'
+      + '.n7-person{width:150px;text-align:center;position:relative;z-index:2}.n7-avatar{width:92px;height:92px;border-radius:28px;margin:auto;display:grid;place-items:center;font:700 25px var(--font-mono);background:linear-gradient(145deg,#ff7654,#b72e15);box-shadow:0 18px 38px #0008}'
+      + '.n7-person.declined .n7-avatar{background:#242321;color:#777;border:2px dashed #555}.n7-person b{display:block;margin-top:14px}.n7-person small{display:block;margin-top:5px;font:11px var(--font-mono);color:#8c887f}.n7-person em{display:inline-block;margin-top:10px;padding:6px 9px;border-radius:999px;background:#1e1d1b;font:10px var(--font-mono);color:#ff9d84;font-style:normal}'
+      + '.n7-merchant{padding:30px;text-align:center}.n7-shop{width:112px;height:112px;margin:auto;border-radius:28px;display:grid;place-items:center;background:#153328;border:1px solid #2d7c59;font-size:42px;box-shadow:0 0 50px #20a66a33}.n7-merchant h3{margin-top:18px;font-size:24px}.n7-total{margin-top:12px;font:700 38px var(--font-mono);color:#79dfb3}.n7-zero{margin-top:16px;color:#928d83;font:11px var(--font-mono)}'
+      + '.n7-compare{display:grid;grid-template-columns:1fr 1fr;gap:28px}.n7-rail{padding:34px 38px;position:relative;overflow:hidden;background:linear-gradient(145deg,#201511,#11100f)}.n7-rail.good{background:linear-gradient(145deg,#10271f,#10110f)}.n7-rail h3{font:700 22px var(--font-mono)}.n7-rail .big{margin-top:22px;font-size:58px;font-weight:760;letter-spacing:-.05em}.n7-rail p{margin-top:12px;font-size:17px;line-height:1.5;color:#aaa59b}.n7-rail.bad .big{color:#ff8062}.n7-rail.good .big{color:#78ddb3}'
+      + '.n7-flow{margin-top:34px;display:flex;align-items:center;justify-content:space-between;font:12px var(--font-mono)}.n7-flow span{padding:12px 15px;border:1px solid #3a3732;border-radius:10px}.n7-flow i{height:2px;flex:1;background:#4c4842;position:relative}.n7-flow i:after{content:"›";position:absolute;right:-2px;top:-15px;font-size:25px}.n7-pass{position:absolute;left:50%;bottom:38px;transform:translateX(-50%);padding:15px 24px;border-radius:999px;background:#143426;border:1px solid #2e7958;color:#7ce1b6;font:12px var(--font-mono);white-space:nowrap}'
+      + '.n7-proof{padding:35px 44px}.n7-proof-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:20px;border-bottom:1px solid #302e2b;font:13px var(--font-mono);color:#8d897f}.n7-proof-lines{margin-top:24px}.n7-proof-line{font:18px/1.8 var(--font-mono);color:#e8e4dc}.n7-proof-line b{color:#64d6a4}.n7-proof-foot{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:28px}.n7-proof-stat{padding:18px;border:1px solid #2e4f40;background:#10241c;border-radius:13px;color:#74dbae;font:12px var(--font-mono);text-align:center}'
+      + '.n7-layer{opacity:0}';
+    var style = el('style', '', document.head); style.textContent = css;
   }
 
   function mount(root) {
     injectStyle();
-    root.style.background = 'var(--paper)';
+    var head = el('div', 'n7-head', root);
+    var title = el('div', '', head);
+    el('div', 'n7-kicker', title, 'NANDA · TWO REAL INTEGRATIONS');
+    var h2 = el('h2', '', title); h2.innerHTML = 'NANDA Town, wired to <span>human-approved card mandates.</span>';
+    el('div', 'n7-live', head, '● VERIFIED IN THIS REPO');
 
-    var title = el('div', 's7-title', root);
-    el('div', 'eyebrow', title).textContent = 'THE SAME ₹18,600 PURCHASE, RUN FOR REAL';
-
-    var panes = el('div', 's7-panes', root);
-    var leftPane = buildPane(panes, 'prepaid_credits', "NANDA Town's bundled plugin");
-    var leftPeople = buildPeople(leftPane, LEFT_PEOPLE);
-    var leftFlow = el('div', 's7-flow', leftPane);
-    var leftCoins = LEFT_PEOPLE.map(function (_, i) {
-      var c = el('div', 's7-coin', leftFlow);
-      c.style.left = (140 + i * 290) + 'px';
-      c.style.opacity = '0';
-      return c;
+    var discovery = el('div', 'n7-layer n7-discovery', root);
+    var exp = el('div', 'n7-card n7-explain', discovery);
+    el('b', '', exp, '1 · Open-web discovery');
+    el('p', '', exp, 'Sutra publishes four machine-readable surfaces generated from one endpoint inventory. Agents can find the protocol before they call it.');
+    el('div', 'n7-code', exp, 'GET /.well-known/agent-card.json');
+    var chain = el('div', 'n7-card n7-chain', discovery);
+    el('div', 'n7-chain-title', chain, 'LIVE DISCOVERY CHAIN');
+    var line = el('div', 'n7-chain-line', chain); var fill = el('div', 'n7-chain-fill', line);
+    var nodes = el('div', 'n7-nodes', chain);
+    [['A2A','AgentCard'],['NANDA','AgentFacts'],['CAT','AI Catalog'],['SK','SkillMD']].forEach(function (n) {
+      var x=el('div','n7-node',nodes); el('div','n7-dot',x,'✓'); el('b','',x,n[0]); el('small','',x,n[1]+' · HTTP 200');
     });
-    var leftDest = el('div', 's7-dest', leftPane);
-    var leftBox = el('div', 'box', leftDest);
-    el('div', 'lbl', leftBox).textContent = "organiser Soham's own balance";
-    var leftVal = el('div', 'val', leftBox);
-    leftVal.textContent = '₹0';
-    var leftStamp = el('div', 's7-stamp bad', leftPane);
-    leftStamp.textContent = 'POOLED';
+    var reg=el('div','n7-registry',chain); el('code','',reg,'nest.plugins.payments → prava_mandates'); el('i','',reg,'DISCOVERED ✓');
+    var dflow=el('div','n7-discovery-flow',chain);
+    var da=el('div','n7-discovery-block brand',dflow);el('strong','',da,'sutra agent');el('span','',da,'HTTPS · OPEN WEB');
+    el('div','n7-discovery-arrow',dflow);
+    var db=el('div','n7-discovery-block town',dflow);el('strong','',db,'NANDA Town');el('span','',db,'PLUGIN REGISTRY RESOLVES');
+    el('div','n7-discovery-arrow',dflow);
+    var dc=el('div','n7-discovery-block',dflow);el('strong','',dc,'pay_group()');el('span','',dc,'4 PRINCIPALS · 1 PURCHASE');
 
-    var rightPane = buildPane(panes, 'prava_mandates', 'ours');
-    var rightPeople = buildPeople(rightPane, RIGHT_PEOPLE);
-    var rightFlow = el('div', 's7-flow', rightPane);
-    var boundary = el('div', 's7-boundary', rightFlow);
-    el('div', 'lbl', boundary).textContent = 'simulator boundary';
-    var rightLines = RIGHT_PEOPLE.map(function (p, i) {
-      var l = el('div', 's7-line', rightFlow);
-      l.style.left = (98 + i * 190) + 'px';
-      l.style.height = '0px';
-      if (p.declined) l.style.opacity = '0';
-      return l;
-    });
-    var rightDest = el('div', 's7-dest', rightPane);
-    var rightBox = el('div', 'box', rightDest);
-    el('div', 'lbl', rightBox).textContent = 'merchant velvet-tickets';
-    var rightVal = el('div', 'val', rightBox);
-    rightVal.textContent = '₹0';
-    var rightAside = el('div', 'aside', rightDest);
-    rightAside.textContent = "organiser Soham's own balance: +₹0";
-    var rightStamp = el('div', 's7-stamp ok', rightPane);
-    rightStamp.textContent = 'NO POOLED FUNDS';
+    var purchase = el('div', 'n7-layer n7-purchase', root);
+    var call=el('div','n7-card n7-call',purchase); el('div','ey',call,'2 · NANDA TOWN ADAPTER'); el('h3','',call,'One pay_group(). Four human principals.');
+    var pre=el('pre','',call); pre.innerHTML='<strong>policy</strong>  quorum(2 of 3)\n<strong>cart</strong>    velvet-tickets · $186\n<strong>rail</strong>    prava_mandates\n\nDev declines. Maya backstops.';
+    var people=el('div','n7-principals',purchase);
+    [['SO','Soham','$65.10','PASSKEY'],['AR','Arsh','$65.10','PASSKEY'],['DE','Dev','$0','DECLINED'],['MA','Maya','$55.80','BACKSTOP']].forEach(function(p){var q=el('div','n7-person'+(p[3]==='DECLINED'?' declined':''),people);el('div','n7-avatar',q,p[0]);el('b','',q,p[1]);el('small','',q,p[2]);el('em','',q,p[3]);});
+    var merchant=el('div','n7-card n7-merchant',purchase);el('div','n7-shop',merchant,'◈');el('h3','',merchant,'velvet-tickets');el('div','n7-total',merchant,'$186.00');el('div','n7-zero',merchant,'ORGANISER BALANCE +$0');
 
-    var term = el('div', 's7-term', root);
-    var prompt = el('div', 'prompt', term);
-    prompt.textContent = '$ ' + TERM_PROMPT;
-    var termLines = TERM_LINES.map(function (text) {
-      var ln = el('div', 'ln', term);
-      ln.style.opacity = '0';
-      return { text: text, el: ln };
-    });
+    var compare=el('div','n7-layer n7-compare',root);
+    var bad=el('div','n7-card n7-rail bad',compare);el('h3','',bad,'prepaid_credits');el('div','big',bad,'POOLS $186');el('p','',bad,'Three agents credit the organiser. pay_group() does not exist; the organiser forwards the pool alone.');var bf=el('div','n7-flow',bad);el('span','',bf,'3 agents');el('i','',bf);el('span','',bf,'organiser');el('i','',bf);el('span','',bf,'merchant');
+    var good=el('div','n7-card n7-rail good',compare);el('h3','',good,'prava_mandates');el('div','big',good,'POOLS $0');el('p','',good,'Four capped mandates cross the simulator boundary directly to one merchant. No agent can pay another.');var gf=el('div','n7-flow',good);el('span','',gf,'4 cards');el('i','',gf);el('span','',gf,'GMP/1');el('i','',gf);el('span','',gf,'merchant');
+    el('div','n7-pass',compare,'AttributeError vs pay_group() · the prize argument');
 
-    // Resolve each terminal line's start/end once, off the static config.
-    var cursor = TERM_IN_AT + 500;
-    termLines.forEach(function (ln) {
-      ln.startAt = cursor;
-      ln.endAt = ln.startAt + (('[PASS] ' + ln.text).length / TYPE_CPS) * 1000;
-      cursor = ln.endAt + 420;
-    });
-
-    root._els = {
-      panes: panes, leftCoins: leftCoins, leftVal: leftVal, leftStamp: leftStamp,
-      rightLines: rightLines, rightVal: rightVal, rightAside: rightAside, rightStamp: rightStamp,
-      leftPeople: leftPeople, rightPeople: rightPeople,
-      term: term, termLines: termLines,
-    };
+    var proof=el('div','n7-layer n7-card n7-proof',root);
+    var ph=el('div','n7-proof-head',proof);el('span','',ph,'$ python scripts/town_scene.py');el('span','',ph,'ZERO KEYS · DETERMINISTIC · REPRODUCIBLE');
+    var pls=el('div','n7-proof-lines',proof);
+    ['group committed despite a mid-flight decline','Dev was never charged','Maya absorbed exactly the $55.80 shortfall','merchant received the full $186.00'].forEach(function(t){var l=el('div','n7-proof-line',pls);l.innerHTML='<b>[PASS]</b> '+t;});
+    var foot=el('div','n7-proof-foot',proof);['authorization_conserved','no_pooled_funds','settlement_conserved'].forEach(function(t){el('div','n7-proof-stat',foot,t+' · TRUE');});
+    root._els={discovery:discovery,purchase:purchase,compare:compare,proof:proof,fill:fill};
   }
 
-  function draw(t, root) {
-    var FILM = window.FILM;
-    var E = root._els;
-
-    var intro = FILM.easeOut(FILM.progress(t, 0, 500));
-    root.querySelector('.s7-title').style.opacity = String(intro);
-
-    var panesOut = FILM.easeIn(FILM.progress(t, PANES_OUT_AT, PANES_OUT_AT + 400));
-    E.panes.style.opacity = String(intro * (1 - panesOut));
-    E.panes.style.transform = 'translateX(-50%) translateY(' + FILM.lerp(0, -14, panesOut) + 'px)';
-
-    E.leftPeople.concat(E.rightPeople).forEach(function (p, i) {
-      var idx = i % 4;
-      var at = PEOPLE_IN_AT + idx * 130;
-      var reveal = FILM.easeOut(FILM.progress(t, at, at + 280));
-      p.el.style.opacity = String(reveal);
-    });
-
-    // Left pane: coins arrive one at a time, counter steps up by 6200 each.
-    var leftTotal = 0;
-    LEFT_PEOPLE.forEach(function (p, i) {
-      var at = FLOW_AT + i * (FLOW_DUR / LEFT_PEOPLE.length);
-      var travel = FILM.easeIn(FILM.progress(t, at, at + 900));
-      E.leftCoins[i].style.opacity = t < at ? '0' : String(1 - FILM.progress(t, at + 700, at + 900));
-      E.leftCoins[i].style.top = FILM.lerp(0, 180, travel) + 'px';
-      if (t >= at + 850) leftTotal += p.amt;
-    });
-    E.leftVal.textContent = money(leftTotal);
-
-    // Right pane: a line grows from each card, straight through the
-    // boundary, to the merchant. Dev's never grows — he declined.
-    var rightTotal = 0;
-    RIGHT_PEOPLE.forEach(function (p, i) {
-      if (p.declined) return;
-      var at = FLOW_AT + i * (FLOW_DUR / RIGHT_PEOPLE.length);
-      var grow = FILM.easeOut(FILM.progress(t, at, at + 800));
-      E.rightLines[i].style.height = FILM.lerp(0, 200, grow) + 'px';
-      E.rightLines[i].style.opacity = String(grow);
-      if (t >= at + 750) rightTotal += p.amt;
-    });
-    E.rightVal.textContent = money(rightTotal);
-
-    var stampIn = FILM.easeOut(FILM.progress(t, STAMP_AT, STAMP_AT + 380));
-    [E.leftStamp, E.rightStamp].forEach(function (s) {
-      s.style.opacity = String(stampIn);
-      s.style.transform = 'translateX(-50%) scale(' + FILM.lerp(0.85, 1, stampIn) + ')';
-    });
-
-    // Terminal.
-    var termIn = FILM.easeOut(FILM.progress(t, TERM_IN_AT, TERM_IN_AT + 450));
-    E.term.style.opacity = String(termIn);
-    E.term.style.transform = 'translateX(-50%) translateY(' + FILM.lerp(14, 0, termIn) + 'px)';
-
-    E.termLines.forEach(function (ln, i) {
-      if (t < ln.startAt) {
-        ln.el.style.opacity = '0';
-        return;
-      }
-      ln.el.style.opacity = '1';
-      var typed = FILM.typewriter('[PASS] ' + ln.text, t - ln.startAt, TYPE_CPS);
-      ln.el.innerHTML = '';
-      var tagLen = 7; // "[PASS] "
-      if (typed.length <= tagLen) {
-        var tagSpan = el('span', 'tag', ln.el);
-        tagSpan.textContent = typed;
-      } else {
-        var tag = el('span', 'tag', ln.el);
-        tag.textContent = typed.slice(0, tagLen);
-        ln.el.appendChild(document.createTextNode(typed.slice(tagLen)));
-      }
-      var done = typed.length >= ('[PASS] ' + ln.text).length;
-      if (!done) {
-        var caret = el('span', 's7-caret', ln.el);
-        caret.style.opacity = Math.floor(t / 260) % 2 === 0 ? '1' : '0';
-      }
-    });
+  function show(layer, t, from, to) {
+    var F=window.FILM; var enter=F.easeOut(F.progress(t,from,from+450)); var exit=F.easeIn(F.progress(t,to-350,to));
+    layer.style.opacity=String(enter*(1-exit)); layer.style.transform='translateY('+F.lerp(18,-8,F.easeInOut(F.progress(t,from,to)))+'px) scale('+F.lerp(.985,1.01,F.easeInOut(F.progress(t,from,to)))+')';
   }
+  function draw(t,root){var E=root._els;show(E.discovery,t,0,4800);show(E.purchase,t,4300,14400);show(E.compare,t,13800,20300);show(E.proof,t,19700,25000);E.fill.style.width=(window.FILM.progress(t,500,3300)*100)+'%';}
 
-  window.FILM.register({
-    id: 's7-nanda',
-    startMs: START,
-    endMs: END,
-    mount: mount,
-    draw: draw,
-  });
-
-  window.FILM.caption(
-    'With our plugin installed, one agent cannot pay another. Money only leaves a card and reaches a merchant.',
-    START + CAPTION_FROM,
-    END
-  );
+  window.FILM.register({id:'s7-nanda',startMs:START,endMs:END,mount:mount,draw:draw});
+  window.FILM.caption('Agents discover Sutra. Town loads prava_mandates.',START,START+6000);
+  window.FILM.caption('One pay_group call. Four human mandates. Dev declines; Maya backstops.',START+6000,START+17000);
+  window.FILM.caption('prepaid_credits pools with an organiser. prava_mandates never can.',START+17000,END);
 })();

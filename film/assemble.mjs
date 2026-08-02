@@ -39,6 +39,9 @@ const readJson = (path) => JSON.parse(readFileSync(path, 'utf8').replace(/^﻿/,
 
 const voice = existsSync(join(build, 'voice.json')) ? readJson(join(build, 'voice.json')) : []
 const cues = existsSync(join(here, 'sfx.json')) ? readJson(join(here, 'sfx.json')).cues ?? [] : []
+const masterVoice = ['voiceover.wav', 'voiceover.m4a', 'voiceover.mp3']
+  .map((name) => join(here, name))
+  .find((file) => existsSync(file))
 
 // -- build the audio graph ---------------------------------------------------
 // Each clip is an input, delayed to its own start, then everything is summed.
@@ -62,7 +65,8 @@ const add = (file, atMs, gain) => {
   labels.push(`[${l}]`)
 }
 
-for (const line of voice) add(join(build, 'voice', line.file), line.atMs, 1.0)
+if (masterVoice) add(masterVoice, 0, 1.0)
+else for (const line of voice) add(join(build, 'voice', line.file), line.atMs, 1.0)
 for (const cue of cues) {
   const f = join(build, 'sfx', `${cue.sound}.wav`)
   if (existsSync(f)) add(f, cue.atMs, cue.gain ?? 1.0)
@@ -77,7 +81,7 @@ const args = [
 ]
 
 if (labels.length > 0) {
-  filters.push(`${labels.join('')}amix=inputs=${labels.length}:normalize=0,alimiter=limit=0.95[mix]`)
+  filters.push(`${labels.join('')}amix=inputs=${labels.length}:normalize=0,highpass=f=35,alimiter=limit=0.92:attack=8:release=80[mix]`)
   args.push('-filter_complex', filters.join(';'), '-map', '0:v', '-map', '[mix]')
 } else {
   console.warn('  no audio found — rendering silent')
@@ -88,7 +92,7 @@ if (labels.length > 0) {
 // measured, not stretched, so it lands where it lands. Holding the final
 // frame for a beat is both the fix and the right ending anyway: the closing
 // card stays up while the last line finishes, instead of cutting mid-word.
-const voiceEndsMs = voice.length
+const voiceEndsMs = !masterVoice && voice.length
   ? Math.max(...voice.map((l) => l.atMs + l.durationMs))
   : 0
 const filmEndsMs = (meta.duration ?? 0)
@@ -107,7 +111,7 @@ args.push(
 if (labels.length > 0) args.push('-c:a', 'aac', '-b:a', '192k', '-ar', '48000')
 args.push(OUT)
 
-console.log(`encoding ${readdirSync(frames).length} frames + ${voice.length} lines + ${cues.length} cues`)
+console.log(`encoding ${readdirSync(frames).length} frames + ${masterVoice ? 'human/master voiceover' : voice.length + ' generated lines'} + ${cues.length} cues`)
 execFileSync('ffmpeg', args, { stdio: ['ignore', 'inherit', 'inherit'] })
 
 const probe = execFileSync('ffprobe', [

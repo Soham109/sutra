@@ -79,7 +79,12 @@
       + '.s5-move b{font-weight:750}'
 
       + '.s5-privacy{position:absolute;left:50%;top:800px;transform:translateX(-50%);width:820px;'
-      + 'text-align:center;font-size:13.5px;color:var(--ink-3);line-height:1.6}';
+      + 'text-align:center;font-size:13.5px;color:var(--ink-3);line-height:1.6}'
+      + '.s5-allocation{position:absolute;z-index:12;left:0;right:0;top:0;height:1080px;padding:100px 66px 150px;display:grid;grid-template-columns:1.05fr 1fr;align-items:center;gap:28px;opacity:0;background:#f7f6f2}'
+      + '.s5-alloc-card{background:linear-gradient(145deg,#181614,#100f0e);color:#f7f3ed;border:1px solid #3b3731;border-radius:26px;padding:38px 42px;box-shadow:0 28px 80px #0007}'
+      + '.s5-alloc-card h2{margin-top:10px;font-size:42px;letter-spacing:-.04em}.s5-alloc-card p{margin-top:13px;color:#aaa59b;font-size:16px;line-height:1.55}'
+      + '.s5-policies{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:28px}.s5-policy{padding:18px;border:1px solid #37332f;border-radius:14px;background:#1a1815}.s5-policy b{display:block;font:15px var(--font-mono);color:#ff8b6f}.s5-policy small{display:block;margin-top:7px;color:#918c82;font-size:12px;line-height:1.4}'
+      + '.s5-alloc-flow{display:flex;flex-direction:column;gap:14px;margin-top:20px}.s5-alloc-row{display:grid;grid-template-columns:100px 1fr 115px;align-items:center;gap:14px;padding:18px 19px;background:linear-gradient(90deg,#241812,#171512);color:#f7f3ed;border:1px solid #4b3328;border-radius:13px}.s5-alloc-row span{font-weight:700}.s5-alloc-row i{height:9px;border-radius:99px;background:#37312b;overflow:hidden}.s5-alloc-row i:after{content:"";display:block;height:100%;width:var(--cap);background:linear-gradient(90deg,#ff5c35,#ffae5c);box-shadow:0 0 18px #ff704777}.s5-alloc-row b{font:13px var(--font-mono);text-align:right;color:#ff9a7e}.s5-alloc-badges{display:flex;gap:10px;margin-top:24px}.s5-alloc-badges span{flex:1;text-align:center;padding:16px 10px;border:1px solid #2e664e;background:#11271e;border-radius:12px;color:#79dcb0;font:11px var(--font-mono)}';
     var style = el('style', '', document.head);
     style.textContent = css;
   }
@@ -187,7 +192,29 @@
     privacy.textContent =
       'Nobody sees this number, not even the organiser. It only decides what gets suggested — the ranker reads it, nobody else does.';
 
-    root._els = { chips: chips, rows: rows, moveLine: moveLine, privacy: privacy, cast: cast, castPeople: castPeople, signalField: signalField, signalLines: signalLines };
+    var allocation = el('div', 's5-allocation', root);
+    var policyCard = el('div', 's5-alloc-card', allocation);
+    el('div', 'eyebrow', policyCard).textContent = 'THEN ALLOCATE';
+    el('h2', '', policyCard).textContent = 'The group chooses the promise.';
+    el('p', '', policyCard).textContent = 'The policy is explicit before anyone approves. A model never decides who owes what.';
+    var policies = el('div', 's5-policies', policyCard);
+    [
+      ['all_of', 'Every required person must approve.'],
+      ['quorum(m)', 'Commit when the chosen threshold is met.'],
+      ['required()', 'One principal must be inside the winning set.'],
+      ['veto()', 'One principal can make the group stop.'],
+      ['weighted()', 'Consent carries declared voting weight.'],
+      ['sealed bid', 'Contested quantities allocate without exposing bids.'],
+    ].forEach(function (p) { var c=el('div','s5-policy',policies);el('b','',c).textContent=p[0];el('small','',c).textContent=p[1]; });
+    var shareCard = el('div', 's5-alloc-card', allocation);
+    el('div', 'eyebrow', shareCard).textContent = 'OWN SHARE · OWN CAP';
+    el('h2', '', shareCard).textContent = '₹9,600, without a lender.';
+    el('p', '', shareCard).textContent = 'Largest-remainder integer allocation. Tolerance becomes a card-network cap; it never becomes permission to charge more.';
+    var flow = el('div', 's5-alloc-flow', shareCard);
+    [['Ada','₹2,400','78%'],['Arsh','₹2,400','78%'],['Maya','₹2,400','78%'],['Dev','₹2,400','78%']].forEach(function (x) { var r=el('div','s5-alloc-row',flow);el('span','',r).textContent=x[0];var bar=el('i','',r);bar.style.setProperty('--cap',x[2]);el('b','',r).textContent=x[1]+' CAP'; });
+    var badges=el('div','s5-alloc-badges',shareCard);['BACKSTOPS','REQUOTE ROUNDS','CRASH-SAFE COMMIT'].forEach(function(x){el('span','',badges).textContent=x;});
+
+    root._els = { chips: chips, rows: rows, moveLine: moveLine, privacy: privacy, cast: cast, castPeople: castPeople, signalField: signalField, signalLines: signalLines, allocation: allocation };
   }
 
   function draw(t, root) {
@@ -243,6 +270,10 @@
 
     var privacyIn = FILM.easeOut(FILM.progress(t, CAPTION_FROM - 200, CAPTION_FROM + 300));
     E.privacy.style.opacity = String(privacyIn);
+
+    var allocIn = FILM.easeOut(FILM.progress(t, 14600, 15300));
+    E.allocation.style.opacity=String(allocIn);
+    E.allocation.style.transform='translateY('+FILM.lerp(24,0,allocIn)+'px)';
   }
 
   window.FILM.register({
@@ -256,6 +287,7 @@
   window.FILM.caption(
     'It says why. Budgets stay private — the ranker sees them, nobody else does.',
     START + CAPTION_FROM,
-    END
+    START + 15000
   );
+  window.FILM.caption('Then the group chooses an explicit policy: all-of, quorum, weighted, required or veto — with backstops and sealed bids when needed.', START + 15000, END);
 })();

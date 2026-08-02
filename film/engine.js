@@ -32,8 +32,37 @@
   var captionList = [];
   var initialized = false;
 
+  // Each scene gets an editorially chosen delivery window. The previous
+  // global speed-up made dense UI montages race and sparse closing cards drag.
+  // Draw functions still receive their authored source time, preserving every
+  // deterministic beat while the delivery clock stays exactly 1:55.
+  var TIMING = [
+    [0, 28000, 0, 12000],
+    [28000, 40000, 12000, 19000],
+    [40000, 65000, 19000, 34000],
+    [65000, 82000, 34000, 49000],
+    [82000, 102000, 49000, 64000],
+    [102000, 120000, 64000, 75000],
+    [120000, 145000, 75000, 96000],
+    [145000, 165000, 96000, 104000],
+    [165000, 190000, 104000, 115000]
+  ];
+
+  function timingForSource(t) {
+    for (var i = 0; i < TIMING.length; i++) {
+      if (t >= TIMING[i][0] && t <= TIMING[i][1]) return TIMING[i];
+    }
+    return TIMING[TIMING.length - 1];
+  }
+
+  function sourceToDelivery(t) {
+    var w = timingForSource(t);
+    return w[2] + ((t - w[0]) / (w[1] - w[0])) * (w[3] - w[2]);
+  }
+
   var stage, scenesLayer, hairlineFill, captionLayer, captionText;
   var chapterLayer, chapterIndex, chapterName, transitionLayer, transitionEdge;
+  var energyLayer, energyBeam, timecodeLayer;
 
   var CHAPTERS = {
     's1-problem': ['01', 'The old way'],
@@ -126,6 +155,10 @@
     if (typeof scene.draw !== 'function') {
       throw new Error('FILM.register: scene "' + scene.id + '" needs a draw(localT, root) function');
     }
+    scene._sourceStartMs = scene.startMs;
+    scene._sourceEndMs = scene.endMs;
+    scene.startMs = sourceToDelivery(scene.startMs);
+    scene.endMs = sourceToDelivery(scene.endMs);
     scenes.push(scene);
     scenes.sort(function (a, b) { return a.startMs - b.startMs; });
   }
@@ -133,7 +166,7 @@
   // fromMs/toMs are ABSOLUTE film time, so a caption can span or sit
   // anywhere regardless of which scene owns that moment.
   function caption(text, fromMs, toMs) {
-    captionList.push({ text: text, fromMs: fromMs, toMs: toMs });
+    captionList.push({ text: text, fromMs: sourceToDelivery(fromMs), toMs: sourceToDelivery(toMs) });
   }
 
   // -- chrome (built once, lazily, on first seek) -----------------------------
@@ -184,6 +217,17 @@
     transitionEdge.id = 'film-transition-edge';
     transitionLayer.appendChild(transitionEdge);
     stage.appendChild(transitionLayer);
+
+    energyLayer = document.createElement('div');
+    energyLayer.id = 'film-energy';
+    energyBeam = document.createElement('div');
+    energyBeam.id = 'film-energy-beam';
+    energyLayer.appendChild(energyBeam);
+    stage.appendChild(energyLayer);
+
+    timecodeLayer = document.createElement('div');
+    timecodeLayer.id = 'film-timecode';
+    stage.appendChild(timecodeLayer);
   }
 
   function ensureInit() {
@@ -265,27 +309,51 @@
     });
 
     if (active) {
-      var localT = clamp(t - active.startMs, 0, active.endMs - active.startMs);
-      var sceneDuration = active.endMs - active.startMs;
+      var outputLocalT = clamp(t - active.startMs, 0, active.endMs - active.startMs);
+      var outputSceneDuration = active.endMs - active.startMs;
+      var sceneDuration = (active._sourceEndMs - active._sourceStartMs);
+      var localT = outputSceneDuration > 0 ? (outputLocalT / outputSceneDuration) * sceneDuration : 0;
       var intro = easeOut(progress(localT, 0, active === scenes[0] ? 1 : 620));
       var outro = easeIn(progress(localT, sceneDuration - 420, sceneDuration));
       var drift = easeInOut(progress(localT, 0, sceneDuration));
       var direction = scenes.indexOf(active) % 2 === 0 ? 1 : -1;
 
+      // A restrained virtual camera: fast push on entry, slow parallax drift,
+      // and a tiny counter-rotation. It makes the UI feel photographed rather
+      // than screen-captured while preserving pause-frame legibility.
+      var punch = 1 - easeOut(progress(outputLocalT, 0, 520));
+      var cameraScale = lerp(1.018, 1.006, drift) + punch * 0.012;
+      var cameraRotate = 0;
+
       active._container.style.opacity = String(intro * (1 - outro * 0.35));
       active._container.style.transform =
-        'translate3d(' + lerp(direction * 14, direction * -8, drift) + 'px,' +
-        lerp(8, -5, drift) + 'px,0) scale(' + lerp(1.012, 1.025, drift) + ')';
+        'translate3d(' + lerp(direction * 10, direction * -6, drift) + 'px,' +
+        lerp(5, -3, drift) + 'px,0) rotate(' + cameraRotate + 'deg) scale(' + cameraScale + ')';
 
       var chapter = CHAPTERS[active.id] || ['', ''];
+      var lightScene = active.id !== 's1-problem';
       chapterIndex.textContent = chapter[0];
       chapterName.textContent = chapter[1];
+      chapterIndex.style.color = lightScene ? '#c63817' : '#ff8b6f';
+      chapterIndex.style.borderColor = lightScene ? '#ffc4b5' : 'rgb(255 139 111 / .4)';
+      chapterIndex.style.background = lightScene ? '#fff0ea' : 'rgb(255 92 53 / .1)';
+      chapterName.style.color = lightScene ? '#5d5b55' : 'rgb(255 255 255 / .6)';
+      timecodeLayer.style.color = lightScene ? '#89867e' : 'rgb(255 255 255 / .35)';
       chapterLayer.style.opacity = String(easeOut(progress(localT, 520, 980)) * (1 - outro));
 
       var cover = Math.max(1 - intro, outro);
       transitionLayer.style.clipPath = 'inset(0 ' + (100 - cover * 100) + '% 0 0)';
       transitionLayer.style.opacity = cover > 0.002 ? '1' : '0';
       transitionEdge.style.left = (cover * 100) + '%';
+
+      var beat = Math.max(
+        1 - easeOut(progress(outputLocalT, 0, 360)),
+        easeIn(progress(outputLocalT, outputSceneDuration - 240, outputSceneDuration))
+      );
+      energyLayer.style.opacity = '0';
+      energyLayer.style.transform = 'translateX(' + lerp(-46, 46, drift) + '%) skewX(-12deg)';
+      energyBeam.style.transform = 'scaleX(' + (0.35 + beat * 1.3) + ')';
+      timecodeLayer.textContent = String(Math.floor(t / 1000)).padStart(2, '0') + ' / 115';
       active.draw(localT, active._container);
     }
 
@@ -308,6 +376,8 @@
     easeInOut: easeInOut,
     typewriter: typewriter,
     character: character,
+
+    sourceToDelivery: sourceToDelivery,
 
     currentMs: 0,
   };

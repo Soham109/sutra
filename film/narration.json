@@ -1,56 +1,27 @@
 {
-  "voice": "Microsoft David Desktop",
-  "rate": -1,
-  "gapMs": 260,
-
-  "_note": "Timed against the scene windows the film actually uses: s1 0-28s, s2 28-40, s3 40-65, s4 65-82, s5 82-102, s6 102-120, s7 120-145, s8 145-165, s9 165-190. A line must FINISH inside its scene, so each is budgeted at roughly 14 characters per second — this voice's real pace, measured. atMs is the earliest a line may start; build-narration.ps1 pushes it later if the previous line is still going, and reports the push. If you see a push larger than about 300ms, the line before it is too long for its window: shorten it rather than moving the mark.",
-
+  "voice": "Andrew Multilingual Neural",
+  "rate": 0,
+  "gapMs": 150,
+  "_note": "Final 105-second cut. Captions are embedded in v2-scenes.js. A human voiceover named voiceover.wav/m4a/mp3 still takes precedence during assembly.",
   "lines": [
-    { "atMs": 1400,  "text": "Somebody books the thing. Four bus tickets to Goa." },
-    { "atMs": 6000,  "text": "Nine thousand six hundred rupees, on one card." },
-    { "atMs": 11000, "text": "One friend pays. One says tonight. One says tomorrow." },
-    { "atMs": 17500, "text": "One starts typing, and stops." },
-    { "atMs": 21500, "text": "Eleven days later, she is still asking." },
-
-    { "atMs": 28600, "text": "What if nobody had to pay first?" },
-    { "atMs": 33500, "text": "Sutra is a payment protocol for more than one person." },
-
-    { "atMs": 41000, "text": "The same trip, done properly." },
-    { "atMs": 44500, "text": "Everyone gets their own link, and their own share." },
-    { "atMs": 50000, "text": "They approve on their own card, capped at their own number." },
-    { "atMs": 56500, "text": "And approving charges nothing at all." },
-    { "atMs": 60500, "text": "Only when the last person is in does every card get charged." },
-
-    { "atMs": 66000, "text": "A split can start anywhere. Say it in a sentence." },
-    { "atMs": 70500, "text": "It finds real places from OpenStreetMap." },
-    { "atMs": 74500, "text": "Paste a link. It reads the merchant's own price." },
-    { "atMs": 78500, "text": "Photograph a bill. Every line, checked against the total." },
-
-    { "atMs": 83500, "text": "Planning is the part that isn't about money." },
-    { "atMs": 87500, "text": "Everyone says when they're free, and what they can spend." },
-    { "atMs": 93000, "text": "It ranks real venues, and always says why." },
-    { "atMs": 97500, "text": "Budgets stay private." },
-
-    { "atMs": 103000, "text": "Every group has a thread. Tag the agent in it." },
-    { "atMs": 108000, "text": "It answers from real state. It chases people for you." },
-    { "atMs": 113500, "text": "And it always refuses to move money." },
-    { "atMs": 117000, "text": "That needs your own passkey." },
-
-    { "atMs": 121000, "text": "This runs inside NANDA Town, as a real payments plugin." },
-    { "atMs": 126500, "text": "The bundled one pools money into the organiser's balance." },
-    { "atMs": 132500, "text": "Ours never pools." },
-    { "atMs": 135000, "text": "Four cards pay a merchant outside the simulator." },
-    { "atMs": 139500, "text": "One agent structurally cannot pay another." },
-
-    { "atMs": 146000, "text": "Now the part most demos leave out. Where this stops." },
-    { "atMs": 151500, "text": "A shared cart is paid by several cards." },
-    { "atMs": 155000, "text": "Most checkouts have one card field." },
-    { "atMs": 158500, "text": "So sutra collects the money. It does not place that order." },
-
-    { "atMs": 166000, "text": "It finishes end to end when everyone buys their own item." },
-    { "atMs": 171500, "text": "And at a venue, where a table hands over four cards." },
-    { "atMs": 177000, "text": "Every group ends in a signed receipt." },
-    { "atMs": 181000, "text": "It never claims a charge it did not make." },
-    { "atMs": 185000, "text": "Nothing pooled. Nothing fronted. Nothing invented." }
+    { "atMs": 500, "text": "Ada paid nine thousand six hundred for the group. Now she is the debt collector." },
+    { "atMs": 6500, "text": "Eleven days. Four reminders. Seven thousand two hundred unpaid." },
+    { "atMs": 11300, "text": "What if nobody had to pay first?" },
+    { "atMs": 14500, "text": "Sutra turns the group into a coordinated decision." },
+    { "atMs": 18400, "text": "Each person sees one exact share, one personal cap, and their own card." },
+    { "atMs": 23600, "text": "Approval is permission, not a charge." },
+    { "atMs": 28200, "text": "Only the last required yes commits every mandate, once, in one crash-safe window." },
+    { "atMs": 34500, "text": "Start with a sentence, a link, the open page, or a photographed bill." },
+    { "atMs": 40100, "text": "Then the agent gathers availability, distance, and private budgets." },
+    { "atMs": 45600, "text": "Real venues re-rank live, with reasons the group can inspect." },
+    { "atMs": 51500, "text": "Ask Sutra who is missing, and it answers from the group's real state." },
+    { "atMs": 57100, "text": "But ask it to pay for you? Hard no. Your passkey is the boundary." },
+    { "atMs": 63500, "text": "The same protocol ships as a NANDA Town payments plugin." },
+    { "atMs": 68600, "text": "The bundled ledger credits the organiser. Prava mandates never do." },
+    { "atMs": 73800, "text": "Four person-scoped mandates route to one merchant, with no wallet in the middle." },
+    { "atMs": 79500, "text": "Honest limit: Sutra cannot make one card field accept four cards." },
+    { "atMs": 85000, "text": "It works where each person can pay separately, and says exactly what happened." },
+    { "atMs": 90600, "text": "Every outcome ends in a signed, hash-chained, rail-aware receipt." },
+    { "atMs": 97000, "text": "Nothing pooled. Nothing fronted. Nothing invented." }
   ]
 }

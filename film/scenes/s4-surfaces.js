@@ -126,6 +126,9 @@
       + '.s4-sheet .cta{margin-top:16px;background:var(--brand);color:#fff;font-weight:680;font-size:15px;'
       + 'text-align:center;border-radius:12px;padding:14px}'
       + '.s4-sheet .foot{margin-top:14px;font-size:11px;line-height:1.55;color:var(--ink-3)}'
+      + '.s4-ingress{position:absolute;left:50%;top:92px;transform:translateX(-50%);display:flex;gap:12px}'
+      + '.s4-ingress span{padding:12px 18px;border-radius:999px;background:#171614;color:#f7f3ed;font:12px var(--font-mono);letter-spacing:.05em;border:1px solid #37332f}'
+      + '.s4-ingress span.on{background:var(--brand);border-color:#ff9b82}'
 
       + '.s4-bill{margin-top:96px;width:480px;background:var(--surface);border:1px solid var(--line);'
       + 'border-radius:10px;box-shadow:var(--shadow-2);padding:30px 32px 26px;position:relative;overflow:hidden}'
@@ -231,6 +234,8 @@
 
     // ---- Cut 3: the extension ------------------------------------------
     var c3 = el('div', 's4-cut', root);
+    var ingress = el('div', 's4-ingress', c3);
+    ['CHROME EXTENSION · ACTIVE','SHARED PAGE DETECTOR'].forEach(function (name, i) { var chip=el('span',i===0?'on':'',ingress);chip.textContent=name; });
     var checkout = el('div', 's4-checkout', c3);
     el('div', 'ttl', checkout).textContent = 'Checkout — Velvet Tickets';
     ['62%', '88%', '40%'].forEach(function (w) {
@@ -402,6 +407,6 @@
 
   window.FILM.caption('Real places from OpenStreetMap. Nothing invented.', START + 2100, START + CUT);
   window.FILM.caption("It reads the merchant's own data.", START + CUT + 950, START + 2 * CUT);
-  window.FILM.caption("Or split the page you're already on.", START + 2 * CUT + 500, START + 3 * CUT);
+  window.FILM.caption('The Chrome extension detects the checkout and opens Sutra in-page.', START + 2 * CUT + 500, START + 3 * CUT);
   window.FILM.caption('Read on your device. The maths is checked against the paper.', START + 3 * CUT + 1900, START + 4 * CUT);
 })();

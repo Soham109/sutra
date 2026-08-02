@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>sutra — film</title>
 <meta name="viewport" content="width=1920, height=1080">
-<link rel="stylesheet" href="film.css">
+<link rel="stylesheet" href="v2.css">
 <style>
   /* Preview-only chrome. None of this is part of what gets screenshotted —
      film.css's #film-stage is the only thing render.mjs ever sees, and it
@@ -54,24 +54,11 @@
     <span>reduced motion: <span id="film-rm">off</span></span>
   </div>
 
-  <!-- Shared spine. Registers window.FILM. -->
-  <script src="engine.js"></script>
-
-  <!-- Scenes 1-3 (THE PROBLEM / THE TURN / THE SAME TRIP, DONE PROPERLY). -->
-  <script src="scenes/s1-problem.js"></script>
-  <script src="scenes/s2-turn.js"></script>
-  <script src="scenes/s3-solution.js"></script>
-
-  <!-- Scenes 4-9 register themselves the same way (FILM.register +
-       FILM.caption at load time) — script order does not matter, the engine
-       sorts by startMs. Add each new one's <script src="scenes/sN-....js">
-       tag here as it's built. -->
-  <script src="scenes/s4-surfaces.js"></script>
-  <script src="scenes/s5-planning.js"></script>
-  <script src="scenes/s6-thread.js"></script>
-  <script src="scenes/s7-nanda.js"></script>
-  <script src="scenes/s8-limits.js"></script>
-  <script src="scenes/s9-close.js"></script>
+  <!-- The final submission cut. The original scene system remains in the
+       repository for reference; this v2 spine deliberately presents one
+       legible idea per shot instead of shrinking whole product pages. -->
+  <script src="v2-engine.js"></script>
+  <script src="v2-scenes.js"></script>
 
   <script>
     (function () {
