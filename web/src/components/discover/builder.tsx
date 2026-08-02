@@ -13,6 +13,7 @@ import { PolicyEditor } from './policy-editor'
 import { ProductImage } from './product-image'
 import { SettingsEditor } from './settings-editor'
 import { SplitPreview } from './split-preview'
+import { HowItCompletes } from './how-it-completes'
 import {
   type DraftFee,
   type DraftItem,
@@ -490,6 +491,16 @@ export function Builder({
 
         <div className="col" style={{ gap: 14, flex: '1 1 300px', minWidth: 0, position: 'sticky', top: 70 }}>
           <SplitPreview split={split} currency={currency} toleranceBps={toleranceBps} />
+
+          {/* Says whether this split can actually complete before anybody is
+              asked to approve it, rather than after. The two cases are
+              genuinely different and the app can tell them apart. */}
+          <HowItCompletes
+            items={items}
+            charges
+            merchant={product.merchant.name}
+            people={Math.max(1, payers.length)}
+          />
 
           <div className="card card-pad col" style={{ gap: 12 }}>
             <Guardrail merchant={product.merchant.name} cap={split.total} currency={currency} />

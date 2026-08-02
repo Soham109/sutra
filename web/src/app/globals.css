@@ -1380,3 +1380,17 @@ a.list-row:hover { background: var(--surface-2); }
 .pass-dots span.is-on { background: var(--brand); }
 .pass-dots span.is-done { background: var(--ok); }
 
+
+/* "…and who receives the order?" — said before anybody is asked to approve,
+   not after. The two card-rail cases are genuinely different and the app can
+   tell them apart from the claims people actually made. */
+.completes { padding: 13px 15px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface); }
+.completes.is-ok { border-color: var(--ok-line); background: var(--ok-soft); }
+.completes.is-warn { border-color: var(--warn-line); background: var(--warn-soft); }
+.completes b { display: block; font-size: 13px; font-weight: 620; letter-spacing: -.015em; line-height: 1.4; }
+.completes.is-ok > b { color: var(--ok); }
+.completes.is-warn > b { color: var(--warn); }
+.completes p { margin-top: 6px; color: var(--ink-2); font-size: 12.5px; line-height: 1.6; }
+.completes p + p { margin-top: 8px; }
+.completes p b { display: inline; font-size: inherit; color: var(--ink); }
+.completes-fix { border-top: 1px solid var(--line); padding-top: 8px; }
