@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { api, type Product, type ProductDetail, type SearchResponse, type ShopifyTestStatus } from '@/lib/api'
+import { api, type FeaturedResponse, type Product, type ProductDetail, type SearchResponse } from '@/lib/api'
 import { Badge, Empty, ErrorNote, Money, Skeleton } from '@/components/ui'
 import { Builder } from './builder'
 import { HowThisWorksNote } from './empty-state'
@@ -66,19 +66,18 @@ const EXAMPLES = [
 /**
  * The card rail — capped, per-person Prava mandates — is the product's whole
  * thesis, and it only exists for products from one specifically configured
- * merchant. A judge has no way to guess which product that is, so this finds
- * one automatically: ask the engine whether the capability is configured at
- * all, then probe that exact storefront with a few known-good category terms
- * until one returns a real product. Nothing here is hardcoded to a store name
- * — it self-configures to whatever `SHOPIFY_TEST_STORE` this deployment set.
+ * merchant: GET /v1/discover/featured names that merchant and returns its
+ * real, Admin-API-sourced catalog directly — no guessing which search terms
+ * happen to hit, and no per-store hardcoding here. Nothing is invented: an
+ * unconfigured deployment, or one whose Admin API is down, gets an honest
+ * empty or error state, never filler products.
  */
-interface MandateDemo {
-  status: 'checking' | 'found' | 'none'
-  store: string
-  product?: Product
+interface Featured {
+  status: 'loading' | 'done'
+  storeDomain: string | null
+  products: Product[]
+  error?: string
 }
-
-const MANDATE_PROBE_TERMS = ['merino tee', 'earbuds', 'trimmer', 'shorts', 'tee']
 
 /** "amazon.com", "www.zara.in" — a shop, with no path to a specific item. */
 function isBareStore(q: string): boolean {
@@ -101,7 +100,7 @@ export function DiscoverClient() {
   const [picking, setPicking] = useState('')
   const [mode, setMode] = useState<'search' | 'build'>('search')
   const [health, setHealth] = useState<SourceHealth[]>([])
-  const [mandateDemo, setMandateDemo] = useState<MandateDemo>({ status: 'checking', store: '' })
+  const [featured, setFeatured] = useState<Featured>({ status: 'loading', storeDomain: null, products: [] })
 
   const seq = useRef(0)
   const started = useRef(false)
@@ -198,39 +197,21 @@ export function DiscoverClient() {
     }
   }, [])
 
+  // The browsable "completes on the card rail" shelf — real, Admin-API-
+  // sourced products from the one merchant this deployment can actually
+  // complete a capped mandate against, fetched once and shown before
+  // anyone types anything. An unconfigured deployment gets an honestly
+  // empty shelf (rendered as nothing); a configured one whose Admin API is
+  // briefly unreachable gets a plain "try again" note rather than silence.
   useEffect(() => {
     let live = true
     void (async () => {
-      let statusRes: ShopifyTestStatus
       try {
-        statusRes = await api.get<ShopifyTestStatus>('/v1/shopify-test/status')
-      } catch {
-        if (live) setMandateDemo({ status: 'none', store: '' })
-        return
+        const res = await api.get<FeaturedResponse>('/v1/discover/featured')
+        if (live) setFeatured({ status: 'done', storeDomain: res.store_domain, products: res.products, error: res.error })
+      } catch (e) {
+        if (live) setFeatured({ status: 'done', storeDomain: null, products: [], error: (e as Error).message })
       }
-      if (!live) return
-      if (!statusRes.enabled || !statusRes.storefront_domain) {
-        setMandateDemo({ status: 'none', store: '' })
-        return
-      }
-      const store = statusRes.storefront_domain
-      const domainWord = store.replace(/\.myshopify\.com$/i, '').replace(/[-.]+/g, ' ').trim()
-      const terms = [domainWord, ...MANDATE_PROBE_TERMS].filter((t, i, arr) => t && arr.indexOf(t) === i)
-      for (const term of terms) {
-        if (!live) return
-        try {
-          const qs = new URLSearchParams({ q: term, merchant: store, limit: '1' })
-          const res = await api.get<SearchResponse>(`/v1/discover/search?${qs.toString()}`)
-          if (!live) return
-          if (res.products.length > 0) {
-            setMandateDemo({ status: 'found', store, product: res.products[0] })
-            return
-          }
-        } catch {
-          /* try the next term */
-        }
-      }
-      if (live) setMandateDemo({ status: 'none', store })
     })()
     return () => {
       live = false
@@ -327,28 +308,32 @@ export function DiscoverClient() {
         </p>
       </div>
 
-      {mandateDemo.status === 'found' && mandateDemo.product && (
-        <div className="card card-pad" style={{ marginBottom: 14, borderColor: 'var(--brand)' }}>
-          <div className="row-between wrap" style={{ gap: 14, alignItems: 'center' }}>
-            <div style={{ minWidth: 240 }}>
-              <span className="eyebrow">Card-mandate rail · configured in this environment</span>
-              <h3 style={{ marginTop: 5 }}>See the actual mechanism: capped, per-person Prava mandates</h3>
-              <p className="small muted" style={{ marginTop: 6, maxWidth: '58ch' }}>
-                “{mandateDemo.product.title}” is on {mandateDemo.store}, the merchant this environment has wired to
-                real card mandates. Build a group on it to watch each person&rsquo;s mandate get capped, created,
-                and sent for approval — no terminal, no token.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={picking === mandateDemo.product.id}
-              onClick={() => void pick(mandateDemo.product as Product)}
-            >
-              {picking === mandateDemo.product.id ? 'Opening…' : 'Try the card rail →'}
-            </button>
+      {featured.products.length > 0 && (
+        <section className="card card-pad" style={{ marginBottom: 14, borderColor: 'var(--brand)' }}>
+          <div style={{ marginBottom: 12 }}>
+            <span className="eyebrow">Card-mandate rail · configured in this environment</span>
+            <h3 style={{ marginTop: 5 }}>Start here — these complete on the actual mechanism</h3>
+            <p className="small muted" style={{ marginTop: 6, maxWidth: '64ch' }}>
+              Real products on {featured.storeDomain}, the one merchant this environment has wired to real, capped
+              Prava mandates. Build a group on any of these and watch each person&rsquo;s mandate get capped,
+              created and sent for approval — no terminal, no token — then charged one at a time, nobody fronting
+              anyone else.
+            </p>
           </div>
-        </div>
+          <ResultsGrid>
+            {featured.products.map((p) => (
+              <ProductCard key={`featured-${p.id}`} product={p} onPick={(x) => void pick(x)} busy={picking === p.id} />
+            ))}
+          </ResultsGrid>
+        </section>
+      )}
+
+      {featured.status === 'done' && featured.storeDomain && featured.products.length === 0 && (
+        <p className="tiny faint" style={{ marginBottom: 14 }}>
+          {featured.error
+            ? `This environment's card-mandate shelf (${featured.storeDomain}) couldn't load just now — refresh to try again.`
+            : `${featured.storeDomain}, this environment's card-mandate merchant, has nothing published yet.`}
+        </p>
       )}
 
       <form onSubmit={submit} className="card card-pad discover-search" style={{ marginBottom: 14 }}>

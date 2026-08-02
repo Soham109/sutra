@@ -242,8 +242,8 @@ describe('sources.ts — ShopifySource tags search results with the store\'s rea
     vi.stubGlobal('fetch', fetchMock)
 
     const source = new ShopifySource(['mamaearth.in'])
-    const results = await source.search('shampoo', { limit: 5 })
-    expect(results).toHaveLength(1)
-    expect(results[0]?.price).toEqual({ amount_minor: 31000, currency: 'INR' })
+    const { products } = await source.search('shampoo', { limit: 5 })
+    expect(products).toHaveLength(1)
+    expect(products[0]?.price).toEqual({ amount_minor: 31000, currency: 'INR' })
   })
 })

@@ -703,6 +703,18 @@ export function registerProductRoutes(
   // as the plan layer's places/agent routes, so they get the same tighter,
   // still demo-generous ceiling instead of the global default.
 
+  /**
+   * The browsable shelf, with no query needed — the dev-store products this
+   * deployment can actually complete on the capped, per-person card-mandate
+   * rail (routes.ts's prava_mandates gate), shown before anyone types
+   * anything. Sourced live from Shopify's Admin API (see
+   * shopify/admin-catalog.ts), never invented: an unconfigured deployment,
+   * or one whose Admin API has nothing published, gets an honest empty list.
+   */
+  app.get('/v1/discover/featured', spendLimit(30), async () => {
+    return catalog.featured()
+  })
+
   app.get('/v1/discover/search', spendLimit(30), async (req) => {
     const { q = '', merchant, limit } = req.query as { q?: string; merchant?: string; limit?: string }
     const query = q.trim()

@@ -42,6 +42,16 @@ export interface Product {
   source: SourceKind
   /** free-form facets the merchant published — rendered as-is, never assumed */
   attributes?: Record<string, string>
+  /**
+   * True only for real, Admin-API-sourced products from the merchant this
+   * deployment has a server-verified payment adapter for (see
+   * shopify/admin-catalog.ts and the `prava_mandates` gate in routes.ts).
+   * These are the ONLY products that can complete on the capped, per-person
+   * card-mandate rail — everything else lands on a zero-charge rail. Never
+   * set on an invented or unverified product; absent (not false) when the
+   * question does not apply.
+   */
+  completes_on_card_rail?: boolean
 }
 
 export interface ProductDetail extends Product {
@@ -52,12 +62,26 @@ export interface ProductDetail extends Product {
   fine_print: string[]
 }
 
+/** A store this source could not read at all — a hard block, distinct from "found nothing there". */
+export interface BlockedStore {
+  domain: string
+  /** e.g. 'password_protected' — machine-checkable, so the UI can pick wording without parsing prose. */
+  kind: 'password_protected'
+  reason: string
+}
+
 export interface SearchResult {
   products: Product[]
   /** honest provenance — the UI names the rail that answered */
-  sources: { kind: SourceKind; label: string; count: number; ms: number; error?: string }[]
+  sources: { kind: SourceKind; label: string; count: number; ms: number; error?: string; blocked?: BlockedStore[] }[]
   query: string
   took_ms: number
+}
+
+/** What one CatalogSource.search() call returns: real hits, plus any store it flatly could not read. */
+export interface SourceSearchResult {
+  products: Product[]
+  blocked?: BlockedStore[]
 }
 
 export interface ResolveResult {
@@ -72,7 +96,7 @@ export interface CatalogSource {
   readonly label: string
   /** whether this source can answer right now (keys present, host reachable) */
   available(): boolean
-  search(query: string, opts: SearchOpts): Promise<Product[]>
+  search(query: string, opts: SearchOpts): Promise<SourceSearchResult>
 }
 
 export interface SearchOpts {

@@ -143,6 +143,37 @@ export class ShopifyTestOrderClient {
   }
 
   /**
+   * A generic Admin GraphQL call, sharing the same token resolution, store
+   * host and transport as `create()` above. Exists for the product-catalog
+   * source (shopify/admin-catalog.ts): that store's public storefront is
+   * password-protected (Shopify's development-store default), so its real
+   * inventory can only be read the same way order creation already reads
+   * and writes to it — through this authenticated Admin API, never a public
+   * endpoint. Deliberately generic (no orderCreate-specific error shape)
+   * since callers vary in what they ask for and what they expect back.
+   */
+  async adminGraphQl<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+    const accessToken = await this.resolveAccessToken()
+    const response = await this.fetchImpl(
+      `https://${this.storeDomain}/admin/api/${this.apiVersion}/graphql.json`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-shopify-access-token': accessToken,
+        },
+        body: JSON.stringify({ query, variables }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    )
+    if (!response.ok) throw new Error(`Shopify Admin API returned HTTP ${response.status}`)
+    const envelope = (await response.json()) as { data?: T; errors?: { message: string }[] }
+    if (envelope.errors?.length) throw new Error(envelope.errors.map((e) => e.message).join('; '))
+    if (envelope.data === undefined) throw new Error('Shopify Admin API returned no data')
+    return envelope.data
+  }
+
+  /**
    * A static offline token is used as-is — it is the legacy, non-expiring
    * kind. A client ID/secret pair is exchanged for a token that Shopify
    * expires after ~24h (`expires_in`, typically 86399s), so this refreshes

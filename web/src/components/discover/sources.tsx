@@ -49,15 +49,32 @@ export function SourceStrip({
 /**
  * A store that failed is worth one sentence, because it means results are
  * missing — but it is said in terms of the consequence, not the cause.
+ *
+ * A password-protected store is a different consequence from a transient
+ * failure: it will not answer next time either, and pasting its exact
+ * product link will not help (the resolver hits the same wall) — so it gets
+ * its own sentence rather than being folded into "try again in a moment".
  */
 export function SourceErrors({ sources }: { sources: SearchResponse['sources'] }) {
+  const blockedStores = sources.flatMap((s) => s.blocked ?? [])
   const failed = sources.filter((s) => s.error)
-  if (failed.length === 0) return null
+  if (blockedStores.length === 0 && failed.length === 0) return null
   return (
     <p className="tiny" style={{ color: 'var(--warn)', lineHeight: 1.6 }}>
-      Some stores did not answer just now, so this list may be missing things. Try again in a
-      moment, or paste a link straight to the item you want — that works whether or not a store
-      answers search.
+      {blockedStores.length > 0 && (
+        <span style={{ display: 'block' }}>
+          {blockedStores.length === 1
+            ? `${blockedStores[0]!.domain} asks visitors for a password before it will show anything, so it could not be searched.`
+            : `${blockedStores.length} stores ask visitors for a password before they'll show anything, so they could not be searched.`}
+        </span>
+      )}
+      {failed.length > 0 && (
+        <span style={{ display: 'block' }}>
+          Some stores did not answer just now, so this list may be missing things. Try again in a
+          moment, or paste a link straight to the item you want — that works whether or not a store
+          answers search.
+        </span>
+      )}
     </p>
   )
 }

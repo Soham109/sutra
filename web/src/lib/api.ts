@@ -213,6 +213,13 @@ export interface Product {
   in_stock: boolean
   source: 'url' | 'shopify' | 'prava' | 'starter'
   attributes?: Record<string, string>
+  /**
+   * True only for the merchant this deployment has a server-verified
+   * payment adapter for — the ONLY products that can complete on the
+   * capped, per-person card-mandate rail. Everything else lands on a
+   * zero-charge rail. Absent (not false) when the question does not apply.
+   */
+  completes_on_card_rail?: boolean
 }
 
 export interface ProductDetail extends Product {
@@ -326,11 +333,25 @@ export interface ChatMessage {
   created_at: string
 }
 
+/** A store a source flatly could not read — a hard block ("cannot read this shop"), distinct from "found nothing there". */
+export interface BlockedStore {
+  domain: string
+  kind: 'password_protected'
+  reason: string
+}
+
 export interface SearchResponse {
   products: Product[]
-  sources: { kind: string; label: string; count: number; ms: number; error?: string }[]
+  sources: { kind: string; label: string; count: number; ms: number; error?: string; blocked?: BlockedStore[] }[]
   query: string
   took_ms: number
   resolved?: boolean
   warnings?: string[]
+}
+
+/** The browsable, no-query-needed dev-store shelf — GET /v1/discover/featured. */
+export interface FeaturedResponse {
+  products: Product[]
+  store_domain: string | null
+  error?: string
 }

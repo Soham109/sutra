@@ -1,7 +1,30 @@
 import { safeFetch } from './fetcher.js'
 import { merchantFrom, productId, shopCurrency } from './resolver.js'
 import { parseMoney, stripTags } from './parse.js'
-import type { CatalogSource, Product, SearchOpts } from './types.js'
+import type { BlockedStore, CatalogSource, Product, SearchOpts, SourceSearchResult } from './types.js'
+
+/**
+ * Thrown when a Shopify storefront answers every request by redirecting to
+ * its own `/password` page — Shopify's development-store default. That is a
+ * "cannot read this shop" condition, not "this shop has nothing matching":
+ * the JSON endpoints return zero bytes either way, and conflating the two
+ * told a judge "no results" for a store that in fact could not be read at
+ * all. Caught live on the configured SHOPIFY_TEST_STORE, which 302s
+ * /search/suggest.json, /products.json and / all to /password.
+ */
+export class ShopifyPasswordProtected extends Error {
+  constructor(readonly domain: string) {
+    super(`${domain} is password-protected — its public storefront cannot be read`)
+  }
+}
+
+function isPasswordWall(finalUrl: string): boolean {
+  try {
+    return new URL(finalUrl).pathname.replace(/\/+$/, '') === '/password'
+  } catch {
+    return false
+  }
+}
 
 // Search sources. Each is generic across merchants — the Shopify source works
 // on any storefront that speaks Shopify (millions of them) without per-store
@@ -30,15 +53,29 @@ export class ShopifySource implements CatalogSource {
     return true
   }
 
-  async search(query: string, opts: SearchOpts): Promise<Product[]> {
+  async search(query: string, opts: SearchOpts): Promise<SourceSearchResult> {
     const domains = opts.merchant ? [opts.merchant] : this.defaultDomains
-    if (domains.length === 0 || !query.trim()) return []
+    if (domains.length === 0 || !query.trim()) return { products: [] }
 
     const perDomain = Math.max(2, Math.ceil((opts.limit ?? 12) / domains.length))
-    const batches = await Promise.all(
-      domains.map((d) => this.searchOne(d, query, perDomain, opts.signal).catch(() => [])),
+    const settled = await Promise.all(
+      domains.map(async (d) => {
+        try {
+          return { products: await this.searchOne(d, query, perDomain, opts.signal) }
+        } catch (e) {
+          if (e instanceof ShopifyPasswordProtected) {
+            const blocked: BlockedStore[] = [{ domain: e.domain, kind: 'password_protected', reason: e.message }]
+            return { products: [] as Product[], blocked }
+          }
+          // Any other failure (timeout, DNS, malformed JSON) stays a silent
+          // per-domain miss, same as before — a genuine outage, not a wall.
+          return { products: [] as Product[] }
+        }
+      }),
     )
-    return batches.flat().slice(0, opts.limit ?? 12)
+    const products = settled.flatMap((r) => r.products).slice(0, opts.limit ?? 12)
+    const blocked = settled.flatMap((r) => r.blocked ?? [])
+    return blocked.length > 0 ? { products, blocked } : { products }
   }
 
   private async searchOne(
@@ -67,6 +104,11 @@ export class ShopifySource implements CatalogSource {
       safeFetch(url, { accept: 'application/json', acceptLanguage: '', signal }),
       currencyP,
     ])
+    // safeFetch follows redirects, so `res.url` is where the store actually
+    // landed us — a store's own password gate, not a search endpoint that
+    // happens to be empty. Checked before the generic status/content-type
+    // bail below so it is never folded into an ordinary "no results".
+    if (isPasswordWall(res.url)) throw new ShopifyPasswordProtected(host)
     if (res.status >= 400 || !res.contentType.includes('json')) return []
 
     const data = JSON.parse(res.body) as {
@@ -122,8 +164,8 @@ export class PravaShopSource implements CatalogSource {
     return false
   }
 
-  async search(): Promise<Product[]> {
-    return []
+  async search(): Promise<SourceSearchResult> {
+    return { products: [] }
   }
 
   readonly unavailableReason =

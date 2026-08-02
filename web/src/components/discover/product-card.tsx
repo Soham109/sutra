@@ -23,7 +23,13 @@ export function ProductCard({
   return (
     <div
       className="card"
-      style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: busy ? 0.6 : 1 }}
+      style={{
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        opacity: busy ? 0.6 : 1,
+        ...(product.completes_on_card_rail ? { borderColor: 'var(--brand)' } : {}),
+      }}
     >
       <ProductImage src={product.image_url} alt={product.title} domain={product.merchant.domain} />
 
@@ -34,6 +40,12 @@ export function ProductCard({
           </span>
           <Badge>{SOURCE_LABEL[product.source] ?? product.source}</Badge>
         </div>
+
+        {product.completes_on_card_rail && (
+          <div className="tiny" style={{ color: 'var(--brand)', fontWeight: 600 }}>
+            ✓ Completes on the card rail — capped mandate per person
+          </div>
+        )}
 
         <div
           style={{
@@ -75,7 +87,11 @@ export function ProductCard({
             href={product.product_url}
             target="_blank"
             rel="noreferrer noopener"
-            title="Open the merchant's page in a new tab"
+            title={
+              product.completes_on_card_rail
+                ? "This store's own site asks visitors for a password — Sutra reads its real catalog via the store's Admin API instead"
+                : "Open the merchant's page in a new tab"
+            }
           >
             ↗
           </a>

@@ -81,6 +81,16 @@ export async function safeFetch(
   init: { accept?: string; signal?: AbortSignal; acceptLanguage?: string } = {},
 ): Promise<FetchedPage> {
   let url = assertHttps(raw)
+  // Redirect URLs seen so far in this chain. A store bouncing a request it
+  // cannot answer back to the SAME url forever (caught live: a Shopify
+  // development store's /password gate 302s to itself indefinitely for any
+  // request carrying `Accept: application/json`, since it has no JSON
+  // representation to offer) can never resolve by retrying — burning the
+  // full redirect budget on it only delays the same "too many redirects"
+  // failure. Recognising the loop and stopping there instead means the
+  // caller gets back the URL it is actually stuck on (e.g. still `/password`)
+  // rather than an opaque error with no URL at all to reason about.
+  const visited = new Set<string>()
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     await assertPublicHost(url.hostname)
@@ -117,7 +127,13 @@ export async function safeFetch(
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get('location')
       if (!loc) throw new FetchRefused(`redirect without a location (${res.status})`)
-      url = assertHttps(new URL(loc, url).toString())
+      visited.add(url.toString())
+      const next = assertHttps(new URL(loc, url).toString())
+      if (visited.has(next.toString())) {
+        const contentType = res.headers.get('content-type') ?? ''
+        return { url: next.toString(), status: res.status, contentType, body: '' }
+      }
+      url = next
       continue
     }
 

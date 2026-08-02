@@ -158,31 +158,53 @@ export async function main(): Promise<{ app: FastifyInstance; close: () => Promi
   })
   installMalformedJsonGuard(app)
 
-  const configuredShopifyDomains = process.env.SHOPIFY_DOMAINS
-    ? process.env.SHOPIFY_DOMAINS.split(',')
-    : [
-        ...(shopifyTest ? [shopifyTest.storefrontDomain] : []),
-        'allbirds.com',
-        'gymshark.com',
-        'fashionnova.com',
-        'kyliecosmetics.com',
-        'bombayshavingcompany.com',
-        'boat-lifestyle.com',
-        'mamaearth.in',
-        'beardo.in',
-      ]
+  // The wider shelf searched via the plain public storefront source
+  // (catalog/sources.ts's ShopifySource — /search/suggest.json,
+  // /products.json). Every domain here was verified to answer that endpoint
+  // with real products and real prices. Deliberately spread across US and
+  // Indian storefronts, since the split is as likely to be in rupees as
+  // dollars.
+  const DEFAULT_SHOPIFY_SHELF = [
+    'allbirds.com',
+    'gymshark.com',
+    'fashionnova.com',
+    'kyliecosmetics.com',
+    'bombayshavingcompany.com',
+    'boat-lifestyle.com',
+    'mamaearth.in',
+    'beardo.in',
+  ]
+  const normaliseDomain = (d: string) => d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+
+  const rawConfigured = process.env.SHOPIFY_DOMAINS
+    ? process.env.SHOPIFY_DOMAINS.split(',').map((s) => s.trim()).filter(Boolean)
+    : [...(shopifyTest ? [shopifyTest.storefrontDomain] : []), ...DEFAULT_SHOPIFY_SHELF]
+
+  // The configured dev-store storefront is password-protected by Shopify's
+  // own development-store default — every public JSON endpoint the plain
+  // ShopifySource relies on 302s to /password there, no matter what
+  // SHOPIFY_DOMAINS says. Its real catalog is read through the Admin API
+  // instead (Catalog's adminSource, built from `shopifyTest` below), so it
+  // is excluded from the plain storefront shelf unconditionally rather than
+  // trusting an env var to have already left it out — this deployment's own
+  // SHOPIFY_DOMAINS was set to exactly that one, password-protected domain,
+  // which is what made every unscoped search come back empty.
+  const devStoreDomain = shopifyTest ? normaliseDomain(shopifyTest.storefrontDomain) : undefined
+  const withoutDevStore = rawConfigured.filter((d) => normaliseDomain(d) !== devStoreDomain)
+  // If excluding the dev store leaves nothing else to search, the wider
+  // shelf must not silently disappear — fall back to the verified default
+  // list regardless of what SHOPIFY_DOMAINS was set to.
+  const configuredShopifyDomains = withoutDevStore.length > 0 ? withoutDevStore : DEFAULT_SHOPIFY_SHELF
+
   const catalog = new Catalog({
     // Any Shopify storefront works; these are only the default shelf searched
     // when the user does not scope the query to a merchant.
-    // The default shelf, when a query is not scoped to one store. Every domain
-    // here was verified to answer Shopify's public /search/suggest.json with
-    // real products and real prices — a store that 404s that endpoint makes the
-    // whole search look broken, so nothing goes in this list unchecked.
-    // Deliberately spread across US and Indian storefronts, since the split is
-    // as likely to be in rupees as dollars.
-    shopifyDomains: configuredShopifyDomains
-      .map((s) => s.trim())
-      .filter(Boolean),
+    shopifyDomains: configuredShopifyDomains,
+    // Sources this deployment's card-mandate merchant through the Admin API
+    // (see shopify/admin-catalog.ts) instead of its password-protected
+    // storefront — the one merchant a group can actually complete a real,
+    // capped mandate against (routes.ts's prava_mandates gate).
+    shopifyTest,
   })
   // ---- the coordination layer -------------------------------------------
   // Everything that happens before a cart exists: who is in, when they are
