@@ -1,5 +1,5 @@
 import { safeFetch } from './fetcher.js'
-import { merchantFrom, productId } from './resolver.js'
+import { merchantFrom, productId, shopCurrency } from './resolver.js'
 import { parseMoney, stripTags } from './parse.js'
 import type { CatalogSource, Product, SearchOpts } from './types.js'
 
@@ -16,6 +16,13 @@ import type { CatalogSource, Product, SearchOpts } from './types.js'
 export class ShopifySource implements CatalogSource {
   readonly kind = 'shopify' as const
   readonly label = 'Shopify storefronts'
+
+  // A domain's currency does not change between two searches a few seconds
+  // apart, but a hardcoded 'USD' was silently mislabeling every result from
+  // every non-US store in the default shelf — mamaearth.in and beardo.in
+  // (rupees) were showing "$399" for a ₹399 item. One cached lookup per
+  // domain avoids paying for a /meta.json fetch on every single search.
+  private readonly currencyCache = new Map<string, Promise<string>>()
 
   constructor(private readonly defaultDomains: string[]) {}
 
@@ -45,7 +52,21 @@ export class ShopifySource implements CatalogSource {
       `https://${host}/search/suggest.json?q=${encodeURIComponent(query)}` +
       `&resources[type]=product&resources[limit]=${limit}`
 
-    const res = await safeFetch(url, { accept: 'application/json', signal })
+    // No Accept-Language on either request — the suggest.json price and the
+    // meta.json currency have to describe the same market, and a locale
+    // header is exactly what was seen (live, on a real store) to make a
+    // Shopify currency-conversion app swap in a different market's price
+    // while /meta.json kept reporting the base currency. See resolver.ts's
+    // readShopifyProduct for the full story; same fix, same reason, here.
+    let currencyP = this.currencyCache.get(host)
+    if (!currencyP) {
+      currencyP = shopCurrency(`https://${host}`, signal)
+      this.currencyCache.set(host, currencyP)
+    }
+    const [res, currency] = await Promise.all([
+      safeFetch(url, { accept: 'application/json', acceptLanguage: '', signal }),
+      currencyP,
+    ])
     if (res.status >= 400 || !res.contentType.includes('json')) return []
 
     const data = JSON.parse(res.body) as {
@@ -55,7 +76,7 @@ export class ShopifySource implements CatalogSource {
 
     return products.map((p): Product => {
       const productUrl = new URL(p.url ?? '/', `https://${host}`).toString()
-      const price = parseMoney(p.price, 'USD') ?? { amount_minor: 0, currency: 'USD' }
+      const price = parseMoney(p.price, currency) ?? { amount_minor: 0, currency }
       return {
         id: productId('shopify', productUrl),
         title: stripTags(p.title ?? 'Item', 160),

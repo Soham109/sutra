@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { FetchRefused, assertHttps, safeFetch } from './fetcher.js'
 import {
   absoluteUrl,
+  aggregateOfferRange,
   collectNodes,
   extractJsonLd,
   metaContent,
@@ -29,6 +30,18 @@ interface Ctx {
   pageUrl: string
   warnings: string[]
   signal?: AbortSignal
+  /**
+   * Set by fromJsonLd when the merchant's own structured data describes a
+   * genuine price RANGE with no way to tell which end applies (an
+   * AggregateOffer with lowPrice !== highPrice and no nested per-variant
+   * offers). That is a real fact about the page, not "this strategy found
+   * nothing" — and later, lower-confidence strategies must not paper over
+   * it by scraping some other number off the same page. Caught live: a
+   * real WooCommerce store's range ($99.99–$199.99) was correctly refused
+   * by json-ld, then the heuristic strategy found "$99.99" sitting in
+   * plain page text a few lines down and confidently returned it anyway.
+   */
+  ambiguousRange?: boolean
 }
 
 /**
@@ -72,25 +85,47 @@ export async function resolveProductUrl(raw: string, signal?: AbortSignal): Prom
     }
   }
 
-  // Shopify storefronts answer with exact JSON — try that before parsing HTML.
-  const shopify = await tryShopifyJson(url, signal, warnings)
-  if (shopify === 'no-such-product') {
-    // A Shopify store that 404s both JSON endpoints for a /products/ handle is
-    // telling us that item does not exist. Many such stores then serve their
-    // "not found" page with HTTP 200 and a storefront's worth of markup, so
-    // falling through to scraping produced a confident, completely unrelated
-    // product: a dead Bombay Shaving link resolved to "Bestsellers" at ₹99.
-    // Believing the store's own answer is the only safe move.
+  // A `#!/` fragment is "hashbang" routing — a well-known convention for
+  // catalog widgets that pick the item in the BROWSER after the page loads
+  // (a real one still running it: Ecwid's classic embedded widget). A
+  // fragment is never sent to the server at all (RFC 3986 §3.5); a
+  // server-side fetch of such a URL can only ever see the storefront's
+  // root, never the item. Caught live: pasting a real Ecwid product link
+  // resolved to "Bad Squiddo Games" — the STORE's own name, price $0 — as
+  // if that were the product, because the root page's <title> was all
+  // there was to read. That is inventing a product identity out of a page
+  // that was never actually about it, same failure class the price rule
+  // already forbids, just for identity instead of money. An ordinary
+  // in-page anchor (`#reviews` on an already-correct product URL) does not
+  // start with `!`, so this does not touch real, working links.
+  if (/^#!/.test(url.hash)) {
     return {
       product: null,
-      strategy: 'no-such-product',
+      strategy: 'client-routed',
       warnings: [
-        ...warnings,
-        'that store does not have an item at that address — the link may be old, or the product may have been removed. Check the URL on the merchant’s site.',
+        'that link picks the item in your browser after the page loads (a \'#!\' address) — the server only ever sees the shop\'s home page, never which item you chose. Open the item on the merchant\'s site and paste the price in yourself.',
       ],
     }
   }
-  if (shopify) return { product: shopify, strategy: 'shopify-json', warnings }
+
+  // Shopify storefronts answer with exact JSON — try that before parsing HTML.
+  const shopify = await tryShopifyJson(url, signal, warnings)
+  // A store that 404s both JSON endpoints for a /products/ handle is USUALLY
+  // telling us that item does not exist — many such stores then serve their
+  // "not found" page with HTTP 200 and a storefront's worth of markup, so
+  // falling through to scraping produced a confident, completely unrelated
+  // product: a dead Bombay Shaving link resolved to "Bestsellers" at ₹99.
+  //
+  // But "usually" is doing real work in that sentence: headless Shopify
+  // storefronts (Hydrogen/Oxygen — Fashion Nova is one, live, in production)
+  // do not implement the classic Liquid `.js`/`.json` routes AT ALL, so they
+  // 404 both endpoints for every product, dead or alive. Treating that as an
+  // automatic refusal made a live, real, correctly-priced product
+  // unreachable. So this is not believed on its own — it is held as a prior
+  // and combined with what the page itself says below: only refused when
+  // BOTH the JSON API and the page agree there is no product here.
+  const believedDead = shopify === 'no-such-product'
+  if (shopify && shopify !== 'no-such-product') return { product: shopify, strategy: 'shopify-json', warnings }
 
   let page
   try {
@@ -121,8 +156,25 @@ export async function resolveProductUrl(raw: string, signal?: AbortSignal): Prom
       ],
     }
   }
+  // The JSON API said not-found, and now the page agrees: it does not declare
+  // itself a product either (no Product JSON-LD, no og:type=product). Two
+  // independent signals pointing the same way is the "Bestsellers ₹99" guard
+  // — a headless storefront's LIVE product page always clears the `kind ===
+  // 'product'` bar (that is what Fashion Nova's real product does), so this
+  // only fires for handles that are actually gone.
+  if (believedDead && kind !== 'product') {
+    return {
+      product: null,
+      strategy: 'no-such-product',
+      warnings: [
+        ...warnings,
+        'that store does not have an item at that address — the link may be old, or the product may have been removed. Check the URL on the merchant’s site.',
+      ],
+    }
+  }
 
   const strategies: [string, Strategy][] = [
+    ['woocommerce', fromWooCommerce],
     ['json-ld', fromJsonLd],
     ['open-graph', fromOpenGraph],
     ['microdata', fromMicrodata],
@@ -176,9 +228,39 @@ async function fromJsonLd(ctx: Ctx): Promise<Partial<ProductDetail> | null> {
   const nodes = collectNodes(blocks, ['Product', 'ProductGroup', 'Event', 'Movie', 'IndividualProduct'])
   if (nodes.length === 0) return null
 
-  // Prefer the node with an offer; a page often also carries Organization etc.
-  const node = nodes.find((n) => n['offers']) ?? nodes[0]!
-  const offers = flattenOffers(node['offers'])
+  // A ProductGroup (Shopify's current JSON-LD shape for anything with sizes
+  // or colours) states its real prices one-per-variant, under `hasVariant`:
+  // each variant is its own Product node with its own single Offer.
+  // collectNodes already walks into hasVariant, so those variant nodes land
+  // in this same flat list next to the group itself. Picking "the node with
+  // an offer" (singular) grabbed exactly ONE variant's price as if it were
+  // the whole product — caught live on Gymshark: the first variant in
+  // document order was an out-of-stock XXS, and using only its single Offer
+  // also meant the product read as entirely out of stock even on a listing
+  // where a different size (XS) was buyable. Wrong variant, wrong price,
+  // wrong stock — exactly the "quietly bills the wrong variant" failure this
+  // needs to not have. When a group is present, every same-product variant
+  // node contributes its offer; matched by URL or name because collectNodes
+  // does not preserve which group a flattened node came from, and a page can
+  // legitimately carry other, unrelated Product blocks (a "you may also
+  // like" rail) that must not leak into this product's price list.
+  const group = nodes.find((n) => n['@type'] === 'ProductGroup')
+  const node = group ?? nodes.find((n) => n['offers']) ?? nodes[0]!
+  const variantNodes = group
+    ? nodes.filter(
+        (n) => n !== group && n['offers'] && (n['url'] === group['url'] || n['name'] === group['name']),
+      )
+    : []
+  const offerSourceNodes = variantNodes.length > 0 ? variantNodes : [node]
+  // Each Offer is tagged with its own variant's size/name before flattening,
+  // since schema.org puts "xs"/"m"/"xl" on the Product wrapper, not the
+  // Offer — losing that here would make every size show up as "Standard".
+  // `ctx` is threaded into flattenOffers so it can mark ctx.ambiguousRange —
+  // see the field's own comment on Ctx for why a later, lower-confidence
+  // strategy needs to know this rather than just seeing "no price found".
+  const offers: Record<string, unknown>[] = offerSourceNodes.flatMap((n) =>
+    flattenOffers(n['offers'], ctx).map((o) => ({ ...o, name: o['name'] ?? n['size'] ?? n['name'] }) as Record<string, unknown>),
+  )
   const primary = offers[0]
 
   const variants: Variant[] = offers
@@ -233,9 +315,19 @@ async function fromJsonLd(ctx: Ctx): Promise<Partial<ProductDetail> | null> {
 /** OpenGraph / product meta tags — what social scrapers read. */
 async function fromOpenGraph(ctx: Ctx): Promise<Partial<ProductDetail> | null> {
   const title = metaContent(ctx.html, 'og:title', 'twitter:title')
+  // twitter:data1 is a generic key-value display slot next to twitter:label1
+  // — sites use the pair for review counts, ratings, reading time, anything
+  // they want a Twitter card to show, not necessarily price. Caught live on
+  // a real WooCommerce store (homewizard.com): label1 was "Geschatte
+  // leestijd" (Dutch for "estimated reading time"), data1 was "2 minuten" —
+  // trusted blind as a price fallback, that became a fabricated $2.00. Only
+  // trusted now when its own label actually says this pair is about price.
+  const label1 = metaContent(ctx.html, 'twitter:label1')?.toLowerCase() ?? ''
+  const data1LooksLikePrice = /price|cost|prijs|preis|prix|precio|preço|\$|€|£/i.test(label1)
   const amount = metaContent(
     ctx.html,
-    'product:price:amount', 'og:price:amount', 'twitter:data1', 'product:sale_price:amount',
+    'product:price:amount', 'og:price:amount', 'product:sale_price:amount',
+    ...(data1LooksLikePrice ? ['twitter:data1'] : []),
   )
   const currency = metaContent(ctx.html, 'product:price:currency', 'og:price:currency', 'product:sale_price:currency')
   if (!title && !amount) return null
@@ -269,6 +361,178 @@ async function fromMicrodata(ctx: Ctx): Promise<Partial<ProductDetail> | null> {
 }
 
 /**
+ * WooCommerce's public Store API — the biggest coverage gap after Shopify,
+ * since it runs a huge share of the small-to-medium web. Verified live
+ * against three real, unrelated stores before writing a line of the
+ * strategy list entry: offermanwoodshop.com (USD, a fully custom permalink
+ * — /store/kindlin/hearth-home/<slug>, nothing like /product/<slug>/),
+ * houseofmalt.co.uk (GBP, the default /product/<slug>/ permalink), and
+ * phlearn.com (USD, a digital product). All three answer
+ * /wp-json/wc/store/v1/products?slug=<slug> with no key required.
+ *
+ * Unlike Shopify's fixed /products/<handle> shape, WooCommerce permalinks
+ * are fully customizable — Offerman Woodshop's real product proves the path
+ * tells you nothing — so this cannot run as a blind pre-fetch the way the
+ * Shopify strategy does. It runs against the page already fetched, reading
+ * two things the page itself declares: where its REST API lives (the
+ * standard `<link rel="https://api.w.org/">` discovery tag WordPress prints
+ * in <head>) and the product's slug (WooCommerce's own convention is that
+ * this is always the URL's last path segment, however the rest of the
+ * permalink is customized).
+ */
+async function fromWooCommerce(ctx: Ctx): Promise<Partial<ProductDetail> | null> {
+  const apiBase = wooCommerceApiBase(ctx.html, ctx.url.origin)
+  if (!apiBase) return null
+  const slug = lastPathSegment(ctx.url.pathname)
+  if (!slug) return null
+
+  let items: WcStoreProduct[] | null
+  try {
+    const res = await safeFetch(`${apiBase}wc/store/v1/products?slug=${encodeURIComponent(slug)}`, {
+      accept: 'application/json',
+      // Same reasoning as the Shopify endpoints above: a currency-switcher
+      // plugin (WOOCS and friends are common on WooCommerce specifically)
+      // could key off Accept-Language the same way, and this is a request
+      // for the store's own base price, not a locale-guessed one.
+      acceptLanguage: '',
+      signal: ctx.signal,
+    })
+    if (res.status >= 400 || !res.contentType.includes('json')) return null
+    items = parseJson<WcStoreProduct[]>(res.body)
+  } catch {
+    return null
+  }
+  // A slug collision is vanishingly unlikely on one store, but matching it
+  // explicitly rather than trusting items[0] costs nothing.
+  const item = items?.find((p) => p.slug === slug) ?? items?.[0]
+  if (!item?.name) return null
+
+  const variants = await wooVariants(apiBase, item, ctx.signal)
+  const buyable = variants.filter((v) => v.available)
+  const headline = (buyable.length ? buyable : variants).reduce<Money | undefined>(
+    (min, v) => (!min || v.price.amount_minor < min.amount_minor ? v.price : min),
+    undefined,
+  )
+  if (!headline) return null
+
+  return {
+    title: item.name,
+    description: item.description
+      ? stripTags(item.description)
+      : item.short_description
+        ? stripTags(item.short_description)
+        : undefined,
+    price: headline,
+    images: (item.images ?? []).map((i) => i.src).filter((x): x is string => !!x),
+    in_stock: item.is_in_stock !== false,
+    brand: item.brands?.[0]?.name,
+    variants,
+  }
+}
+
+/** The REST base a WooCommerce product's own page tells us to use. */
+function wooCommerceApiBase(html: string, origin: string): string | null {
+  const link =
+    /<link[^>]+rel=["']https:\/\/api\.w\.org\/["'][^>]+href=["']([^"']+)["']/i.exec(html) ??
+    /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']https:\/\/api\.w\.org\/["']/i.exec(html)
+  if (link?.[1]) {
+    const abs = absoluteUrl(link[1], origin)
+    if (abs) return abs.endsWith('/') ? abs : `${abs}/`
+  }
+  // Some themes strip the discovery link, but WooCommerce always puts its
+  // own name in the body class — worth one try at the default REST path
+  // before giving up on a store that plainly says what it runs.
+  if (/<body[^>]+class=["'][^"']*\bwoocommerce\b/i.test(html)) return `${origin}/wp-json/`
+  return null
+}
+
+function lastPathSegment(pathname: string): string | null {
+  const parts = pathname.split('/').filter(Boolean)
+  return parts.length ? parts[parts.length - 1]! : null
+}
+
+/**
+ * Variant prices, for a variable product (size/colour), from the dedicated
+ * variations endpoint — mirroring what the Shopify strategy does with
+ * variants[]. This sub-path is implemented against WooCommerce's published
+ * Store API schema but was not reachable from a real variable product in
+ * the stores verified live (none of the three had one in stock to test
+ * against), so it fails soft: any shape surprise falls back to the simple
+ * product's own single price rather than guessing or throwing.
+ */
+async function wooVariants(apiBase: string, item: WcStoreProduct, signal?: AbortSignal): Promise<Variant[]> {
+  const simple = (): Variant[] => {
+    const price = wooPrice(item.prices)
+    return price ? [{ id: String(item.id), name: item.name, price, available: item.is_in_stock !== false }] : []
+  }
+  if (item.type !== 'variable' || !item.has_options) return simple()
+
+  try {
+    const res = await safeFetch(`${apiBase}wc/store/v1/products/${item.id}/variations`, {
+      accept: 'application/json',
+      acceptLanguage: '',
+      signal,
+    })
+    if (res.status >= 400) return simple()
+    const raw = parseJson<WcStoreVariation[]>(res.body)
+    if (!Array.isArray(raw) || raw.length === 0) return simple()
+    const built = raw
+      .map((v) => {
+        const price = wooPrice(v.prices)
+        if (!price) return null
+        const name = (v.attributes ?? []).map((a) => a.value).filter(Boolean).join(' / ') || item.name
+        return { id: String(v.id), name, price, available: v.is_in_stock !== false } satisfies Variant
+      })
+      .filter((v): v is Variant => v !== null)
+    return built.length > 0 ? built : simple()
+  } catch {
+    return simple()
+  }
+}
+
+/**
+ * The Store API's price fields are decimal-looking strings that are ALREADY
+ * scaled to `currency_minor_unit` ("12500" for $125.00) — confirmed against
+ * the real offermanwoodshop.com response, not assumed. No further scaling,
+ * unlike Shopify's .json endpoint which is genuinely in major units.
+ */
+function wooPrice(prices: WcPrices | undefined): Money | null {
+  if (!prices?.price) return null
+  const amount = Number(prices.price)
+  // Same rule as everywhere else in this file: zero or negative is not a
+  // price, it is what a malformed or unset Store API field looks like.
+  if (!Number.isFinite(amount) || amount <= 0) return null
+  return { amount_minor: Math.round(amount), currency: (prices.currency_code ?? 'USD').toUpperCase() }
+}
+
+interface WcPrices {
+  price?: string
+  currency_code?: string
+  currency_minor_unit?: number
+}
+
+interface WcStoreProduct {
+  id: number
+  name: string
+  slug: string
+  type?: string
+  description?: string
+  short_description?: string
+  images?: { src: string }[]
+  brands?: { name: string }[]
+  is_in_stock?: boolean
+  has_options?: boolean
+  prices: WcPrices
+}
+
+interface WcStoreVariation {
+  id: number
+  attributes?: { name: string; value: string }[]
+  prices: WcPrices
+  is_in_stock?: boolean
+}
+
+/**
  * Last resort: the <title>, and a currency-anchored price — but the price is
  * only taken when the page actually declares itself a product. Scraping an
  * amount off arbitrary markup is how you charge a group for the wrong thing.
@@ -276,11 +540,50 @@ async function fromMicrodata(ctx: Ctx): Promise<Partial<ProductDetail> | null> {
 async function fromHeuristics(ctx: Ctx): Promise<Partial<ProductDetail> | null> {
   const title = titleTag(ctx.html)
   if (classifyPage(ctx) !== 'product') return { title }
+  // json-ld already looked at this exact page and found a genuine, unresolvable
+  // price RANGE (see Ctx.ambiguousRange) — that is a fact about the item, not
+  // an empty result, and scraping some other number out of the same page's
+  // text would just be picking one end of the same range a different way.
+  if (ctx.ambiguousRange) return { title }
 
-  const m = /(?:[$₹€£¥]|USD|EUR|GBP|INR|AUD|CAD)\s?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?/i.exec(
-    ctx.html.replace(/<script[\s\S]*?<\/script>/gi, ' '),
-  )
-  const price = m ? parseMoney(m[0]) : null
+  // Strip script/style CONTENT first (a real Wix page hid "GBP9" inside a
+  // base64 @font-face src in a <style> block, which a plain tag-strip would
+  // have left as scannable text), then strip remaining tags and decode
+  // entities — a real WooCommerce theme renders "€27,95" as two separate
+  // spans (`<span>&euro;</span>27,95`), and without this the currency
+  // symbol and the digits are neither adjacent nor real Unicode characters.
+  // decodeEntities (parse.ts) only knows amp/lt/gt/quot/apos/nbsp and
+  // numeric refs, not named currency entities — &euro; is exactly what that
+  // real theme emits, so it is expanded here first rather than left to
+  // survive as literal, unmatchable text. (parse.ts owns decodeEntities;
+  // reported as a money-parsing gap rather than edited here.)
+  const withoutScriptsAndStyles = ctx.html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/&euro;/gi, '€')
+    .replace(/&pound;/gi, '£')
+    .replace(/&yen;/gi, '¥')
+    .replace(/&cent;/gi, '¢')
+  const text = stripTags(withoutScriptsAndStyles, withoutScriptsAndStyles.length)
+  const moneyPattern = /(?:[$₹€£¥]|USD|EUR|GBP|INR|AUD|CAD)\s?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?/gi
+  let price: Money | null = null
+  let m: RegExpExecArray | null
+  while ((m = moneyPattern.exec(text))) {
+    // Caught live on a real store under real load: this grabbed "$75" from
+    // "free shipping on orders over $75" — a shipping threshold, not the
+    // item's price — and it would have read as a confidently normal result
+    // (a title, a price, one soft warning). That phrasing ("orders over
+    // $X", "spend $X", "minimum order $X") is generic marketing
+    // boilerplate used across unrelated stores, not something specific to
+    // that one merchant, so skipping it here is a real generalization, not
+    // a special case for a site this resolver happened to be tested on.
+    // This is still the last-resort strategy and still not to be trusted
+    // over structured data — it is just less likely to be wrong.
+    const before = text.slice(Math.max(0, m.index - 40), m.index)
+    if (/(?:over|above|spend|min(?:imum)?\s+order[s]?(?:\s+of)?)\s*$/i.test(before)) continue
+    price = parseMoney(m[0])
+    if (price) break
+  }
   if (price) ctx.warnings.push('price was read from page text, not structured data — confirm it before inviting anyone')
   return { title, price: price ?? undefined }
 }
@@ -300,8 +603,32 @@ export function classifyPage(ctx: { html: string; pageUrl: string }): 'product' 
   const listing = collectNodes(blocks, ['CollectionPage', 'SearchResultsPage', 'ItemList', 'OfferCatalog'])
   if (listing.length > 0) return 'collection'
 
+  const path = new URL(ctx.pageUrl).pathname
+  // A /product/<slug> or /products/<handle> path is strong, platform-spread
+  // evidence of a single item — Shopify, WooCommerce, Magento and most
+  // generic carts all use exactly this shape for one thing and never for a
+  // listing. Only reached once every JSON-LD/og:type check above has found
+  // nothing either way, so it can never override a page that actually
+  // declares itself something else. This exists because the previous,
+  // more conservative version left a bare product page (no structured
+  // data at all, just this URL shape) as 'unknown' rather than 'product' —
+  // which sounds harmless but silently disqualified it from the
+  // last-resort heuristic strategy too (that one requires kind ===
+  // 'product' before it will even try), so a real item with no schema.org
+  // markup got refused outright instead of a flagged, low-confidence price.
+  if (/\/products?\/[^/]+\/?$/.test(path)) return 'product'
+
   // Path shape is weak evidence, so it only decides when nothing else did.
-  if (/\/(collections|category|categories|search|shop|c)\/[^/]+\/?$/.test(new URL(ctx.pageUrl).pathname)) {
+  // 'shop' used to be in this list and is deliberately not anymore: caught
+  // live on a real WooCommerce store (homewizard.com), whose actual product
+  // page lives at /nl/shop/wi-fi-energy-socket/ — a single item, not a
+  // listing. 'shop' is used both ways across real stores (a listing root on
+  // some, a product namespace on others, Squarespace among them), so it is
+  // not reliable evidence in either direction and guessing 'collection' from
+  // it was rejecting real, live product pages outright before any strategy
+  // ever ran. 'collections'/'category'/'categories'/'search' have not shown
+  // a live counter-example and stay.
+  if (/\/(collections|category|categories|search|c)\/[^/]+\/?$/.test(path)) {
     return 'collection'
   }
   return 'unknown'
@@ -373,6 +700,19 @@ async function tryShopifyJson(
  * units ("38.00"), not cents. Reading one as the other is a hundredfold error
  * in a number somebody is about to be asked to pay, so the two shapes are
  * converted separately and never share a code path.
+ *
+ * Every request in this function asks for no Accept-Language at all
+ * (acceptLanguage: ''), and that is load-bearing, not cosmetic. Caught live
+ * on a real store (en.bentoandco.com, USD base price $310.50): sending the
+ * ordinary browser `Accept-Language: en-US` made the SAME `.js` endpoint
+ * return `2250000` instead of `31050` — a Shopify Markets-style app on that
+ * store silently currency-converts the price it serves based on request
+ * headers (₹22,500 masquerading as a plain integer), while `/meta.json`'s
+ * `currency` field is static and kept reporting "USD" regardless. Paired
+ * together that produced "$22,500" for a $310 item: a 72x error presented
+ * with total confidence. Dropping Accept-Language on these requests reliably
+ * gets the store's own base-market price back, matching what /meta.json
+ * declares — verified stable across a dozen repeated live requests.
  */
 async function readShopifyProduct(
   base: string,
@@ -382,13 +722,13 @@ async function readShopifyProduct(
 
   // Shopify's own content types for these are inconsistent across shops, so
   // the body is what decides, not the header.
-  const dotJs = await safeFetch(`${base}.js`, { accept: 'application/json', signal }).catch(() => null)
+  const dotJs = await safeFetch(`${base}.js`, { accept: 'application/json', acceptLanguage: '', signal }).catch(() => null)
   if (dotJs && dotJs.status < 400) {
     const parsed = parseJson<ShopifyProduct>(dotJs.body)
     if (parsed?.title && Array.isArray(parsed.variants)) return { product: parsed, currency }
   }
 
-  const dotJson = await safeFetch(`${base}.json`, { accept: 'application/json', signal }).catch(() => null)
+  const dotJson = await safeFetch(`${base}.json`, { accept: 'application/json', acceptLanguage: '', signal }).catch(() => null)
 
   // Both endpoints answered, and both said this handle does not exist. That is
   // the store's own verdict on its own catalogue, and it is worth more than
@@ -434,11 +774,18 @@ function parseJson<T>(body: string): T | null {
  * this. The old code hardcoded USD and commented that .js "reports cents in
  * the store's currency" — which is true, and is precisely why assuming the
  * currency is wrong. A UK shop's £38 was being shown as $38.
+ *
+ * Exported so sources.ts can tag Shopify search results with the right
+ * currency too, instead of the hardcoded USD it used to fall back to (every
+ * Indian store in the default search shelf was showing rupee prices under a
+ * dollar sign). No Accept-Language here either, for the same reason as
+ * readShopifyProduct above — this value has to describe the SAME market the
+ * price was read in, and the only way to guarantee that is to ask for none.
  */
-async function shopCurrency(base: string, signal: AbortSignal | undefined): Promise<string> {
+export async function shopCurrency(base: string, signal: AbortSignal | undefined): Promise<string> {
   try {
     const origin = new URL(base).origin
-    const res = await safeFetch(`${origin}/meta.json`, { accept: 'application/json', signal })
+    const res = await safeFetch(`${origin}/meta.json`, { accept: 'application/json', acceptLanguage: '', signal })
     if (res.status >= 400) return 'USD'
     const meta = parseJson<{ currency?: string }>(res.body)
     const code = meta?.currency?.trim().toUpperCase()
@@ -542,7 +889,7 @@ export function productId(prefix: string, seed: string): string {
   return `${prefix}:${createHash('sha256').update(seed).digest('hex').slice(0, 16)}`
 }
 
-function flattenOffers(offers: unknown): Record<string, unknown>[] {
+function flattenOffers(offers: unknown, flags?: { ambiguousRange?: boolean }): Record<string, unknown>[] {
   const list = toArray(offers)
   const out: Record<string, unknown>[] = []
   for (const o of list) {
@@ -555,6 +902,19 @@ function flattenOffers(offers: unknown): Record<string, unknown>[] {
         out.push(...(nested as Record<string, unknown>[]))
         continue
       }
+      // No nested per-variant offers, so lowPrice/highPrice IS all there is.
+      // When they agree that is a real single price; when they genuinely
+      // differ, picking either end and calling it "the" price undercharges
+      // or overcharges whoever wants the other one — caught live on a real
+      // WooCommerce store (landyachtz.com), AggregateOffer{lowPrice:99.99,
+      // highPrice:199.99}, no nested offers at all. aggregateOfferRange
+      // (parse.ts) is used only to DECIDE which situation this is; the raw
+      // value still flows through the normal offer['price'] → parseMoney
+      // path below so there is exactly one place numbers get parsed.
+      const currency = String(node['priceCurrency'] ?? 'USD')
+      const range = aggregateOfferRange(node['lowPrice'], node['highPrice'], currency)
+      if (range.kind === 'range' && flags) flags.ambiguousRange = true
+      if (range.kind !== 'single') continue
       out.push({ ...node, price: node['lowPrice'] ?? node['highPrice'] })
       continue
     }
@@ -564,7 +924,16 @@ function flattenOffers(offers: unknown): Record<string, unknown>[] {
 }
 
 function offerPrice(offer: Record<string, unknown>): Money | null {
-  const spec = offer['priceSpecification'] as Record<string, unknown> | undefined
+  // schema.org allows priceSpecification to be a single node OR an array of
+  // them (UnitPriceSpecification, one per quantity break, most commonly a
+  // one-element array with nothing else). Caught live on a real store
+  // (jococups.com): the Offer had no top-level price at all, only
+  // priceSpecification: [{price:"39.95", priceCurrency:"AUD"}] — casting
+  // that array straight to a Record and reading .price off it reads a key
+  // an array does not have, silently returns undefined, and the resolver
+  // fell through to a wrong, unrelated number elsewhere on the page.
+  const specRaw = offer['priceSpecification']
+  const spec = (Array.isArray(specRaw) ? specRaw[0] : specRaw) as Record<string, unknown> | undefined
   const raw = offer['price'] ?? spec?.['price'] ?? offer['lowPrice']
   const currency = String(offer['priceCurrency'] ?? spec?.['priceCurrency'] ?? 'USD')
   return parseMoney(raw, currency)

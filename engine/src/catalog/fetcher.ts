@@ -78,7 +78,7 @@ export interface FetchedPage {
 /** Fetch a public https document, following redirects with re-validation. */
 export async function safeFetch(
   raw: string,
-  init: { accept?: string; signal?: AbortSignal } = {},
+  init: { accept?: string; signal?: AbortSignal; acceptLanguage?: string } = {},
 ): Promise<FetchedPage> {
   let url = assertHttps(raw)
 
@@ -88,14 +88,30 @@ export async function safeFetch(
     const timer = AbortSignal.timeout(TIMEOUT_MS)
     const signal = init.signal ? AbortSignal.any([timer, init.signal]) : timer
 
+    // Accept-Language defaults on, because it is what makes a merchant serve
+    // an English page instead of a guessed one. But it is also, on some
+    // storefronts, the signal a currency-conversion app uses to pick a
+    // market — pass acceptLanguage: '' to send none at all when the caller
+    // needs the store's own base price, not a locale-converted one. See the
+    // callers in resolver.ts for why that matters.
+    //
+    // The empty string has to be sent as a real header, not just omitted:
+    // when no Accept-Language key is present at all, Node's own fetch
+    // (undici) silently substitutes its own default of `Accept-Language: *`
+    // — which turned out to be enough by itself to trigger the same
+    // currency conversion this is trying to avoid. `if (lang)` here would
+    // treat '' as "don't bother setting it" and let that default sneak back
+    // in, so the key is always set, explicitly, to whatever was asked for.
+    const headers: Record<string, string> = {
+      'user-agent': UA,
+      accept: init.accept ?? 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+      'accept-language': init.acceptLanguage ?? 'en-US,en;q=0.9',
+    }
+
     const res = await fetch(url, {
       redirect: 'manual',
       signal,
-      headers: {
-        'user-agent': UA,
-        accept: init.accept ?? 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
-        'accept-language': 'en-US,en;q=0.9',
-      },
+      headers,
     })
 
     if (res.status >= 300 && res.status < 400) {

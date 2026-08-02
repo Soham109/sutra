@@ -276,7 +276,29 @@ describe('page classification — the guard against charging for the wrong item'
   it('falls back to path shape when the page declares nothing', () => {
     expect(at('<html></html>', 'https://shop.example/collections/mens')).toBe('collection')
     expect(at('<html></html>', 'https://shop.example/search/shoes')).toBe('collection')
-    expect(at('<html></html>', 'https://shop.example/products/thing')).toBe('unknown')
+  })
+
+  // A /product/<slug> or /products/<handle> path is strong, platform-spread
+  // evidence of a single item (Shopify, WooCommerce, Magento and most
+  // generic carts all use exactly this shape for one thing, never a
+  // listing) — deliberately strengthened from the old "stays unknown"
+  // behaviour, because 'unknown' silently disqualified a bare product page
+  // with no schema.org markup at all from the last-resort heuristic
+  // strategy too (it requires kind === 'product' before it will even try).
+  // A real item with no structured data was being refused outright instead
+  // of getting a flagged, low-confidence price.
+  it('a /product/<slug> or /products/<handle> path is treated as a product page even with no markup', () => {
+    expect(at('<html></html>', 'https://shop.example/products/thing')).toBe('product')
+    expect(at('<html></html>', 'https://shop.example/product/thing')).toBe('product')
+    expect(at('<html></html>', 'https://shop.example/products/thing/')).toBe('product')
+  })
+
+  it('a declared collection still wins over a product-shaped path', () => {
+    // Pathological, but the JSON-LD/og:type checks run first specifically so
+    // a page that actively declares itself a listing is never overridden by
+    // a path guess — this just pins that order.
+    const html = `<script type="application/ld+json">{"@type":"CollectionPage","name":"Mens"}</script>`
+    expect(at(html, 'https://shop.example/products/mens')).toBe('collection')
   })
 })
 
