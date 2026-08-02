@@ -45,3 +45,8 @@ AUDIT.md
 TASKS.md
 docs/HACKATHON.md
 docs/PITCH.md
+
+# Presenter notes and the exported deck. /deck serves the same slides live and
+# can print its own PDF, so neither needs to ship; the script is rehearsal-only.
+docs/PITCH_DECK_SCRIPT.md
+docs/Sutra-Pitch-Deck.pdf

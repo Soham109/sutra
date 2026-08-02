@@ -1,5 +1,25 @@
 # Shopify flow, test proof and production boundary
 
+## Verified deployment state — August 2, 2026
+
+The proof adapter is configured and ready on the deployed engine for
+`sutra-agzdw2mf.myshopify.com`. Its active app scopes include order, product and publication
+access. The development store contains three published demo products:
+
+- **Velvet Sessions — Group Pass** — ₹18,600
+- **Aster Weekender — Carryall** — ₹12,480
+- **Listening Room — Studio Headphones** — ₹24,900
+
+The live status endpoint reports `enabled: true`, the expected store, Prava `sandbox`, and the
+test-only disclosure. The public storefront itself may show Shopify's development-store password
+page; use the authenticated Shopify Admin/preview session during the demo. That password boundary
+does not affect the server-side Admin API proof.
+
+For the strongest recording, select one of these products in Sutra, complete a two-person sandbox
+group, create the test order from the committed board, then open the returned Shopify Admin link.
+Show the `Test` marker, exact total, fictional address, and one test transaction per participant.
+Never describe this as real settlement or multi-card Shopify Checkout.
+
 ## Capability map
 
 Shopify, Prava and Sutra are separate layers. A capability in one does not silently grant a

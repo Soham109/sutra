@@ -6,7 +6,7 @@
 
 **Group checkout for agents and humans: one decision, one capped approval per person, no pooled wallet.**
 
-[Open Sutra](https://sutra-gmp.vercel.app) · [NANDA proof](https://sutra-gmp.vercel.app/nanda) · [Protocol](spec/PROTOCOL.md) · [API reference](docs/REFERENCE.md)
+[Open Sutra](https://sutra-gmp.vercel.app) · [Pitch deck](https://sutra-gmp.vercel.app/deck) · [NANDA proof](https://sutra-gmp.vercel.app/nanda) · [Protocol](spec/PROTOCOL.md) · [API reference](docs/REFERENCE.md)
 
 Built on [Prava](https://docs.prava.space) for the Agentic Commerce Hackathon · team `__init__ to win it`
 
@@ -94,6 +94,19 @@ Sutra does not pretend every split has the same settlement capability.
 
 A shared online checkout becomes fully automatic only when the merchant supports split tender or a merchant adapter can reconcile the individual payment credentials. That protocol extension is designed in [`spec/PROTOCOL.md`](spec/PROTOCOL.md); merchant adoption is not a shipped claim.
 
+### Verified Shopify test demo
+
+As of **August 2, 2026**, the deployed engine is connected to the Shopify development store
+`sutra-agzdw2mf.myshopify.com`. The app has order, product and publication access; three real
+development-store products are published; and `/v1/shopify-test/status` reports the adapter ready
+while Prava runs in sandbox mode.
+
+The judgeable flow is: choose a real store product → create a two-person split → let each person
+approve their capped Prava sandbox mandate → wait for the Sutra group to commit → create one
+Shopify **TEST** order → open Shopify Admin and show the order total plus one labeled test
+transaction per participant. This is strong merchant-record integration evidence, but it is still
+test infrastructure: no real money moves and Shopify Checkout does not collect multiple cards.
+
 ## Why the engine is difficult
 
 The happy path is not the differentiator. Card charges do not roll back like database rows, so GMP/1 is a crash-resumable commit saga built around evidence:
@@ -131,6 +144,11 @@ npm run nanda:scene
 
 The scene discovers the installed plugin through Python entry-point metadata, runs a four-agent purchase with a mid-flight decline and backstop, checks conservation invariants, and compares the same scenario with `prepaid_credits`. Simulated receipts are marked `simulated: true`; live mode requires human approval and never impersonates it. See the [plugin README](nanda-town-prava/README.md) and [evidence pack](docs/NANDA-EVIDENCE.md).
 
+The reusable package has also been submitted upstream to NANDA Town as
+[`projnanda/nandatown#210`](https://github.com/projnanda/nandatown/pull/210). The PR uses the
+required `hackathon/soham109-prava-group-mandates` branch and passes NANDA Town's repository-wide
+Ruff, formatting, Pyright and pytest gates.
+
 ## Architecture
 
 | Layer | Responsibility | Primary code |
@@ -143,6 +161,7 @@ The scene discovers the installed plugin through Python entry-point metadata, ru
 | Agent surfaces | MCP server, A2A AgentCard, AgentFacts, SkillMD, AI catalog | [`mcp/`](mcp/) · [`engine/src/discovery/`](engine/src/discovery/) |
 | Merchant-page intake | Shared detector, bookmarklet, unpacked extension | [`widget/`](widget/) · [`extension/`](extension/) |
 | NANDA Town | Python `payments` plugin and simulator-compatible protocol adapter | [`nanda-town-prava/`](nanda-town-prava/) |
+| Shopify proof | Development-store test-order adapter and transaction reconciliation | [`docs/SHOPIFY_FLOW.md`](docs/SHOPIFY_FLOW.md) |
 
 The engine is intentionally one persistent process today: SQLite, the approval poller, SSE fan-out, and the in-process event hub depend on a single replica. Deployment invariants are documented in the [runbook](docs/RUNBOOK.md).
 

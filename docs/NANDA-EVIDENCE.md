@@ -10,6 +10,25 @@ byte-for-byte, what changed (an entry-point check was added to the one-command
 scene), and a stale number found in two *other* files that this document
 does not own.**
 
+## Upstream contribution — submitted August 2, 2026
+
+The reusable group-mandates adapter is submitted to NANDA Town as
+[`projnanda/nandatown#210`](https://github.com/projnanda/nandatown/pull/210), from the required
+branch `hackathon/soham109-prava-group-mandates`.
+
+Before submission, the contribution passed the exact upstream gates:
+
+```text
+uv run ruff check .             All checks passed
+uv run ruff format --check .    259 files already formatted
+uv run pyright                  0 errors, 0 warnings
+uv run pytest -q                1429 passed, 1 skipped, 1 deselected
+pytest plugin package only      118 passed
+```
+
+The PR is evidence of submission, not evidence of merge or endorsement; those remain with the
+upstream maintainers.
+
 ## What this plugin is, in one paragraph
 
 > Nanda Town's bundled `prepaid_credits` is a pooled ledger: `pay()` moves a
@@ -992,7 +1011,7 @@ $ pytest -q
 117 passed, 1 skipped in 0.68s
 ```
 
-**The true count as of this document's last edit is 117 passed, 1 skipped —
+**The true local package count as of this document's last edit is 117 passed, 1 skipped —
 not 46, and it moved four times and broke once, transiently, while this one
 section was being written.** Treat no number here as permanent, including
 117: this package was under active, fast-moving concurrent development in

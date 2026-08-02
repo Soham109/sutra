@@ -175,10 +175,9 @@ document should not be read as claiming otherwise.
 ## NANDA
 
 **The single strongest artifact in the repository: a real registered entry point,
-byte-identical baseline traces against the bundled `prepaid_credits` plugin, 117 passing
-tests, and an honest refund story. One qualify-bar item remains open — no upstream pull
-request exists yet — and this document states that plainly rather than inventing a URL for
-one.**
+byte-identical baseline traces against the bundled `prepaid_credits` plugin, a 117-pass local
+suite plus a 118-pass upstream package run, an honest refund story, and a validated NANDA Town
+pull request.**
 
 `nanda-town-prava` registers as a real `nest.plugins.payments` entry point
 (`nanda_town_prava.plugin:PravaMandates`, declared in `nanda-town-prava/pyproject.toml`), and
@@ -195,11 +194,12 @@ strongest available form of "this is a drop-in adapter," checked rather than cla
 Conservation invariants — `authorization_conserved`, `no_pooled_funds`, `settlement_conserved`
 — report green both in the in-process simulation and against the real deployed engine over
 HTTP, including a run where the engine held a real Prava sandbox key
-(`docs/NANDA-EVIDENCE.md` §3.2, §4.5). The test suite stood at 117 passed, 1 skipped as of the
-most recent recorded run, explicitly documented as a moving number that grew four times and
-broke transiently once during the same week of active development, rather than a fixed claim
-(`docs/NANDA-EVIDENCE.md` §8.1) — a judge should run `pytest -q` themselves rather than trust
-any specific count printed here.
+(`docs/NANDA-EVIDENCE.md` §3.2, §4.5). The local package suite passed **117 tests** with one
+intentional skip on 2026-08-02. Its upstream-packaged copy passed **118 tests**. Inside the NANDA
+Town workspace, the complete repository suite passed **1,429 tests**, with one skipped and one
+live test deselected; Ruff, formatting and strict Pyright also passed.
+Counts still move, so a judge should run the commands in the pull request rather than trust a
+copied number.
 
 The refund story is honest rather than convenient: a pre-capture refund cancels every mandate
 and charges nobody; a post-capture refund raises `RefundNotSupportedError` with the actual
@@ -207,15 +207,12 @@ remedy attached — a merchant-initiated refund against the recorded transaction
 cardholder chargeback — rather than silently reversing a ledger entry the way the pooled
 baseline could (`nanda-town-prava/README.md`, "Refunds: the honest answer").
 
-**The one outstanding qualify item, stated without inventing a URL.** The event's own handbook
-states the NANDA track's qualify bar as demonstrating a sandbox transaction, handling
-failures, documenting the adapter, and submitting the relevant pull request to
-`projnanda/nandatown`. As of this writing, no such pull request exists. `git remote -v` in
-this repository returns only the team's own origin
-(`https://github.com/Soham109/sutra.git`), and no pull request URL is recorded anywhere in
-this repository, because none has been opened. This is a known, tracked gap, not a hidden
-one — do not cite a pull request URL anywhere until one actually exists and has been confirmed
-reachable.
+**Upstream submission completed.** The adapter is submitted as
+[`projnanda/nandatown#210`](https://github.com/projnanda/nandatown/pull/210) from the required
+`hackathon/soham109-prava-group-mandates` branch. The PR packages the multi-principal plugin,
+Town scenario, deterministic fallback, live HTTP path, comparison tooling and 118-test suite.
+This closes the previously documented missing-PR qualify item; merge and reviewer acceptance
+remain upstream decisions and are not claimed here.
 
 ## Senso
 

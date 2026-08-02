@@ -8,7 +8,8 @@ document is scoped to the NANDA **Index/registry/AgentFacts** surface only.
 **This is not the $1,000 prize track.** The prize is titled "Best Prava Adapter
 for the NANDA Town" and is judged on the Python plugin in
 [`nanda-town-prava/`](../nanda-town-prava/), documented separately in
-[`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md). This document answers a different, honest
+[`NANDA-EVIDENCE.md`](NANDA-EVIDENCE.md) and submitted upstream as
+[`projnanda/nandatown#210`](https://github.com/projnanda/nandatown/pull/210). This document answers a different, honest
 question directly: is sutra in the NANDA Index? The answer is no, and this is exactly
 what sutra is and is not in instead.
 
