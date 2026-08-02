@@ -243,7 +243,9 @@ export default function GroupWarRoom() {
           />
         )}
 
-        {collecting && !replay ? <InvitePanel groupId={group.group_id} title={group.title} /> : null}
+        {collecting && !replay ? (
+          <InvitePanel groupId={group.group_id} title={group.title} members={group.members} currency={currency} />
+        ) : null}
 
         <div className="gr-grid">
           {/* --- left: the thread and the log --------------------------- */}

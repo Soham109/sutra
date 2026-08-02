@@ -57,7 +57,7 @@ function Box({
   const titleY = hasSub ? y + 18 : y + h / 2 + 4
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} rx={9} fill={TONE_FILL[tone]} stroke={TONE_STROKE[tone]} strokeWidth={1.2} />
+      <rect x={x} y={y} width={w} height={h} rx={5} fill={TONE_FILL[tone]} stroke={TONE_STROKE[tone]} strokeWidth={1.2} />
       <text x={x + w / 2} y={titleY} textAnchor="middle" fontSize={12.5} fontWeight={650} fill={TONE_TEXT[tone]}>
         {title}
       </text>
@@ -85,7 +85,7 @@ function Cell({
   const startY = y + h / 2 - ((lines.length - 1) * 13) / 2 + 3.5
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} rx={8} fill={TONE_FILL[tone]} stroke={TONE_STROKE[tone]} strokeWidth={1.2} />
+      <rect x={x} y={y} width={w} height={h} rx={5} fill={TONE_FILL[tone]} stroke={TONE_STROKE[tone]} strokeWidth={1.2} />
       {lines.map((l, i) => (
         <text key={i} x={x + w / 2} y={startY + i * 13} textAnchor="middle" fontSize={10.5} fontWeight={550} fontFamily={mono ? 'var(--font-mono)' : undefined} fill={TONE_TEXT[tone]}>
           {l}

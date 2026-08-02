@@ -225,7 +225,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 export default function NewPlanPage() {
   return (
-    <Shell crumbs={<span className="here">Sutra bot</span>}>
+    <Shell crumbs={<span className="here">Review plan</span>}>
       <Suspense fallback={<div className="page"><Skeleton h={260} /></div>}>
         <NewPlanInner />
       </Suspense>

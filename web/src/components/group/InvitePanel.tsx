@@ -81,12 +81,12 @@ export function InvitePanel({ groupId, title, members = [], currency = 'USD' }: 
         <div><span className="eyebrow">Bring everyone in</span><h3>One link for the whole group</h3></div>
         <span className="invite-signal"><i /> Ready</span>
       </div>
-      <p>Everyone gets their own link and their own exact amount. Nobody picks a name off a list, so nobody claims the wrong share.</p>
+      <p>Send personal links to the group chat, or use the shared link when everyone is together.</p>
       <div className="invite-url"><span>{url || 'Preparing join link…'}</span><button type="button" onClick={() => void copy()}>Copy</button></div>
       <div className="invite-actions">
         {payers.length > 0 ? <button type="button" className="btn btn-primary" onClick={() => void shareEveryone()}>{canShare ? 'Send everyone their link' : 'Copy all links'}</button> : null}
         {payers.length > 0 ? <button type="button" className="btn btn-secondary" onClick={() => setPassOpen(true)}>Pass the phone round</button> : null}
-        <button type="button" className="btn btn-secondary" onClick={() => setQrOpen((open) => !open)}>{qrOpen ? 'Hide QR' : 'Show QR'}</button>
+        <button type="button" className="btn btn-secondary" onClick={() => setQrOpen((open) => !open)} aria-expanded={qrOpen}>{qrOpen ? 'Hide shared QR' : 'Show shared QR'}</button>
         {canWriteNfc ? <button type="button" className="btn btn-secondary" onClick={() => void writeNfc()}>Write NFC tag</button> : null}
       </div>
       {qrOpen ? <div className="invite-qr"><img src={`/api/v1/groups/${groupId}/join-qr.png`} alt={`QR code to join ${title}`} /><span>Scan once, then choose your name.</span></div> : null}

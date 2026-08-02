@@ -40,12 +40,11 @@ export default function GroupsPage() {
           <div>
             <h1>Groups</h1>
             <p className="small muted">
-              Every group you started or were invited to. Nothing here can charge you — your own approval always
-              happens on your own device.
+              Track live approvals, revisit finished groups, or start a new one.
             </p>
           </div>
-          <Link href="/app/discover" className="btn btn-primary">
-            Start a group buy
+          <Link href="/app" className="btn btn-primary">
+            Start a group
           </Link>
         </div>
 
@@ -80,14 +79,12 @@ export default function GroupsPage() {
             <Empty
               title="No groups yet"
               action={
-                <Link href="/app/discover" className="btn btn-primary">
-                  Find something to buy
+                <Link href="/app" className="btn btn-primary">
+                  Start a group
                 </Link>
               }
             >
-              A group buy is one cart, one rule, and one card per person. Everyone approves their own share on their
-              own device — then the whole group commits at once, or nobody is charged at all. Start by finding
-              something, or paste any product link.
+              Describe a plan, paste a merchant link, or split a receipt. Friends approve only their own share.
             </Empty>
           </div>
         )}

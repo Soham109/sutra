@@ -10,7 +10,7 @@ const CSS = `
 .gr-head-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 @media (max-width: 560px) { .gr-head-side { align-items: flex-start; } }
 
-.gr-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.gr-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, .85fr); gap: 16px; align-items: start; }
 @media (max-width: 1000px) { .gr-grid { grid-template-columns: minmax(0, 1fr); } }
 
 .gr-sec { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
@@ -119,6 +119,10 @@ const CSS = `
 .gr-line { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 12px; padding: 5px 0; font-size: 13px; flex-wrap: wrap; overflow-wrap: anywhere; }
 .gr-line + .gr-line { border-top: 1px solid var(--line); }
 .gr-break { overflow-wrap: anywhere; }
+
+/* Keep operational detail available without letting the page become a wall. */
+.gr-grid > .stack:last-child { position: sticky; top: 16px; }
+@media (max-width: 1000px) { .gr-grid > .stack:last-child { position: static; } }
 `
 
 /** Injected once per page. Kept out of globals.css, which this agent does not own. */

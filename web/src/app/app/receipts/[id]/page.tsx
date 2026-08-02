@@ -78,9 +78,7 @@ export default function ReceiptPage() {
               </Link>
             }
           >
-            This group is still live. A receipt is issued the instant it can no longer change — the moment it
-            commits, aborts or expires — because a receipt that could still be edited would not be worth
-            signing.
+            This group is still live. Its signed receipt appears after it commits, aborts, or expires.
           </Empty>
         )}
 
@@ -120,10 +118,7 @@ export default function ReceiptPage() {
               <Totals receipt={receipt} />
               <ConsentChain receipt={receipt} />
               <VerifyPanel receipt={receipt} />
-              <p className="tiny faint">
-                Nobody pooled funds and nobody fronted anybody&apos;s money. Each entry above is one person&apos;s
-                own card, authorized by that person, capped by that person, charged once.
-              </p>
+              <p className="tiny faint">Each entry records that person&apos;s own approval, cap, and card charge.</p>
             </div>
           </>
         )}

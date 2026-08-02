@@ -84,10 +84,10 @@ export default function SettingsPage() {
         </>
       }
     >
-      <div className="page page-narrow">
+      <div className="page settings-page">
         <header className="page-head">
           <h1>Settings</h1>
-          <p className="muted">Who you are here, how this looks, and what this engine can actually reach.</p>
+          <p className="muted">Manage your account, connected surfaces, notifications, and appearance.</p>
         </header>
 
         <div className="stack" style={{ ['--gap' as string]: '28px' }}>
@@ -144,9 +144,7 @@ export default function SettingsPage() {
                   </div>
 
                   <p className="tiny faint" style={{ margin: 0 }}>
-                    Your account is backed by an HttpOnly session; the browser cannot read it. Every charge still
-                    needs your own passkey on Prava’s page. Signing out ends this browser session while your record,
-                    circles and receipts remain in the hosted engine database.
+                    Signing out ends this browser session. Your circles and receipts remain saved.
                   </p>
                 </>
               ) : (
@@ -200,9 +198,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               <p className="tiny faint" style={{ margin: 0 }}>
-                Stored on this device only, at <code className="mono">localStorage["sutra-theme"]</code>, and applied
-                as <code className="mono">data-theme</code> before first paint — so a dark reload never flashes paper.
-                System follows your OS and stores nothing.
+                Saved on this device. System follows your OS appearance.
               </p>
             </div>
           </Section>
@@ -222,8 +218,7 @@ export default function SettingsPage() {
                 return (
                   <>
                     <p className="small muted" style={{ margin: 0 }}>
-                      Optional browser push when you are not looking at the tab. Friend requests and group updates also
-                      land in the inbox bell in the top bar — that works without turning push on.
+                      Get friend requests and group updates when Sutra is not open. Updates always remain in the inbox.
                     </p>
                     <div className="row wrap" style={{ gap: 8, alignItems: 'center' }}>
                       <button
@@ -271,8 +266,7 @@ export default function SettingsPage() {
           <Section title="Browser extension" hint="same people and circles, on any product page">
             <div className="card card-pad col" style={{ gap: 14 }}>
               <p className="small muted" style={{ margin: 0 }}>
-                Connect the extension to this account with a revocable device token. It can read your friends and
-                circles and create groups for you; it never receives the engine master key or payment credentials.
+                Connect the browser extension to use your friends and circles on a product page. Payment approval stays in Sutra.
               </p>
               {extensionToken ? (
                 <>
@@ -305,8 +299,7 @@ export default function SettingsPage() {
               )}
               {extensionStatus && <p className="tiny muted" style={{ margin: 0 }}>{extensionStatus}</p>}
               <p className="tiny faint" style={{ margin: 0 }}>
-                Tokens expire after 90 days and are stored as a one-way hash in the database. Payment approval still
-                happens per person on the payment rail.
+                Tokens expire after 90 days and can be revoked here at any time.
               </p>
             </div>
           </Section>
@@ -374,10 +367,7 @@ export default function SettingsPage() {
                 </p>
               )}
             </div>
-            <p className="tiny faint" style={{ marginTop: 8 }}>
-              A dark source is not hidden here. Search results only ever come from the sources marked live, so you
-              always know what you were shown and what you weren’t.
-            </p>
+            <p className="tiny faint" style={{ marginTop: 8 }}>Discovery only searches sources marked live.</p>
           </Section>
 
           {/* --- money ------------------------------------------------------- */}

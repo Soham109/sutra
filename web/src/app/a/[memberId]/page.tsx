@@ -248,7 +248,7 @@ export default function ApprovalPage() {
               if (v.approval_url) window.location.href = v.approval_url
             }}
           >
-            <span aria-hidden>🔑</span> Approve {money(v.share_amount, cur)} with passkey
+            Approve {money(v.share_amount, cur)} with passkey
           </button>
           {ready ? (
             <p className="tiny faint" style={{ textAlign: 'center' }}>
@@ -291,9 +291,8 @@ function Header({ v }: { v: MemberView }) {
       <h1 className="ap-title" style={{ marginTop: 4 }}>
         {v.group.title}
       </h1>
-      <div className="small muted">
-        {v.group.merchant.name} · {v.group.policy_text}
-      </div>
+      <div className="small muted">{v.group.merchant.name}</div>
+      {v.group.policy_text ? <div className="tiny faint" style={{ marginTop: 3 }}>{v.group.policy_text}</div> : null}
     </div>
   )
 }
@@ -318,7 +317,7 @@ function ShareSummary({ v }: { v: MemberView }) {
 function Footer() {
   return (
     <p className="tiny faint" style={{ textAlign: 'center', padding: '10px 0 4px' }}>
-      Everyone approves their own share on their own card. No pooled funds, nobody fronts the money.
+      Your approval applies only to your share. Nobody fronts the group total.
     </p>
   )
 }

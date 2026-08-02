@@ -56,6 +56,8 @@ export default function HomePage() {
   return (
     <Shell crumbs={<span className="here">Today</span>}>
       <div className="page home-page">
+        <Composer />
+
         {error && (
           <ErrorNote>
             Couldn’t load your dashboard — {error}.{' '}
@@ -78,12 +80,6 @@ export default function HomePage() {
           <>
             <NeedsYou approvals={data.needs_you} plans={data.plans_needing_you} />
 
-            <StatRow data={data} />
-
-            <Composer />
-
-            <ExposureMeter exposure={data.exposure} />
-
             <Waiting groups={data.waiting_on_others} plans={data.live_plans} />
 
             {quiet && (
@@ -93,8 +89,8 @@ export default function HomePage() {
                   <h2>Nothing needs you right now.</h2>
                 </div>
                 <p>
-                  Start above with friends you already have on sutra. A buy uses each person’s own approval;
-                  a bill split is agreement only — they pay the venue themselves.
+                  Start above with an idea, link, or receipt. Friends with accounts are notified; anyone else can
+                  join by private link. A bill split records agreement only — everyone pays the venue themselves.
                 </p>
               </section>
             )}
@@ -126,13 +122,23 @@ export default function HomePage() {
               )}
             </section>
 
-            <ReliabilityPanel
-              reliability={data.reliability}
-              settledCurrency={commonCurrency([
-                ...data.exposure.map((e) => e.currency),
-                ...data.recent.map((x) => x.currency),
-              ])}
-            />
+            <details className="home-secondary">
+              <summary>
+                <span><b>Activity and card status</b><small>Limits, history, and reliability</small></span>
+                <span aria-hidden>↓</span>
+              </summary>
+              <div className="home-secondary-body">
+                <StatRow data={data} />
+                <ExposureMeter exposure={data.exposure} />
+                <ReliabilityPanel
+                  reliability={data.reliability}
+                  settledCurrency={commonCurrency([
+                    ...data.exposure.map((e) => e.currency),
+                    ...data.recent.map((x) => x.currency),
+                  ])}
+                />
+              </div>
+            </details>
           </>
         )}
       </div>

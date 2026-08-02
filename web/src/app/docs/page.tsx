@@ -35,18 +35,9 @@ export default function DocsPage() {
           <span className="eyebrow">Architecture</span>
           <h1 className="display">How sutra actually works.</h1>
           <p className="docs-hero-lede">
-            No slide deck words. Every box below names a real file; every arrow names a real function or a
-            real HTTP call. Where this page uses a term that isn&rsquo;t plain English, it defines it once,
-            in the sentence it first appears, and then just uses it — the way an engineer handing off a
-            system to a new teammate would.
-          </p>
-          <p className="docs-hero-lede">
-            The short version: a group of people want to buy one thing together. Each person grants their
-            <b> own</b> one-time permission to charge <b>their own</b> card, for <b>this</b> merchant, up to
-            <b> their own</b> amount — nothing more general than that, and nothing anyone else can use. An
-            engine watches everyone&rsquo;s permission and, the instant the group&rsquo;s rule is satisfied,
-            charges every card in the same breath. If the rule is never satisfied, it charges nobody. There is
-            no pot of money anywhere in this system, at any point, for anyone to hold, lose, or run off with.
+            A group buys one thing together without pooling money. Each person approves one capped,
+            merchant-locked charge on their own card. When the group rule passes, sutra commits the set;
+            otherwise nobody is charged. Every diagram below maps to the running code.
           </p>
           <div className="docs-hero-facts">
             <span className="chip mono">service.ts — the commit saga</span>
@@ -58,17 +49,12 @@ export default function DocsPage() {
         {/* ---------------------------------------------------------------- */}
         <div className="card docs-tldr">
           <p>
-            <b>The protocol</b> (GMP/1, the Group Mandate Protocol) is the small, frozen part: N people, one
-            cart, one rule for what counts as &ldquo;the group agreed,&rdquo; and a commit step that either
-            charges everyone or charges no one. It lives entirely under <code>/v1/groups</code> and{' '}
-            <code>/v1/members</code>. An agent that speaks only that HTTP contract is a complete client — it
-            does not need to know sutra&rsquo;s web app, or NANDA, or anything else on this page exists.
+            <b>GMP/1 is the protocol:</b> people, one cart, a decision rule, and an all-or-none commit.
+            It lives under <code>/v1/groups</code> and <code>/v1/members</code>.
           </p>
           <p>
-            <b>Everything else</b> — turning a sentence into a plan, finding real restaurants, ranking them,
-            reading a browser tab, talking to an MCP-speaking agent — is product built <i>on top of</i> that
-            protocol, to get a group to the point where it has a cart and a rule in the first place. This page
-            covers both, and is explicit about which is which.
+            <b>Sutra is the product above it:</b> planning, discovery, browser capture, MCP, and NANDA.
+            Those surfaces prepare the purchase; only the protocol can commit it.
           </p>
         </div>
 

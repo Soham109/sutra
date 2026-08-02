@@ -6,7 +6,7 @@ import { DiscoverClient, DiscoverSkeleton } from '@/components/discover/discover
 
 export const metadata: Metadata = {
   title: 'Discover — sutra',
-  description: 'Search a few catalogues, or paste a product link from any store, then split it with a group.',
+  description: 'Search supported catalogues, or paste a public product page and verify what sutra can read before splitting it with a group.',
 }
 
 export default function DiscoverPage() {

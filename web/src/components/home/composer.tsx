@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 
 // One box, three destinations.
 //
@@ -16,71 +16,47 @@ import { useMemo, useState } from 'react'
 
 type Route = 'plan' | 'link' | 'bill'
 
-interface Read {
-  route: Route
-  label: string
-  detail: string
-}
-
 const URL_RE = /^https?:\/\/\S+$/i
-const BARE_DOMAIN_RE = /^[\w-]+(\.[\w-]+)+(\/\S*)?$/i
-/** A line ending in something money-shaped: "Paneer Tikka   380.00" */
-const MONEY_LINE_RE = /[^\n]*?[\d][\d,]*(?:[.,]\d{2})?\s*$/
+const DOMAIN_RE = /^[\w-]+(\.[\w-]+)+(\/\S*)?$/i
 
-function readInput(raw: string): Read | null {
-  const text = raw.trim()
-  if (!text) return null
-
-  if (URL_RE.test(text) || BARE_DOMAIN_RE.test(text)) {
-    let host = text
-    try {
-      host = new URL(URL_RE.test(text) ? text : `https://${text}`).hostname.replace(/^www\./, '')
-    } catch {
-      /* keep the raw string; the resolver will report a bad link properly */
-    }
-    return {
-      route: 'link',
-      label: 'Read this page',
-      detail: `We’ll open ${host} and read its own price, currency and variants — then you shape the split.`,
-    }
-  }
-
-  // A receipt is the one thing people paste as many lines, most of which end
-  // in a number. Two such lines is enough signal and rarely a false positive.
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-  const moneyLines = lines.filter((l) => MONEY_LINE_RE.test(l) && /\d/.test(l))
-  if (lines.length >= 3 && moneyLines.length >= 2) {
-    return {
-      route: 'bill',
-      label: 'Split this bill',
-      detail: `${moneyLines.length} priced lines detected. We’ll itemise it, check the maths against the printed total, then let everyone claim their dishes.`,
-    }
-  }
-
-  return {
-    route: 'plan',
-    label: 'Plan with Sutra bot',
-    detail:
-      'Sutra bot reads who, when and where, asks your friends for times and locations, then ranks real places against the answers.',
-  }
+const MODES: Record<Route, { label: string; hint: string; placeholder: string; action: string }> = {
+  plan: {
+    label: 'Plan an idea',
+    hint: 'Tell us what, who, roughly when, where, and a budget if you have one.',
+    placeholder: 'Dinner Saturday with Arsh and Maya near Koramangala, under ₹800 each',
+    action: 'Review the plan',
+  },
+  link: {
+    label: 'Split a link',
+    hint: 'Paste a public merchant or product page. Sutra reads the page; you verify the item and price.',
+    placeholder: 'https://merchant.com/product',
+    action: 'Read the page',
+  },
+  bill: {
+    label: 'Split a bill',
+    hint: 'Paste receipt lines here, or open the bill scanner to take or upload a photo.',
+    placeholder: 'Paneer tikka  380.00\nLime soda      120.00\nTotal          500.00',
+    action: 'Itemise the bill',
+  },
 }
 
 export function Composer() {
   const router = useRouter()
-  const [value, setValue] = useState('')
-  const [multiline, setMultiline] = useState(false)
-
-  const read = useMemo(() => readInput(value), [value])
+  const [mode, setMode] = useState<Route>('plan')
+  const [values, setValues] = useState<Record<Route, string>>({ plan: '', link: '', bill: '' })
+  const value = values[mode]
+  const setValue = (next: string) => setValues((current) => ({ ...current, [mode]: next }))
+  const linkValid = mode !== 'link' || URL_RE.test(value.trim()) || DOMAIN_RE.test(value.trim())
 
   const go = () => {
     const text = value.trim()
-    if (!read || !text) return
-    if (read.route === 'link') {
+    if (!text || !linkValid) return
+    if (mode === 'link') {
       const url = URL_RE.test(text) ? text : `https://${text}`
       router.push(`/app/discover?url=${encodeURIComponent(url)}`)
       return
     }
-    if (read.route === 'bill') {
+    if (mode === 'bill') {
       sessionStorage.setItem('sutra:bill', text)
       router.push('/app/bill')
       return
@@ -92,16 +68,29 @@ export function Composer() {
   return (
     <section className="composer" aria-labelledby="composer-title">
       <header className="page-head">
-        <span className="eyebrow">Sutra bot</span>
-        <h1 id="composer-title">What are we doing?</h1>
+        <span className="eyebrow">Start a group</span>
+        <h1 id="composer-title">What are you bringing?</h1>
         <p className="muted">
-          Say it, paste a link, or drop in the bill — then seat friends from People. An idea gets planned, a link gets
-          read from the merchant, a receipt gets itemised.
+          Start with an idea, a real merchant page, or a receipt. You will check every detail before anyone is invited.
         </p>
       </header>
 
+      <div className="composer-modes" role="group" aria-label="Choose what to start with">
+        {(Object.keys(MODES) as Route[]).map((key) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={mode === key}
+            onClick={() => setMode(key)}
+          >
+            <span>{key === 'plan' ? '✦' : key === 'link' ? '↗' : '▤'}</span>
+            {MODES[key].label}
+          </button>
+        ))}
+      </div>
+
       <form
-        className="ask-box"
+        className={`ask-box composer-box is-${mode}`}
         onSubmit={(e) => {
           e.preventDefault()
           go()
@@ -109,46 +98,52 @@ export function Composer() {
       >
         <textarea
           value={value}
-          onChange={(e) => {
-            setValue(e.target.value)
-            if (e.target.value.includes('\n')) setMultiline(true)
-          }}
-          onPaste={(e) => {
-            // A pasted receipt needs room to breathe immediately.
-            if (e.clipboardData.getData('text').includes('\n')) setMultiline(true)
-          }}
+          onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
-            // Enter sends; shift-enter is for the people pasting a receipt.
-            if (e.key === 'Enter' && !e.shiftKey && !multiline) {
+            if (e.key === 'Enter' && !e.shiftKey && mode !== 'bill') {
               e.preventDefault()
               go()
             }
           }}
-          rows={multiline ? 9 : 3}
-          placeholder="Dinner Saturday with Arsh and Maya near Koramangala, under ₹800 each"
-          aria-label="Describe a plan, paste a link, or paste a bill"
+          rows={mode === 'bill' ? 7 : 4}
+          inputMode={mode === 'link' ? 'url' : 'text'}
+          placeholder={MODES[mode].placeholder}
+          aria-label={MODES[mode].label}
+          aria-invalid={mode === 'link' && !!value.trim() && !linkValid}
         />
-        <button className="btn btn-primary btn-lg" type="submit" disabled={!read}>
-          {read ? read.label : 'Continue'}
-        </button>
+        {mode === 'link' && value.trim() && !linkValid && (
+          <p className="composer-validation" role="alert">Paste a full product URL or a domain such as merchant.com/product.</p>
+        )}
+        <div className="composer-actions">
+          {mode === 'bill' && (
+            <button className="btn btn-secondary" type="button" onClick={() => router.push('/app/bill')}>
+              Take or upload a photo
+            </button>
+          )}
+          <button className="btn btn-primary btn-lg" type="submit" disabled={!value.trim() || !linkValid}>
+            {MODES[mode].action} →
+          </button>
+        </div>
       </form>
 
-      {/* Say where this is about to go before anything is pressed. Detection
-          that acts silently is a magic trick; detection that announces itself
-          is a tool. */}
-      <p className="composer-read" role="status" aria-live="polite">
-        {read ? read.detail : 'Type anything. We’ll tell you what happens next before it happens.'}
-      </p>
+      <div className="composer-next">
+        <span className="eyebrow">After continue</span>
+        <p>{MODES[mode].hint}</p>
+        <ol>
+          <li>{mode === 'plan' ? 'Check what Sutra understood' : mode === 'link' ? 'Verify the product and live price' : 'Check every item and the printed total'}</li>
+          <li>Add the people involved</li>
+          <li>Choose the rule, then share their private links</li>
+        </ol>
+      </div>
 
       <div className="ask-examples">
-        <span className="tiny faint">Try one:</span>
-        {EXAMPLES.map((ex) => (
+        <span className="tiny faint">Example</span>
+        {EXAMPLES[mode].map((ex) => (
           <button
             key={ex}
             type="button"
             onClick={() => {
               setValue(ex)
-              setMultiline(false)
             }}
           >
             {ex}
@@ -160,8 +155,8 @@ export function Composer() {
 }
 
 /** The same three the Sutra bot page offers, so the two never disagree. */
-const EXAMPLES = [
-  'Dinner Saturday with Arsh and Maya near Koramangala, under ₹800 each',
-  'Somewhere to watch the match with the boys tonight',
-  'Coffee tomorrow morning with Priya around Indiranagar',
-]
+const EXAMPLES: Record<Route, string[]> = {
+  plan: ['Dinner Saturday with Arsh and Maya near Koramangala, under ₹800 each'],
+  link: ['https://www.amazon.in/dp/example'],
+  bill: ['Paneer tikka  380.00\nLime soda  120.00\nTotal  500.00'],
+}

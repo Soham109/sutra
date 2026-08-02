@@ -73,8 +73,7 @@ export default function ReceiptsPage() {
         <div className="page-head">
           <h1>Receipts</h1>
           <p className="small muted">
-            One signed artifact per finished group: who consented, capped at what, and what actually moved.
-            Hash-linked and Ed25519-signed, so anybody can check it without trusting us.
+            A verifiable record of who approved, their cap, and what was charged for every finished group.
           </p>
         </div>
 
@@ -98,15 +97,12 @@ export default function ReceiptsPage() {
           <Empty
             title="No receipts yet"
             action={
-              <Link href="/app/discover" className="btn btn-primary">
-                Start a group buy
+              <Link href="/app" className="btn btn-primary">
+                Start a group
               </Link>
             }
           >
-            A receipt is issued the moment a group stops being able to change — committed, partial, aborted or
-            expired. It lists every member&apos;s own authorization in order, each one hashed into the one
-            before it, and signs the whole chain. It is the answer to &ldquo;who agreed to pay what, and what
-            actually got charged?&rdquo; that survives without this app.
+            Finish a group and its signed consent record will appear here, including groups that abort or expire.
           </Empty>
         )}
 

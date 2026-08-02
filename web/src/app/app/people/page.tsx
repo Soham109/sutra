@@ -172,7 +172,7 @@ export default function PeoplePage() {
         <header className="page-head">
           <h1>People</h1>
           <p className="muted" style={{ maxWidth: '58ch' }}>
-            Friendship is a request — they have to accept before you can put them on a split, a plan, or a circle.
+            Find friends, accept requests, and see who is available for your next group.
           </p>
         </header>
 
@@ -261,20 +261,18 @@ export default function PeoplePage() {
                     </button>
                   }
                 >
-                  Handles are exact and names are matched loosely. If they have never used this engine, they will not be
-                  here yet.
+                  Try their exact @handle. Only people with a Sutra account appear here.
                 </Empty>
               ) : (
                 <Empty
                   title="No one here yet"
                   action={
-                    <Link href="/app/discover" className="btn btn-primary">
-                      Start a group buy
+                    <Link href="/app" className="btn btn-primary">
+                      Start a group
                     </Link>
                   }
                 >
-                  People appear once they have held a seat in a group. Run one buy and everyone you invite shows up
-                  here.
+                  Search for someone with a Sutra account, then send a friend request.
                 </Empty>
               )}
             </div>
@@ -326,10 +324,7 @@ export default function PeoplePage() {
             </>
           )}
 
-          <p className="tiny faint">
-            Approval rate and median reply are computed from the append-only event log. Somebody with no record is not
-            untrustworthy — they are just new.
-          </p>
+          <p className="tiny faint">Approval history only reflects completed Sutra groups. No history simply means they are new.</p>
         </div>
       </div>
 

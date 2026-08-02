@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ApproveFrame, BadLink } from '@/components/approve/chrome'
 import { humanError, type Joinable } from '@/components/approve/model'
 import { Avatar, Badge, Countdown, Empty, Skeleton, StatusBadge } from '@/components/ui'
+import { GroupBadge } from '@/components/group/badges'
 import { money } from '@/lib/format'
 import { api } from '@/lib/api'
 
@@ -51,7 +52,7 @@ export default function JoinPage() {
       <section className="ap-join-hero">
         <div className="ap-join-meta">
           <span>{data.merchant.name}</span>
-          <span>{data.status}</span>
+          <GroupBadge status={data.status} live={!data.terminal} />
         </div>
         <h1>{data.title}</h1>
         <div className="ap-join-total">{money(data.total, data.currency)}</div>
@@ -73,7 +74,7 @@ export default function JoinPage() {
               : 'Open the share with your name. Approval still needs your passkey.'}
           </p>
         </div>
-        <button className="btn btn-ghost" onClick={() => void load()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+        <button className="btn btn-ghost" type="button" onClick={() => void load()} disabled={loading} aria-label="Refresh group status">{loading ? 'Refreshing…' : 'Refresh'}</button>
       </div>
 
       {payers.length === 0 ? (
@@ -97,13 +98,18 @@ export default function JoinPage() {
         </div>
       )}
 
-      <div className="ap-join-rule"><span>Group rule</span><p>{data.policy_text}</p></div>
+      {data.policy_text ? <div className="ap-join-rule"><span>Group rule</span><p>{data.policy_text}</p></div> : null}
 
       {observers > 0 ? <p className="tiny faint" style={{ marginTop: 12 }}>{observers} {observers === 1 ? 'observer is' : 'observers are'} watching without paying.</p> : null}
 
       <div className="ap-security-note">
         <span aria-hidden>◆</span>
-        <p><b>Picking a name cannot spend money.</b> The next screen still requires that person’s passkey, on their device, against their card.</p>
+        <p>
+          <b>Picking a name cannot spend money.</b>{' '}
+          {data.rail === 'at_venue' || data.rail_capability?.charges === false
+            ? 'The next screen only confirms that person’s share; everyone pays the venue directly.'
+            : 'The next screen still requires that person’s passkey, on their device, against their card.'}
+        </p>
       </div>
     </ApproveFrame>
   )

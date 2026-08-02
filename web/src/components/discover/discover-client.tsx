@@ -89,22 +89,22 @@ const MOMENTS: Moment[] = [
   {
     icon: '◒', label: 'Movie tickets', kind: 'paste',
     placeholder: 'Paste the tickets page — your BookMyShow or Fandango link',
-    hint: 'Sutra reads the showtime, seats and price straight off that page.',
+    hint: 'Sutra will try to read the listing. You verify the showtime, seats and price before continuing.',
   },
   {
     icon: '✦', label: 'Flights', kind: 'paste',
     placeholder: 'Paste the fare page from the airline or booking site',
-    hint: 'Paste the exact fare everyone would book, not a screenshot of it.',
+    hint: 'Paste the exact public fare page. If it cannot be read, you can enter the details yourself.',
   },
   {
     icon: '⌂', label: 'A place to stay', kind: 'paste',
     placeholder: 'Paste the listing — Airbnb, Booking.com, the hotel’s own page',
-    hint: 'One link, and the nightly rate splits however the group decides.',
+    hint: 'Paste the public listing, then verify or enter the nightly rate before splitting it.',
   },
   {
     icon: '♫', label: 'Concert tickets', kind: 'paste',
     placeholder: 'Paste the tickets page for the show',
-    hint: 'Same idea as movie tickets — the exact listing, not a search page.',
+    hint: 'Paste the exact public listing, then verify what was read before continuing.',
   },
   {
     icon: '⌁', label: 'Dinner', kind: 'manual',
@@ -396,7 +396,7 @@ export function DiscoverClient() {
                   aria-label="Limit the search to one store"
                 />
                 <button type="button" onClick={() => setStore('')}>
-                  search everywhere instead
+                  search all catalogues instead
                 </button>
               </>
             ) : (
@@ -407,7 +407,7 @@ export function DiscoverClient() {
                   setTimeout(() => storeInput.current?.focus(), 0)
                 }}
               >
-                Search one store only
+                Filter by store
               </button>
             )}
           </div>
@@ -637,9 +637,8 @@ export function DiscoverClient() {
                 </a>
               }
             >
-              Find the exact thing you want on their site, then copy the address of that page and
-              paste it here. Sutra reads the merchant’s own price, currency and options straight off
-              it — which is how a store nobody integrated with still works.
+              Open the exact item on the merchant&rsquo;s site and paste its public URL here. Sutra will
+              attempt to read the price and options; you verify or enter anything it cannot read.
             </Empty>
           ) : results.products.length === 0 ? (
             <Empty
@@ -655,7 +654,7 @@ export function DiscoverClient() {
                         void runSearch(results.query, '')
                       }}
                     >
-                      Search every store instead
+                      Search all catalogues instead
                     </button>
                   )}
                   <button
@@ -671,9 +670,8 @@ export function DiscoverClient() {
                 </div>
               }
             >
-              The catalogues that answered had nothing matching. Searching only reaches the stores that allow it —
-              pasting a link to the exact item works on almost any store, including the ones that never appear
-              here.
+              The catalogues that answered had nothing matching. Try a public product URL instead; if the page
+              blocks automated reading, you can enter its item and price manually.
             </Empty>
           ) : (
             <ResultsGrid>

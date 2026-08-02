@@ -171,6 +171,20 @@ h3 { font-size: 16px; letter-spacing: -0.012em; }
 .page-head { margin-bottom: 22px; }
 .page-head h1 { margin-bottom: 4px; }
 
+/* Settings is a dashboard, not a long policy document. Use the available
+   desktop width while preserving the same single-column reading order on
+   smaller screens. */
+.settings-page { max-width: 1080px; }
+.settings-page > .stack {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.settings-page > .stack > * { margin-top: 0; min-width: 0; }
+@media (max-width: 900px) {
+  .settings-page > .stack { grid-template-columns: 1fr; }
+}
+
 /* --- surfaces ------------------------------------------------------------- */
 
 .card {
@@ -746,12 +760,48 @@ a.list-row:hover { background: var(--surface-2); }
    So it now borrows .page-head, .ask-box and .ask-examples wholesale, and the
    only thing it adds is the line telling you which of the three destinations
    your text is about to go to. */
-.composer { display: block; }
+.composer { display: block; max-width: 980px; }
 .composer .page-head { margin-bottom: 0; }
-.composer .page-head h1 { margin-top: 12px; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.05em; }
+.composer .page-head h1 { margin-top: 10px; font-size: clamp(34px, 4.8vw, 58px); letter-spacing: -.055em; line-height: 1; }
 .composer .page-head p { margin-top: 14px; max-width: 60ch; line-height: 1.65; }
-.composer-read { margin-top: 12px; color: var(--ink-2); font-size: 12.5px; line-height: 1.6; min-height: 2.9em; }
-/* The box takes the colour of what it is about to do. */
+.composer-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 26px; }
+.composer-modes button { min-height: 52px; display: flex; align-items: center; gap: 9px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 620; cursor: pointer; text-align: left; transition: background .18s ease, border-color .18s ease, color .18s ease; }
+.composer-modes button span { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; background: var(--surface-2); color: var(--ink-2); }
+.composer-modes button:hover { border-color: var(--line-2); color: var(--ink); }
+.composer-modes button[aria-pressed='true'] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }
+.composer-modes button[aria-pressed='true'] span { background: var(--brand); color: #17120f; }
+.composer-box { margin-top: 10px; border-radius: 16px; box-shadow: 0 12px 40px rgb(25 24 23 / .07); }
+.composer-box textarea { min-height: 94px; }
+.composer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
+.composer-validation { margin: -3px 4px 0; color: var(--bad); font-size: 12px; }
+.composer-next { display: grid; grid-template-columns: 110px minmax(180px, .8fr) minmax(280px, 1.2fr); gap: 18px; align-items: start; margin-top: 14px; padding: 16px 2px; border-bottom: 1px solid var(--line); color: var(--ink-2); }
+.composer-next p { font-size: 12.5px; line-height: 1.55; }
+.composer-next ol { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; list-style: none; counter-reset: composer-step; }
+.composer-next li { counter-increment: composer-step; font-size: 11.5px; line-height: 1.45; }
+.composer-next li::before { content: counter(composer-step); display: block; margin-bottom: 5px; color: var(--brand-ink); font-family: var(--font-mono); font-size: 10px; }
+.composer .ask-examples { margin-top: 12px; }
+.composer .ask-examples button { max-width: min(100%, 620px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.home-secondary { border-top: 1px solid var(--line); padding-top: 18px; }
+.home-secondary > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; list-style: none; }
+.home-secondary > summary::-webkit-details-marker { display: none; }
+.home-secondary > summary span:first-child { display: grid; gap: 3px; }
+.home-secondary > summary b { font-size: 14px; }
+.home-secondary > summary small { color: var(--ink-3); font-size: 11.5px; }
+.home-secondary > summary > span:last-child { color: var(--ink-3); transition: transform .2s ease; }
+.home-secondary[open] > summary > span:last-child { transform: rotate(180deg); }
+.home-secondary-body { display: flex; flex-direction: column; gap: 36px; padding-top: 28px; }
+
+@media (max-width: 700px) {
+  .composer-modes { grid-template-columns: 1fr; }
+  .composer-modes button { min-height: 46px; }
+  .composer-next { grid-template-columns: 1fr; gap: 8px; }
+  .composer-next ol { grid-template-columns: 1fr; gap: 8px; }
+  .composer-next li { display: grid; grid-template-columns: 18px 1fr; gap: 5px; }
+  .composer-next li::before { margin: 0; }
+  .composer-actions { align-items: stretch; flex-direction: column-reverse; }
+  .composer-actions .btn { width: 100%; }
+}
 
 /* Exposure: the one number no other money app can show you.
    Money state is encoded as MATERIAL, not just colour — solid means it moved,

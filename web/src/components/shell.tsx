@@ -72,11 +72,11 @@ export function Shell({ children, crumbs }: { children: React.ReactNode; crumbs?
       <div className="col grow" style={{ minWidth: 0 }}>
         <header className="topbar">
           <div className="crumbs grow">{crumbs ?? <span className="here">Home</span>}</div>
-          <button className="top-search" onClick={() => setPaletteOpen(true)}>
-            <Icon name="search" /> <span className="top-search-label">Search anything</span> <span className="kbd">⌘K</span>
+          <button className="top-search" onClick={() => setPaletteOpen(true)} aria-label="Open page and link search">
+            <Icon name="search" /> <span className="top-search-label">Pages or product link</span> <span className="kbd">⌘K</span>
           </button>
           <InboxBell />
-          <Link href="/app/plan/new" className="btn btn-primary top-create">Plan something <span aria-hidden>↗</span></Link>
+          <Link href="/app" className="btn btn-primary top-create">Start a group <span aria-hidden>↗</span></Link>
           <ThemeToggle />
         </header>
         <main className="grow">{children}</main>
@@ -122,8 +122,8 @@ function Sidebar() {
         ))}
 
         <div className="nav-section">
-          <Link href="/app/plan/new" className="btn btn-primary btn-block" style={{ marginTop: 4 }}>
-            Plan something
+          <Link href="/app" className="btn btn-primary btn-block" style={{ marginTop: 4 }}>
+            Start a group
           </Link>
         </div>
       </nav>
@@ -258,7 +258,9 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState('')
 
   const actions = [
-    { label: 'Find something to buy', hint: 'Search or paste any product link', href: '/app/discover' },
+    { label: 'Start a group', hint: 'Bring an idea, merchant link, or receipt', href: '/app' },
+    { label: 'Find a product', hint: 'Search supported catalogues or paste a product page', href: '/app/discover' },
+    { label: 'Split a bill', hint: 'Photograph, upload, or paste a receipt', href: '/app/bill' },
     { label: 'Your groups', hint: 'Live and finished', href: '/app/groups' },
     { label: 'People', hint: 'Friends and reliability records', href: '/app/people' },
     { label: 'Circles', hint: 'Groups you keep re-forming', href: '/app/circles' },
@@ -275,7 +277,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     <Modal title="Go to" onClose={onClose}>
       <input
         className="input input-lg"
-        placeholder="Type a page, or paste a product link…"
+        placeholder="Find a page, or paste a product link…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => {

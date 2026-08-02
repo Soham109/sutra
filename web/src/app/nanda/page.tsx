@@ -45,22 +45,12 @@ export default function NandaPage() {
         <section className="nanda-hero">
           <span className="eyebrow">Project NANDA · Best Prava Adapter for the NANDA Town</span>
           <h1 className="display">
-            Check it yourself.<br />Ninety seconds.
+            NANDA proof you can run.
           </h1>
           <p className="nanda-hero-lede">
-            This page makes three separate claims, and none of them ask you to trust sutra: a live
-            fetch of the four endpoints below, a real Python plugin registered on{' '}
-            <code className="mono">nest.plugins.payments</code>, and the verbatim output of running
-            the same group purchase against it and against the plugin Nanda Town ships by default.
-            Nothing on this page is staged for the screenshot — every number below either just
-            answered from a live request, or is the literal stdout of a script sitting in this
-            repository.
-          </p>
-          <p className="nanda-hero-lede">
-            Two different NANDA integrations live in this repo, and they are not the same thing:
-            sutra&rsquo;s own agent-discovery documents (§1, below) prove sutra is reachable as an
-            agent on the open web; the <code className="mono">prava_mandates</code> plugin (§2–3) is
-            the actual payments adapter this track judges. Both are real. Only one is the prize.
+            Live discovery endpoints, a registered <code className="mono">nest.plugins.payments</code>{' '}
+            adapter, and reproducible output from the same purchase on both payment plugins. The discovery
+            documents make sutra reachable; <code className="mono">prava_mandates</code> is the adapter being judged.
           </p>
         </section>
 
@@ -88,29 +78,18 @@ export default function NandaPage() {
 
           <div className="nanda-thesis">
             <p>
-              <code className="mono">prava_mandates</code> is a real entry point registered under{' '}
-              <code className="mono">nest.plugins.payments</code> in{' '}
-              <a href={`${REPO}/blob/main/nanda-town-prava/pyproject.toml`}>pyproject.toml</a> — read
-              straight off <code className="mono">importlib.metadata</code>, the same call{' '}
-              <code className="mono">nest_core.plugins.PluginRegistry</code> makes (Act 0 of the
-              transcript below), not a shelled-out CLI. It sits right next to the bundled{' '}
-              <code className="mono">prepaid_credits</code> — nothing was removed to add this — and
-              the growing test suite in{' '}
-              <a href={`${REPO}/blob/main/nanda-town-prava/tests`}>nanda-town-prava/tests/</a> passes
-              in full; the exact count as of this writing is in the receipt to the right.
+              <b>Native discovery.</b> <code className="mono">prava_mandates</code> is registered beside{' '}
+              <code className="mono">prepaid_credits</code> under <code className="mono">nest.plugins.payments</code>{' '}
+              in <a href={`${REPO}/blob/main/nanda-town-prava/pyproject.toml`}>pyproject.toml</a>.
             </p>
             <p>
-              It maps <code className="mono">pay()</code> onto a real card-network authorization:
-              every call mints a Prava mandate scoped to one merchant, capped at one amount, and
-              charged exactly once — never a balance moved inside a simulator. See it in{' '}
+              <b>Real payment semantics.</b> <code className="mono">pay()</code> creates a one-time Prava mandate,
+              locked to one merchant and capped at one amount. See{' '}
               <a href={`${REPO}/blob/main/nanda-town-prava/nanda_town_prava/plugin.py`}>plugin.py</a>.
             </p>
             <p>
-              The consequence is structural, not a policy switch that could be flipped back: with this
-              plugin installed, <b>one agent cannot pay another agent</b> — there is no rail for it.
-              That is tested directly (
-              <code className="mono">tests/test_conservation.py::test_no_agent_is_ever_credited_by_another</code>
-              ) and demonstrated live, on stage, in Act 6 of the transcript below.
+              <b>No pooled agent balance.</b> One agent cannot credit another; funds move from each human&rsquo;s
+              mandate to the merchant. The conservation test and transcript below prove that boundary.
             </p>
           </div>
 

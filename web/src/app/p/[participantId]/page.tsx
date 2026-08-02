@@ -103,10 +103,7 @@ export default function ParticipantPage({
             ✓
           </div>
           <h2>You’re all set, {view.name}.</h2>
-          <p>
-            Nothing is charged and nothing is booked yet. When the group settles on something,
-            you’ll get your own link to approve your own share — on your own card.
-          </p>
+          <p>Nothing is booked or charged. You’ll get a separate link if there is a share to approve.</p>
           <button className="btn btn-secondary" onClick={() => router.push(`/app/plans/${plan.plan_id}`)}>
             See what everyone said
           </button>
@@ -123,7 +120,7 @@ export default function ParticipantPage({
             <>
               <h2>Are you in?</h2>
               <p className="answer-help">
-                Say no and you drop out cleanly — no bill, no chasing, and the group keeps going.
+                Say no and the group keeps planning without you.
               </p>
               <div className="answer-choices">
                 <button
@@ -163,7 +160,7 @@ export default function ParticipantPage({
             <>
               <h2>Anything to work around?</h2>
               <p className="answer-help">
-                Allergies, no stairs, no alcohol — whatever should rule a place out.
+                Add anything that should rule a place out.
               </p>
               <form
                 onSubmit={(e) => {
@@ -183,7 +180,7 @@ export default function ParticipantPage({
           <p className="answer-privacy">
             {current === 'budget'
               ? 'Your limit is never shown to anyone. It only filters what gets suggested.'
-              : 'Nothing here can charge you. Paying is a separate step, on your own card, behind your own passkey.'}
+              : 'Nothing here can charge or book anything.'}
           </p>
         </section>
       )}

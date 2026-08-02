@@ -167,17 +167,26 @@ export default function BillPage() {
   }
 
   const rec = bill?.reconciliation
+  const unassigned = bill?.items.filter((_, i) => claimantsOf(i).length === 0).length ?? 0
+  const needsReview = Boolean(bill && (bill.integrity?.suspect || !rec?.balanced || unassigned > 0))
 
   return (
     <Shell crumbs={<span className="here">Split a bill</span>}>
       <div className={`page bill-page${bill ? "" : " is-fresh"}`}>
+        <style>{`
+          .bill-total-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 15px; background:var(--surface-2); border-bottom:1px solid var(--line); font-size:12px; }
+          .bill-total-heading span { color:var(--ink-3); }
+          @media (max-width: 620px) {
+            .bill-page .page-head h1 { font-size:32px; }
+            .bill-table th:nth-child(2), .bill-table td:nth-child(2) { width:1%; }
+            .bill-claim { min-height:36px; }
+          }
+        `}</style>
         <header className="page-head">
-          <span className="eyebrow">Split a bill</span>
           <h1>Itemise the receipt</h1>
           <p className="muted">
-            Paste or type the lines. We check maths against the printed total. Add friends by account, or
-            just their name if they’re not on sutra — everyone agrees their amount here, then pays the
-            venue on their own card. Sutra does not charge.
+            Add a photo or paste the receipt. Check the items, choose who had what, then send each person their share.
+            Sutra records the agreement; everyone pays the venue directly.
           </p>
         </header>
 
@@ -308,6 +317,7 @@ export default function BillPage() {
                                   className={`bill-claim${who.includes(n) ? ' is-on' : ''}`}
                                   onClick={() => toggle(i, n)}
                                   aria-pressed={who.includes(n)}
+                                  aria-label={`${who.includes(n) ? 'Remove' : 'Assign'} ${n} ${who.includes(n) ? 'from' : 'to'} ${item.name}`}
                                 >
                                   {n}
                                 </button>
@@ -335,6 +345,10 @@ export default function BillPage() {
                 )}
 
                 <div className="bill-totals">
+                  <div className="bill-total-heading">
+                    <strong>Shares to send</strong>
+                    <span>{named.length} {named.length === 1 ? 'person' : 'people'}</span>
+                  </div>
                   {named.map((n) => (
                     <div className="bill-total-row" key={n}>
                       <span>{n}</span>
@@ -353,27 +367,29 @@ export default function BillPage() {
                   />
                 </label>
 
-                <p className="bill-disclosure">
-                  No card is charged through sutra on a bill split. Everyone agrees their exact
-                  amount here, then pays the venue directly on their own card. What you get is the
-                  arithmetic, the agreement, and a signed record of who owed what.
-                </p>
+                {unassigned > 0 && (
+                  <ErrorNote>
+                    Assign {unassigned} {unassigned === 1 ? 'item' : 'items'} to at least one person before sending.
+                  </ErrorNote>
+                )}
+
+                <p className="bill-disclosure"><b>No cards are charged.</b> This sends each person an amount to confirm and creates a signed record.</p>
 
                 <button
                   className="btn btn-primary btn-lg btn-block"
-                  disabled={busy || named.length === 0}
+                  disabled={busy || named.length === 0 || needsReview}
                   onClick={() => void create()}
                 >
-                  Send friends their shares
+                  {busy ? 'Creating split…' : needsReview ? 'Review the receipt first' : 'Send friends their shares'}
                 </button>
 
-                {bill.integrity?.suspect && (
+                {(bill.integrity?.suspect || (rec && !rec.balanced)) && unassigned === 0 && (
                   <button
                     className="btn btn-ghost btn-block"
                     disabled={busy || named.length === 0}
                     onClick={() => void create(true)}
                   >
-                    I’ve checked these against the paper — send anyway
+                    I checked the paper — send these amounts
                   </button>
                 )}
               </>

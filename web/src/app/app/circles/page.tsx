@@ -73,8 +73,7 @@ export default function CirclesPage() {
           <div style={{ minWidth: 0 }}>
             <h1>Circles</h1>
             <p className="muted" style={{ maxWidth: '58ch' }}>
-              A circle is a group you keep re-forming — the flatmates, the five people who always split the ramen run.
-              It saves you picking the same seats every time.
+              Save the people you plan with often. Pick the circle during setup instead of adding everyone again.
             </p>
           </div>
           <button className="btn btn-primary btn-lg" onClick={() => setCreating(true)}>
@@ -108,8 +107,7 @@ export default function CirclesPage() {
                   </button>
                 }
               >
-                A circle just remembers a set of people so you can re-form the same group in one tap. It holds no money
-                and grants no permission — every buy still needs each member to approve their own share.
+                Save a set of friends for faster group setup. Everyone still approves their own share each time.
               </Empty>
             </div>
           )}
@@ -132,15 +130,6 @@ export default function CirclesPage() {
               </div>
             </Section>
           )}
-
-          <div className="note note-plain">
-            <span aria-hidden>🗺</span>
-            <span>
-              Today a circle remembers people, and that is all it does. Default policies, standing trust lines and
-              recurring group mandates are on the roadmap — they are not shipped, so we are not going to draw them as if
-              they were.
-            </span>
-          </div>
         </div>
       </div>
 
@@ -237,8 +226,8 @@ function CircleCard({
         </div>
       ) : (
         <div className="row-between" style={{ gap: 8 }}>
-          <Link className="btn btn-secondary" href="/app/discover">
-            Start a buy →
+          <Link className="btn btn-secondary" href="/app">
+            Start a group →
           </Link>
           {isOwner && (
             <button className="btn btn-ghost small" onClick={onAskDelete}>
@@ -418,7 +407,7 @@ function CreateCircle({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
         <p className="tiny faint" style={{ margin: 0 }}>
           {user ? `You (@${user.handle}) are always a member of a circle you create. ` : ''}
-          A circle is only a shortcut for picking seats — it can never approve or spend on anyone’s behalf.
+          A circle only saves this people list. Everyone still approves their own share.
         </p>
       </div>
     </Modal>
