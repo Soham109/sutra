@@ -3,37 +3,37 @@
   "rate": "+18%",
   "pitch": "-1Hz",
   "gapMs": 260,
-  "_note": "2:00 cut. Neural voice via Microsoft Edge Read Aloud (msedge-tts). atMs are targets; build-narration-neural.mjs auto-pushes to real measured clip lengths and records exact per-word timings for kinetic typography.",
+  "_note": "2:00 cut. Neural voice via Microsoft Edge Read Aloud (msedge-tts). atMs are tight-packed targets calibrated against ESTIMATE_WPM in timing-lib.mjs (~155wpm, matched to the real voice at this rate) -- build-narration-neural.mjs auto-pushes to real measured clip lengths and records exact per-word timings for kinetic typography, so these numbers are a good preview but never load-bearing.",
   "lines": [
     { "beat": "cold", "atMs": 300, "text": "Every checkout has one card field. A group is never one person. So one person fronts it all, then chases everyone back." },
 
-    { "beat": "mechanism", "atMs": 8300, "text": "Sutra splits the purchase before anyone pays." },
-    { "beat": "mechanism", "atMs": 11400, "text": "Eighteen thousand six hundred rupees, two people." },
-    { "beat": "mechanism", "atMs": 14600, "text": "Each gets their own permission, capped at exactly their share, on their own card." },
-    { "beat": "mechanism", "atMs": 20000, "text": "Everyone approves, or nobody is charged." },
+    { "beat": "mechanism", "atMs": 9076, "text": "Sutra splits the purchase before anyone pays." },
+    { "beat": "mechanism", "atMs": 12046, "text": "Eighteen thousand six hundred rupees, two people." },
+    { "beat": "mechanism", "atMs": 15016, "text": "Each gets their own permission, capped at exactly their share, on their own card." },
+    { "beat": "mechanism", "atMs": 20695, "text": "Everyone approves, or nobody is charged." },
 
-    { "beat": "receipt", "atMs": 24600, "text": "This isn't a mockup." },
-    { "beat": "receipt", "atMs": 26400, "text": "Here is the live receipt: both people charged, nine thousand three hundred each, through Prava's real sandbox, a real card network, test money." },
-    { "beat": "receipt", "atMs": 36000, "text": "The receipt is hash-chained and signed, and anyone can verify it offline against the engine's public key." },
+    { "beat": "receipt", "atMs": 23278, "text": "This isn't a mockup." },
+    { "beat": "receipt", "atMs": 25086, "text": "Here is the live receipt: both people charged, nine thousand three hundred each, through Prava's real sandbox, a real card network, test money." },
+    { "beat": "receipt", "atMs": 34249, "text": "The receipt is hash-chained and signed, and anyone can verify it offline against the engine's public key." },
 
-    { "beat": "tour", "atMs": 44600, "text": "Around the mechanism, a full product." },
-    { "beat": "tour", "atMs": 47400, "text": "A dashboard that shows exactly what your card is exposed to, usually nothing." },
-    { "beat": "tour", "atMs": 52300, "text": "A store shelf where card-rail products are marked." },
-    { "beat": "tour", "atMs": 55800, "text": "And a builder that shows every cap before anyone commits." },
+    { "beat": "tour", "atMs": 41090, "text": "Around the mechanism, a full product." },
+    { "beat": "tour", "atMs": 43673, "text": "A dashboard that shows exactly what your card is exposed to, usually nothing." },
+    { "beat": "tour", "atMs": 48965, "text": "A store shelf where card-rail products are marked." },
+    { "beat": "tour", "atMs": 52322, "text": "And a builder that shows every cap before anyone commits." },
 
-    { "beat": "planning", "atMs": 60600, "text": "Planning starts as a sentence: dinner Saturday, near Koramangala, under nine hundred each." },
-    { "beat": "planning", "atMs": 65600, "text": "Each person answers privately." },
-    { "beat": "planning", "atMs": 68100, "text": "The board ranks real OpenStreetMap venues, and every score explains itself." },
-    { "beat": "planning", "atMs": 72400, "text": "Arithmetic, not a guess, and answering never authorises a rupee." },
+    { "beat": "planning", "atMs": 56453, "text": "Planning starts as a sentence: dinner Saturday, near Koramangala, under nine hundred each." },
+    { "beat": "planning", "atMs": 61745, "text": "Each person answers privately." },
+    { "beat": "planning", "atMs": 63553, "text": "The board ranks real OpenStreetMap venues, and every score explains itself." },
+    { "beat": "planning", "atMs": 68071, "text": "Arithmetic, not a guess, and answering never authorises a rupee." },
 
-    { "beat": "billthread", "atMs": 76600, "text": "Paste a restaurant bill and Sutra reconciles it against the printed total, then splits by who claimed what, and charges nothing, honestly zero." },
-    { "beat": "billthread", "atMs": 85200, "text": "Tag the bot in the thread: it answers from the group's real state, and refuses anything payment-shaped." },
+    { "beat": "billthread", "atMs": 72202, "text": "Paste a restaurant bill and Sutra reconciles it against the printed total, then splits by who claimed what, and charges nothing, honestly zero." },
+    { "beat": "billthread", "atMs": 81365, "text": "Tag the bot in the thread: it answers from the group's real state, and refuses anything payment-shaped." },
 
-    { "beat": "nanda", "atMs": 90600, "text": "The same protocol ships as a NANDA Town plugin, an open pull request upstream." },
-    { "beat": "nanda", "atMs": 95000, "text": "Four agents run a group purchase; one declines, and a backstop absorbs the shortfall." },
-    { "beat": "nanda", "atMs": 99800, "text": "NANDA's own prepaid plugin can't do this, it pools one balance." },
-    { "beat": "nanda", "atMs": 103800, "text": "Sutra caps each agent on its own mandate." },
+    { "beat": "nanda", "atMs": 88206, "text": "The same protocol ships as a NANDA Town plugin, an open pull request upstream." },
+    { "beat": "nanda", "atMs": 93885, "text": "Four agents run a group purchase; one declines, and a backstop absorbs the shortfall." },
+    { "beat": "nanda", "atMs": 99564, "text": "NANDA's own prepaid plugin can't do this, it pools one balance." },
+    { "beat": "nanda", "atMs": 104082, "text": "Sutra caps each agent on its own mandate." },
 
-    { "beat": "close", "atMs": 108600, "text": "No pooled wallet. Nobody fronting anyone else. Either everyone is charged, one after another, each with its own retry, or nobody is. Split it before you pay it." }
+    { "beat": "close", "atMs": 107439, "text": "No pooled wallet. Nobody fronting anyone else. Either everyone is charged, one after another, each with its own retry, or nobody is. Split it before you pay it." }
   ]
 }
